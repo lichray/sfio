@@ -1,10 +1,6 @@
 #include	"sftest.h"
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	Sfio_t	*f;
 	char	*str, *alpha, *s;
@@ -21,29 +17,29 @@ main()
 		if(sfungetc(f,n+'0') != n+'0')
 			terror("Ungetc\n");
 
-	if(!(s = sfreserve(f,-1,0)) || sfslen() != 10)
+	if(!(s = sfreserve(f,-1,0)) || sfvalue(f) != 10)
 		terror("Peek stream1\n");
 	if(strncmp(s,str,10) != 0)
 		terror("Bad data1\n");
 
-	if(!(s = sfreserve(f,-1,0)) || sfslen() != strlen(alpha))
+	if(!(s = sfreserve(f,-1,0)) || sfvalue(f) != (ssize_t)strlen(alpha))
 		terror("Peek stream2\n");
 	if(strncmp(s,alpha,strlen(alpha)) != 0)
 		terror("Bad data2\n");
 
-	sfseek(f,0L,0);
+	sfseek(f,(Sfoff_t)0,0);
 	for(n = 9; n >= 0; --n)
 		if(sfungetc(f,n+'0') != n+'0')
 			terror("Ungetc2\n");
 	if(sfgetc(f) != '0')
 		terror("Sfgetc\n");
-	sfseek(f,0L,0);
-	if(!(s = sfreserve(f,-1,0)) || sfslen() != strlen(alpha))
+	sfseek(f,(Sfoff_t)0,0);
+	if(!(s = sfreserve(f,-1,0)) || sfvalue(f) != (ssize_t)strlen(alpha))
 		terror("Peek stream3\n");
 	if(strncmp(s,alpha,strlen(alpha)) != 0)
 		terror("Bad data2\n");
 
-	sfseek(f,0L,0);
+	sfseek(f,(Sfoff_t)0,0);
 	if(sfungetc(f,'0') != '0')
 		terror("Ungetc3\n");
 

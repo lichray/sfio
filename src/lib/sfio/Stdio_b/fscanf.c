@@ -5,7 +5,7 @@
 */
 
 #if __STD_C
-int fscanf(FILE *fp, const char *form, ...)
+int fscanf(FILE* fp, const char* form, ...)
 #else
 int fscanf(va_alist)
 va_dcl
@@ -13,13 +13,13 @@ va_dcl
 {
 	va_list		args;
 	reg int		rv;
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 #if __STD_C
 	va_start(args,form);
 #else
-	reg FILE	*fp;	/* file to be scanned */
-	reg char	*form;	/* scanning format */
+	reg FILE*	fp;	/* file to be scanned */
+	reg char*	form;	/* scanning format */
 	va_start(args);
 	fp = va_arg(args,FILE*);
 	form = va_arg(args,char*);

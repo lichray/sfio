@@ -5,14 +5,17 @@
 **	Written by Kiem-Phong Vo (03/02/91)
 */
 #if __STD_C
-static int _uexcept(reg Sfio_t* f, reg int type, reg Sfdisc_t* disc)
+static int _uexcept(reg Sfio_t* f, reg int type, Void_t* val, reg Sfdisc_t* disc)
 #else
-static int _uexcept(f,type,disc)
+static int _uexcept(f,type,val,disc)
 reg Sfio_t	*f;
 reg int		type;
+Void_t*		val;
 reg Sfdisc_t	*disc;
 #endif
 {	
+	NOTUSED(val);
+
 	/* hmm! This should never happen */
 	if(disc != _Sfudisc)
 		return -1;
@@ -28,11 +31,11 @@ reg Sfdisc_t	*disc;
 int sfungetc(reg Sfio_t* f, reg int c)
 #else
 int sfungetc(f,c)
-reg Sfio_t	*f;	/* push back one byte to this stream */
+reg Sfio_t*	f;	/* push back one byte to this stream */
 reg int		c;	/* the value to be pushed back */
 #endif
 {
-	reg Sfio_t	*uf;
+	reg Sfio_t*	uf;
 
 	if(c < 0 || (f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0))
 		return -1;
@@ -46,7 +49,8 @@ reg int		c;	/* the value to be pushed back */
 
 	/* make a string stream for unget characters */
 	if(f->disc != _Sfudisc)
-	{	if(!(uf = sfnew(NIL(Sfio_t*),NIL(char*),-1,-1,SF_STRING|SF_READ)))
+	{	if(!(uf = sfnew(NIL(Sfio_t*),NIL(char*),(size_t)SF_UNBOUND,
+				-1,SF_STRING|SF_READ)))
 		{	c = -1;
 			goto done;
 		}

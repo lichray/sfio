@@ -1,10 +1,6 @@
 #include	"sftest.h"
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	Sfio_t	*f;
 	int	fd;
@@ -24,7 +20,7 @@ main()
 	if(sfwrite(f,"123456789\n",10) != 10)
 		terror("sfwrite\n");
 
-	sfseek(f,0L,0);
+	sfseek(f,(Sfoff_t)0,0);
 	if(sfgetc(f) != '1')
 		terror("sfgetc1\n");
 

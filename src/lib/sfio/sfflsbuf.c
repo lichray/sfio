@@ -10,14 +10,14 @@
 int _sfflsbuf(reg Sfio_t* f, reg int c)
 #else
 int _sfflsbuf(f,c)
-reg Sfio_t	*f;	/* write out the buffered content of this stream */
+reg Sfio_t*	f;	/* write out the buffered content of this stream */
 reg int		c;	/* if c>=0, c is also written out */ 
 #endif
 {
-	reg int		n, w;
-	reg uchar	*data;
+	reg ssize_t	n, w;
+	reg uchar*	data;
 	uchar		outc;
-	reg int		local;
+	reg int		local, isall;
 	int		inpc = c;
 
 	GETLOCAL(f,local);
@@ -31,7 +31,7 @@ reg int		c;	/* if c>=0, c is also written out */
 		/* current data extent */
 		n = f->next - (data = f->data);
 
-		if(n == (f->endb-f->data) && (f->flags&SF_STRING))
+		if(n == (f->endb-data) && (f->flags&SF_STRING))
 		{	/* extend string stream buffer */
 			(void)SFWR(f,data,1,f->disc);
 
@@ -49,11 +49,12 @@ reg int		c;	/* if c>=0, c is also written out */
 		{	/* write into buffer */
 			if(n < (f->endb - (data = f->data)))
 			{	*f->next++ = c;
-				if(c != '\n' ||
-				   !(f->flags&SF_LINE) || (f->flags&SF_STRING))
-					break;
-				c = -1;
-				n += 1;
+				if(c == '\n' &&
+				   (f->flags&SF_LINE) && !(f->flags&SF_STRING))
+				{	c = -1;
+					n += 1;
+				}
+				else	break;
 			}
 			else if(n == 0)
 			{	/* unbuffered io */
@@ -64,14 +65,20 @@ reg int		c;	/* if c>=0, c is also written out */
 			}
 		}
 
-		/* writing data */
 		if(n == 0 || (f->flags&SF_STRING))
 			break;
-		else if((w = SFWR(f,data,n,f->disc)) > 0)
+
+		/* w's value ensures that future writes will be properly aligned */
+		if(!(isall = SFISALL(f,isall)) && data == f->data && n == f->size &&
+		   (w = (ssize_t)(f->here%f->size)) != 0)
+			w = f->size - w;
+		else	w = n;
+
+		if((w = SFWR(f,data,w,f->disc)) > 0)
 		{	if((n -= w) > 0) /* save unwritten data, then resume */
 				memcpy((char*)f->data,(char*)data+w,n);
 			f->next = f->data+n;
-			if(n == 0 && c < 0)
+			if(c < 0 && (!isall || n == 0))
 				break;
 		}
 		else if(w == 0)

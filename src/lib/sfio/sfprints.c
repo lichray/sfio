@@ -8,15 +8,15 @@
 */
 
 #if __STD_C
-char *sfprints(const char *form, ...)
+char* sfprints(const char* form, ...)
 #else
-char *sfprints(va_alist)
+char* sfprints(va_alist)
 va_dcl
 #endif
 {
 	va_list		args;
 	reg int		rv;
-	static Sfio_t	*f;
+	static Sfio_t*	f;
 
 #if __STD_C
 	va_start(args,form);
@@ -27,16 +27,18 @@ va_dcl
 #endif
 
 	/* make a fake stream */
-	if(!f && !(f = sfnew(NIL(Sfio_t*),NIL(char*),-1,-1,SF_WRITE|SF_STRING)) )
+	if(!f &&
+	   !(f = sfnew(NIL(Sfio_t*),NIL(char*),(size_t)SF_UNBOUND,
+			-1,SF_WRITE|SF_STRING)) )
 		return NIL(char*);
 
-	sfseek(f,0L,0);
+	sfseek(f,0,0);
 	rv = sfvprintf(f,form,args);
 	va_end(args);
 
 	if(rv < 0 || sfputc(f,'\0') < 0)
 		return NIL(char*);
 
-	_Sfi = (f->next - f->data) - 1;
+	_Sfi = f->val = (f->next - f->data) - 1;
 	return (char*)f->data;
 }

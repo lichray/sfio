@@ -5,7 +5,7 @@
 */
 
 #if __STD_C
-int printf( const char *form, ...)
+int printf(const char* form, ...)
 #else
 int printf(va_alist)
 va_dcl
@@ -13,11 +13,11 @@ va_dcl
 {
 	va_list		args;
 	reg int		rv;
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 #if __STD_C
 	va_start(args,form);
 #else
-	reg char	*form;	/* print format */
+	reg char*	form;	/* print format */
 	va_start(args);
 	form = va_arg(args,char*);
 #endif

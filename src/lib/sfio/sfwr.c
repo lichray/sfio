@@ -7,15 +7,15 @@
 
 /* hole preserving writes */
 #if __STD_C
-static int sfoutput(Sfio_t* f, reg char* buf, reg int n)
+static ssize_t sfoutput(Sfio_t* f, reg char* buf, reg size_t n)
 #else
-static int sfoutput(f,buf,n)
+static ssize_t sfoutput(f,buf,n)
 Sfio_t*		f;
 reg char*	buf;
-reg int		n;
+reg size_t	n;
 #endif
 {	reg char	*sp, *wbuf, *endbuf;
-	reg int		s, w, wr;
+	reg ssize_t	s, w, wr;
 
 	s = w = 0;
 	wbuf = buf;
@@ -57,7 +57,7 @@ reg int		n;
 			}
 
 		check_hole: /* found a hole */
-			if((s = sp-buf) >= _Sfpage)
+			if((size_t)(s = sp-buf) >= _Sfpage)
 				break;
 
 			/* skip a dirty page */
@@ -69,7 +69,7 @@ reg int		n;
 		if(buf > wbuf)
 		{	if((wr = write(f->file,wbuf,buf-wbuf)) > 0)
 			{	w += wr;
-				f->flags &= ~SF_HOLE;
+				f->bits &= ~SF_HOLE;
 			}
 			if(wr != (buf-wbuf))
 				break;
@@ -77,14 +77,14 @@ reg int		n;
 		}
 
 		/* seek to a rounded boundary within the hole */
-		if(s >= _Sfpage)
+		if((size_t)s >= _Sfpage)
 		{	s = (s/_Sfpage)*_Sfpage;
-			if(SFSK(f,(long)s,1,NIL(Sfdisc_t*)) < 0)
+			if(SFSK(f,(Sfoff_t)s,1,NIL(Sfdisc_t*)) < 0)
 				break;
 			w += s;
 			n -= s;
 			wbuf = (buf += s);
-			f->flags |= SF_HOLE;
+			f->bits |= SF_HOLE;
 
 			if(n > 0)
 			{	/* next page must be dirty */
@@ -99,43 +99,42 @@ reg int		n;
 }
 
 #if __STD_C
-int sfwr(reg Sfio_t* f, reg const Void_t* buf, reg int n, reg Sfdisc_t* disc)
+ssize_t sfwr(reg Sfio_t* f, reg const Void_t* buf, reg size_t n, reg Sfdisc_t* disc)
 #else
-int sfwr(f,buf,n,disc)
+ssize_t sfwr(f,buf,n,disc)
 reg Sfio_t*	f;
 reg Void_t*	buf;
-reg int		n;
-reg Sfdisc_t	*disc;
+reg size_t	n;
+reg Sfdisc_t*	disc;
 #endif
 {
-	reg int		w, local, string, oerrno;
+	reg ssize_t	w;
+	reg Sfdisc_t*	dc;
+	reg int		local, oerrno;
 
 	GETLOCAL(f,local);
 	if(!local && !(f->mode&SF_LOCK))
 		return -1;
 
-	if(!(string = (f->flags&SF_STRING)) )
-		SFDISC(f,disc,writef,local);
-
 	for(;;)
-	{
-		/* stream locked by sfsetfd() */
-		if(!string && f->file < 0)
+	{	/* stream locked by sfsetfd() */
+		if(!(f->flags&SF_STRING) && f->file < 0)
 			return 0;
 
 		/* clear current error states */
 		f->flags &= ~(SF_EOF|SF_ERROR);
 
-		if(string)	/* total required buffer */
+		dc = disc;
+		if(f->flags&SF_STRING)	/* total required buffer */
 			w = n + (f->next - f->data);
 		else
-		{
-			/* warn that a write is about to happen */
-			if(disc && disc->exceptf && (f->flags&SF_IOCHECK) )
+		{	/* warn that a write is about to happen */
+			SFDISC(f,dc,writef,local);
+			if(dc && dc->exceptf && (f->flags&SF_IOCHECK) )
 			{	reg int	rv;
 				if(local)
 					SETLOCAL(f);
-				if((rv = _sfexcept(f,SF_WRITE,n,disc)) > 0)
+				if((rv = _sfexcept(f,SF_WRITE,n,dc)) > 0)
 					n = rv;
 				else if(rv < 0)
 				{	f->flags |= SF_ERROR;
@@ -148,20 +147,25 @@ reg Sfdisc_t	*disc;
 				if(f->flags&SF_APPENDWR)
 				{	/* must be at the end of stream */
 					if(f->here != f->extent || (f->flags&SF_SHARE))
-						f->here = SFSK(f,0L,2,disc);
+					{	Sfoff_t	e;
+						if((e = SFSK(f,(Sfoff_t)0,2,dc)) < 0)
+							e = SFSK(f,f->extent,0,dc);
+						if(e >= 0)
+							f->here = e;
+					}
 				}
 				else if(f->flags&SF_SHARE)
 				{	if(!(f->flags&SF_PUBLIC))
-						f->here = SFSK(f,f->here,0,disc);
-					else	f->here = SFSK(f,0L,1,disc);
+						f->here = SFSK(f,f->here,0,dc);
+					else	f->here = SFSK(f,(Sfoff_t)0,1,dc);
 				}
 			}
 
 			oerrno = errno;
 			errno = 0;
 
-			if(disc && disc->writef)
-				w = (*(disc->writef))(f,buf,n,disc);
+			if(dc && dc->writef)
+				w = (*(dc->writef))(f,buf,n,dc);
 			else if(SFISNULL(f))
 				w = n;
 			else if(n >= _Sfpage && !(f->flags&(SF_SHARE|SF_APPENDWR)) &&
@@ -173,7 +177,7 @@ reg Sfdisc_t	*disc;
 			{
 			do_write:
 				if((w = write(f->file,(char*)buf,n)) > 0)
-					f->flags &= ~SF_HOLE;
+					f->bits &= ~SF_HOLE;
 			}
 
 			if(errno == 0)
@@ -191,18 +195,24 @@ reg Sfdisc_t	*disc;
 
 		if(local)
 			SETLOCAL(f);
-		switch(_sfexcept(f,SF_WRITE,w,disc))
+		switch(_sfexcept(f,SF_WRITE,w,dc))
 		{
 		case SF_ECONT :
-			continue;
+			goto do_continue;
 		case SF_EDONE :
 			return local ? 0 : w;
 		case SF_EDISC :
-			if(!local && !string)
-				continue;
+			if(!local && !(f->flags&SF_STRING))
+				goto do_continue;
 			/* else fall thru */
 		case SF_ESTACK :
 			return -1;
 		}
+
+	do_continue:
+		for(dc = f->disc; dc; dc = dc->disc)
+			if(dc == disc)
+				break;
+		disc = dc;
 	}
 }

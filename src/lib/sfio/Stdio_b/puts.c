@@ -6,14 +6,14 @@
 
 
 #if __STD_C
-int puts(const char *str)
+int puts(const char* str)
 #else
 int puts(str)
-reg char	*str;
+reg char*	str;
 #endif
 {
 	reg int		rv;
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(stdout)))
 		return -1;

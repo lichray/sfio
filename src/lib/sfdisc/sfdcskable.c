@@ -2,7 +2,7 @@
 
 /*	Discipline to make an unseekable read stream seekable
 **
-**	Written by (Kiem-)Phong Vo, kpv@research.att.com, 08/18/92.
+**	Written by Kiem-Phong Vo, kpv@research.att.com, 08/18/92.
 */
 
 typedef struct _skable_
@@ -12,33 +12,33 @@ typedef struct _skable_
 	int		eof;	/* if eof has been reached */
 } Seek_t;
 
-#ifdef __STD_C
-static skwrite(Sfio_t* f, char* buf, int n, Sfdisc_t* disc)
+#if __STD_C
+static ssize_t skwrite(Sfio_t* f, const Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
-static skwrite(f, buf, n, disc)
-Sfio_t*	f;	/* stream involved */
-char*		buf;	/* buffer to read into */
-int		n;	/* number of bytes to read */
+static ssize_t skwrite(f, buf, n, disc)
+Sfio_t*		f;	/* stream involved */
+Void_t*		buf;	/* buffer to read into */
+size_t		n;	/* number of bytes to read */
 Sfdisc_t*	disc;	/* discipline */
 #endif
 {
-	return -1;
+	return (ssize_t)(-1);
 }
 
-#ifdef __STD_C
-static skread(Sfio_t* f, char* buf, int n, Sfdisc_t* disc)
+#if __STD_C
+static ssize_t skread(Sfio_t* f, Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
-static skread(f, buf, n, disc)
-Sfio_t*	f;	/* stream involved */
-char*		buf;	/* buffer to read into */
-int		n;	/* number of bytes to read */
+static ssize_t skread(f, buf, n, disc)
+Sfio_t*		f;	/* stream involved */
+Void_t*		buf;	/* buffer to read into */
+size_t		n;	/* number of bytes to read */
 Sfdisc_t*	disc;	/* discipline */
 #endif
 {
 	Seek_t*		sk;
-	Sfio_t*	sf;
-	long		addr, extent;
-	int		r, w;
+	Sfio_t*		sf;
+	Sfoff_t		addr, extent;
+	ssize_t		r, w;
 
 	sk = (Seek_t*)disc;
 	sf = sk->shadow;
@@ -51,57 +51,57 @@ Sfdisc_t*	disc;	/* discipline */
 	if(addr+n <= extent)
 		return sfread(sf,buf,n);
 
-	if((r = (int)(extent-addr)) > 0)
+	if((r = (ssize_t)(extent-addr)) > 0)
 	{	if((w = sfread(sf,buf,r)) != r)
 			return w;
-		buf += r;
+		buf = (char*)buf + r;
 		n -= r;
 	}
 		
 	/* do a raw read */
-	if((n = sfrd(f,buf,n,disc)) <= 0)
+	if((w = sfrd(f,buf,n,disc)) <= 0)
 	{	sk->eof = 1;
-		n = 0;
+		w = 0;
 	}
-	else if(sfwrite(sf,buf,n) != n)
+	else if(sfwrite(sf,buf,w) != w)
 		sk->eof = 1;
 
-	return r+n;
+	return r+w;
 }
 
-#ifdef __STD_C
-static long skseek(Sfio_t* f, long addr, int type, Sfdisc_t* disc)
+#if __STD_C
+static Sfoff_t skseek(Sfio_t* f, Sfoff_t addr, int type, Sfdisc_t* disc)
 #else
-static long skseek(f, addr, type, disc)
-Sfio_t*	f;
-long		addr;
+static Sfoff_t skseek(f, addr, type, disc)
+Sfio_t*		f;
+Sfoff_t		addr;
 int		type;
 Sfdisc_t*	disc;
 #endif
 {
-	long		extent;
+	Sfoff_t		extent;
 	Seek_t*		sk;
-	Sfio_t*	sf;
+	Sfio_t*		sf;
 	char		buf[SF_BUFSIZE];
-	int		r, w;
+	ssize_t		r, w;
 
 	if(type < 0 || type > 2)
-		return -1L;
+		return (Sfoff_t)(-1);
 
 	sk = (Seek_t*)disc;
 	sf = sk->shadow;
 
-	extent = sfseek(sf,0L,2);
+	extent = sfseek(sf,(Sfoff_t)0,2);
 	if(type == 1)
 		addr += sftell(sf);
 	else if(type == 2)
 		addr += extent;
 
 	if(addr < 0)
-		return -1L;
+		return (Sfoff_t)(-1);
 	else if(addr > extent)
 	{	if(sk->eof)
-			return -1L;
+			return (Sfoff_t)(-1);
 
 		/* read enough to reach the seek point */
 		while(addr > extent)
@@ -119,19 +119,20 @@ Sfdisc_t*	disc;
 		}
 
 		if(addr > extent)
-			return -1L;
+			return (Sfoff_t)(-1);
 	}
 
 	return sfseek(sf,addr,0);
 }
 
 /* on close, remove the discipline */
-#ifdef __STD_C
-static skexcept(Sfio_t* f, int type, Sfdisc_t* disc)
+#if __STD_C
+static skexcept(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-static skexcept(f,type,disc)
-Sfio_t*	f;
+static skexcept(f,type,data,disc)
+Sfio_t*		f;
 int		type;
+Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
@@ -145,7 +146,7 @@ Sfdisc_t*	disc;
 	return 0;
 }
 
-#ifdef __STD_C
+#if __STD_C
 Sfdisc_t* sfdcnewskable(Sfio_t* f)
 #else
 Sfdisc_t* sfdcnewskable(f)
@@ -157,12 +158,12 @@ Sfio_t*	f;
 	if(!(disc = (Seek_t*)malloc(sizeof(Seek_t))) )
 		return NIL(Sfdisc_t*);
 
-	if(sfseek(f,0L,1) >= 0)
+	if(sfseek(f,(Sfoff_t)0,1) >= 0)
 	{	/* if already seekable, do nothing */
-		disc->disc.readf = NIL(int(*)_ARG_((Sfio_t*,char*,int,Sfdisc_t*)) );
-		disc->disc.writef = NIL(int(*)_ARG_((Sfio_t*,char*,int,Sfdisc_t*)) );
-		disc->disc.seekf = NIL(long(*)_ARG_((Sfio_t*,long,int,Sfdisc_t*)) );
-		disc->disc.exceptf = NIL(int(*)_ARG_((Sfio_t*,int,Sfdisc_t*)) );
+		disc->disc.readf = NIL(Sfread_f);
+		disc->disc.writef = NIL(Sfwrite_f);
+		disc->disc.seekf = NIL(Sfseek_f);
+		disc->disc.exceptf = NIL(Sfexcept_f);
 		disc->eof = 0;
 	}
 	else
@@ -177,7 +178,7 @@ Sfio_t*	f;
 	return (Sfdisc_t*)disc;
 }
 
-#ifdef __STD_C
+#if __STD_C
 sfdcdelskable(Sfdisc_t* disc)
 #else
 sfdcdelskable(disc)
@@ -185,7 +186,7 @@ Sfdisc_t*	disc;
 #endif
 {
 	sfclose(((Seek_t*)disc)->shadow);
-	free((char*)disc);
+	free(disc);
 	return 0;
 }
 
@@ -202,9 +203,9 @@ main()
 	if(!(disc = sfdcnewskable(sfstdin)) )
 		return -1;
 	sfdisc(sfstdin,disc);
-	sfseek(sfstdin,15L,0);
-	sfseek(sfstdin,-10L,1);
-	sfmove(sfstdin,sfstdout,5L,-1);
+	sfseek(sfstdin,15,0);
+	sfseek(sfstdin,-10,1);
+	sfmove(sfstdin,sfstdout,5,-1);
 	sfprintf(sfstdout,"Last line should be: abcd\n");
 
 	return 0;

@@ -51,5 +51,5 @@ main()
 	if(!Open)
 		terror("Real file wasn't created\n");
 
-	exit(0);
+	return 0;
 }

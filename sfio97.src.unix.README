@@ -1,0 +1,55 @@
+
+------------------------------------------------------------------------
+The authors of this software are Kiem-Phong Vo and David Korn.
+Copyright (c) 1991, 1996 by AT&T Labs.
+Permission to use, copy, modify, and distribute this software for any
+purpose without fee is hereby granted, provided that this entire notice
+is included in all copies of any software which is or includes a copy
+or modification of this software and in all copies of the supporting
+documentation for such software.
+THIS SOFTWARE IS BEING PROVIDED "AS IS", WITHOUT ANY EXPRESS OR IMPLIED
+WARRANTY. IN PARTICULAR, NEITHER THE AUTHORS NOR AT&T LABS MAKE ANY
+REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY
+OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
+------------------------------------------------------------------------
+
+
+Sfio - Safe/Fast I/O Library
+
+David G. Korn and Kiem-Phong Vo
+
+Sfio is a portable library for performing stream I/O.
+It provides similar functionality to the ANSI C Standard  I/O functions
+collectively known as Stdio.
+However, it is generally faster and more robust than most <B>Stdio</B> implemen
+tations.
+
+The current distribution of Sfio is called Sfio97. This version of the library
+has been ported to all known UNIX platforms including
+various flavors of IRIX, SUNOS, Solaris, Ultrix, MVS/OpenEdition,
+Linux and BSDI. The library handles 64-bit streams on platforms that
+support 64-bit files.
+
+Software Installation Notes
+
+The package should be unpacked in a root installation directory,
+say ``software'', with the following command:
+
+    uncompress < sfio97.src.unix.cpio.Z | cpio -icd
+    uncompress < sfio97.src.unix.tar.Z | tar -xvf -
+
+This shall create the following subdirectories under <I>software</I>:
+
+    src, man, include, lib, bin
+
+The README file tells how to build Sfio.
+The source code for Sfio is under software/src/lib/sfio.
+A set of regression tests is available in the subdirectory Sfio_t.
+These tests can be exercised by running the shell script runtest
+after building the library.
+
+If you have comments/questions/problems, send mail to Phong Vo at:
+        kpv@research.att.com
+
+
+

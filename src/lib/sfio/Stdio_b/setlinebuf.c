@@ -6,13 +6,13 @@
 
 
 #if __STD_C
-int setlinebuf(reg FILE *fp)
+int setlinebuf(reg FILE* fp)
 #else
 int setlinebuf(fp)
-reg FILE *fp;
+reg FILE*	fp;
 #endif
 {
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(fp)))
 		return -1;

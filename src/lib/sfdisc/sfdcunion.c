@@ -4,7 +4,7 @@
 /*	Concatenate a sequence of streams to a single stream.
 **	This is for reading only.
 **
-**	Written by (Kiem-)Phong Vo, kpv@research.att.com, 08/27/92.
+**	Written by Kiem-Phong Vo, kpv@research.att.com, 08/27/92.
 */
 
 #define	UNSEEKABLE	1
@@ -12,7 +12,7 @@
 typedef struct _f_
 {
 	Sfio_t*	f;	/* the stream		*/
-	long	lower;	/* its lowest end	*/
+	Sfoff_t	lower;	/* its lowest end	*/
 } File_t;
 
 typedef struct _union_
@@ -21,35 +21,35 @@ typedef struct _union_
 	short		type;	/* type of streams	*/
 	short		c;	/* current stream	*/
 	short		n;	/* number of streams	*/
-	long		here;	/* current location	*/
+	Sfoff_t		here;	/* current location	*/
 	File_t		f[1];	/* array of streams	*/
 } Union_t;
 
-#ifdef __STD_C
-static unwrite(Sfio_t* f, char* buf, int n, Sfdisc_t* disc)
+#if __STD_C
+static ssize_t unwrite(Sfio_t* f, const Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
-static unwrite(f, buf, n, disc)
+static ssize_t unwrite(f, buf, n, disc)
 Sfio_t*        f;      /* stream involved */
-char*           buf;    /* buffer to read into */
-int             n;      /* number of bytes to read */
-Sfdisc_t*       disc;   /* discipline */
+Void_t*        buf;    /* buffer to read into */
+size_t         n;      /* number of bytes to read */
+Sfdisc_t*      disc;   /* discipline */
 #endif
 {
 	return -1;
 }
 
-#ifdef __STD_C
-static unread(Sfio_t* f, char* buf, int n, Sfdisc_t* disc)
+#if __STD_C
+static ssize_t unread(Sfio_t* f, Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
-static unread(f, buf, n, disc)
+static ssize_t unread(f, buf, n, disc)
 Sfio_t*        f;      /* stream involved */
-char*           buf;    /* buffer to read into */
-int             n;      /* number of bytes to read */
-Sfdisc_t*       disc;   /* discipline */
+Void_t*        buf;    /* buffer to read into */
+size_t         n;      /* number of bytes to read */
+Sfdisc_t*      disc;   /* discipline */
 #endif
 {
 	reg Union_t*	un;
-	reg int		r, m;
+	reg ssize_t	r, m;
 
 	un = (Union_t*)disc;
 	m = n;
@@ -64,26 +64,26 @@ Sfdisc_t*       disc;   /* discipline */
 		if(m == 0)
 			break;
 
-		buf += r;
+		buf = (char*)buf + r;
 		if(sfeof(f) && un->c < un->n-1)
 			f = un->f[un->c += 1].f;
 	}
 	return n-m;
 }
 
-#ifdef __STD_C
-static long unseek(Sfio_t* f, long addr, int type, Sfdisc_t* disc)
+#if __STD_C
+static Sfoff_t unseek(Sfio_t* f, Sfoff_t addr, int type, Sfdisc_t* disc)
 #else
-static long unseek(f, addr, type, disc)
+static Sfoff_t unseek(f, addr, type, disc)
 Sfio_t*        f;
-long            addr;
-int             type;
-Sfdisc_t*       disc;
+Sfoff_t        addr;
+int            type;
+Sfdisc_t*      disc;
 #endif
 {
 	reg Union_t*	un;
 	reg int		i;
-	reg long	extent, s;
+	reg Sfoff_t	extent, s;
 
 	un = (Union_t*)disc;
 	if(un->type&UNSEEKABLE)
@@ -98,8 +98,8 @@ Sfdisc_t*       disc;
 	else if(type == 1)
 		addr += un->here;
 
-	if(addr < 0L)
-		return -1L;
+	if(addr < 0)
+		return -1;
 
 	/* find the stream where the addr could be in */
 	extent = 0;
@@ -112,7 +112,7 @@ Sfdisc_t*       disc;
 
 	s = (addr-extent) + un->f[i].lower;
 	if(sfseek(un->f[i].f,s,0) != s)
-		return -1L;
+		return -1;
 
 	un->c = i;
 	un->here = addr;
@@ -124,12 +124,13 @@ Sfdisc_t*       disc;
 }
 
 /* on close, remove the discipline */
-#ifdef __STD_C
-static unexcept(Sfio_t* f, int type, Sfdisc_t* disc)
+#if __STD_C
+static unexcept(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-static unexcept(f,type,disc)
-Sfio_t*	f;
+static unexcept(f,type,data,disc)
+Sfio_t*		f;
 int		type;
+Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
@@ -143,7 +144,7 @@ Sfdisc_t*	disc;
 	return 0;
 }
 
-#ifdef __STD_C
+#if __STD_C
 Sfdisc_t* sfdcnewunion(Sfio_t** f, int n)
 #else
 Sfdisc_t* sfdcnewunion(f, n)
@@ -181,14 +182,14 @@ int		n;
 	return (Sfdisc_t*)un;
 }
 
-#ifdef __STD_C
+#if __STD_C
 sfdcdelunion(Sfdisc_t* disc)
 #else
 sfdcdelunion(disc)
 Sfdisc_t*	disc;
 #endif
 {
-	free((char*)disc);
+	free(disc);
 	return 0;
 }
 
@@ -202,8 +203,8 @@ main()
 	   !(s[1] = sfopen(NIL(Sfio_t*),"0123456789", "s")) )
 		return -1;
 
-	sfseek(s[0],5L,0);
-	sfseek(s[1],5L,0);
+	sfseek(s[0],5,0);
+	sfseek(s[1],5,0);
 
 	if(!(disc = sfdcnewunion(s,2)) )
 		return -1;
@@ -212,7 +213,7 @@ main()
 	sfmove(sfstdin,sfstdout,-1,-1);
 	sfputc(sfstdout,'\n');
 
-	sfseek(sfstdin,7L,0);
+	sfseek(sfstdin,7,0);
 	sfmove(sfstdin,sfstdout,-1,-1);
 	sfputc(sfstdout,'\n');
 }

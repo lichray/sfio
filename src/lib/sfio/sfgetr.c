@@ -1,7 +1,7 @@
 #include	"sfhdr.h"
 
 /*	Read a record delineated by a character.
-**	The record length can be accessed via sfslen().
+**	The record length can be accessed via sfvalue(f).
 **	Note that the reg declarations below must be kept in
 **	their relative order so that the code will configured
 **	correctly on Vaxes to use "asm()".
@@ -18,9 +18,10 @@ reg int		rc;	/* record separator. r10 on Vax			*/
 int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
 #endif
 {
-	reg int		n;		/* r9 on vax		*/
-	reg uchar	*s, *ends, *us;	/* r8, r7, r6 on vax	*/
-	reg int		un, found;
+	reg ssize_t	n;
+	reg uchar	*s, *ends, *us;
+	reg ssize_t	un;
+	reg int		found;
 	reg Sfrsrv_t*	frs;
 
 	/* buffer to be returned */
@@ -32,6 +33,14 @@ int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
 	/* restore the byte changed by the last getr */
 	if(f->mode&SF_GETR)
 	{	f->mode &= ~SF_GETR;
+#ifdef MAP_TYPE
+		if((f->bits&SF_MMAP) && (f->tiny[0] += 1) >= (4*SF_NMAP) )
+		{	/* turn off mmap to avoid page faulting */
+			sfsetbuf(f,(Void_t*)f->tiny,(size_t)SF_UNBOUND);
+			f->tiny[0] = 0;
+		}
+		else
+#endif
 		f->next[-1] = f->getr;
 	}
 
@@ -70,10 +79,6 @@ int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
 			}
 		}
 
-#if _vax_asm	/* rc is r10, n is r9, s is r8, ends is r7 */
-		asm( "locc	r10,r9,(r8)" );	/* find rc */
-		asm( "movl	r1,r8" );	/* set s to be where it is */
-#else
 #if _lib_memchr
 		if(!(s = (uchar*)memchr((char*)s,rc,n)))
 			s = ends;
@@ -85,13 +90,17 @@ int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
 			}
 		}
 #endif
-#endif
 	do_copy:
 		if(s < ends)
 		{	s += 1;		/* include the separator */
 			found = 1;
-			if(!us && (!string || !(f->flags&(SF_STRING|SF_BOTH))) )
-			{	/* just returning the buffer */
+
+			if(!us &&
+			   (string <= 0 ||
+			    ((f->flags&SF_STRING) && (f->bits&SF_BOTH) ) ||
+			    ((f->bits&SF_MMAP) && !(f->flags&SF_BUFCONST) ) ||
+			    (!(f->flags&SF_STRING) && !(f->bits&SF_MMAP) ) ) )
+			{	/* returning data in buffer */
 				us = f->next;
 				un = s - f->next;
 				f->next = s;
@@ -127,7 +136,7 @@ int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
 	}
 
 done:
-	_Sfi = un;
+	_Sfi = f->val = un;
 	if(found && string > 0)
 	{	us[un-1] = '\0';
 		if(us >= f->data && us < f->endb)

@@ -1,16 +1,14 @@
 #include	"sftest.h"
+#include	<values.h>
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	char	str[8], c[4], cl[8];
 	int	i, j, k, n;
 	float	f;
 	double	d;
 	char*	s;
+	Sfio_t*	sf;
 
 	str[0] = str[1] = str[2] = str[3] =
 	str[4] = str[5] = str[6] = str[7] = 'x';
@@ -18,7 +16,7 @@ main()
 	cl[0] = cl[1] = cl[2] = cl[3] =
 	cl[4] = cl[5] = cl[6] = cl[7] = 'x';
 
-	sfsscanf("1234567890","%4ls%2lc%4l[0-9]",str,4,c,2,cl,6);
+	sfsscanf("1234567890","%4#s%2#c%4#[0-9]",str,4,c,2,cl,6);
 
 	if(strcmp(str,"123") != 0)
 		terror("Bad s\n");
@@ -81,6 +79,40 @@ main()
 
 	if(f <= .1233 || f >= .1235 || d <= .1233 || d >= .1235)
 		terror("Bad return values: f=%.4f d=%.4lf\n",f,d);
+
+	/* test for scanning max double value */
+	s = sfprints("%.14le",MAXDOUBLE);
+	if(!s || s[0] < '0' || s[0] > '9')
+		terror("sfprints failed\n");
+	for(i = 0; s[i]; ++i)
+		if(s[i] == 'e')
+			break;
+	if(s[i-1] > '0' && s[i-1] <= '9')
+		s[i-1] -= 1;
+	sfsscanf(s,"%le",&d);
+	if(d > MAXDOUBLE || d < MAXDOUBLE/2)
+		terror("sfscanf of MAXDOUBLE failed\n");
+
+	if(!(sf = sftmp(8*1024)) )
+		terror("Opening temp file\n");
+
+	for(k = 2; k <= 64; ++k)
+	{	sfseek(sf,(Sfoff_t)0,0);
+		for(i = 0; i < 1000; ++i)
+			sfprintf(sf,"%#..*d\n",k,i);
+		sfseek(sf,(Sfoff_t)0,0);
+		for(i = 0; i < 1000; ++i)
+		{	if(sfscanf(sf,"%i",&j) != 1)
+				terror("Scanf failed\n");
+			if(i != j)
+				terror("Wrong scanned value\n");
+		}
+	}
+
+	if(sfsscanf("2#1001","%i",&i) != 1 || i != 9)
+		terror("Bad %%i scanning\n");
+	if(sfsscanf("2#1001","%#i%c",&i,c) != 2 || i != 2 || c[0] != '#')
+		terror("Bad %%#i scanning\n");
 
 	return 0;
 }

@@ -15,7 +15,7 @@ char	**argv;
 	if(argc > 1)
 	{	/* coprocess only */
 		while(s = sfreserve(sfstdin,-1,0))
-			sfwrite(sfstdout,s,sfslen());
+			sfwrite(sfstdout,s,sfvalue(sfstdin));
 		return 0;
 	}
 
@@ -34,7 +34,7 @@ char	**argv;
 	sfputr(f,"123456789",'\n');
 	sfsync(f);
 	sleep(1);
-	if(!(s = sfreserve(f,-1,1)) || sfslen() != 10)
+	if(!(s = sfreserve(f,-1,1)) || sfvalue(f) != 10)
 		terror("Did not get data back\n");
 	if(strncmp(s,"123456789\n",10) != 0)
 		terror("Wrong data\n");

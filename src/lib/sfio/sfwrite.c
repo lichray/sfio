@@ -1,25 +1,22 @@
 #include	"sfhdr.h"
 
 /*	Write data out to the file system
-**	Note that the reg declarations below must be kept in
-**	their relative order so that the code will configured
-**	correctly on Vaxes to use "asm()".
 **
 **	Written by Kiem-Phong Vo (06/27/90)
 */
 
 #if __STD_C
-int sfwrite(reg Sfio_t* f, const Void_t* buf, reg int n)
+ssize_t sfwrite(reg Sfio_t* f, const Void_t* buf, reg size_t n)
 #else
-int sfwrite(f,buf,n)
-reg Sfio_t*	f;	/* write to this stream. r11 on Vax	*/
-Void_t*		buf;	/* buffer to be written.		*/
-reg int		n;	/* number of bytes. r10 on Vax		*/
+ssize_t sfwrite(f,buf,n)
+reg Sfio_t*	f;	/* write to this stream. 	*/
+Void_t*		buf;	/* buffer to be written.	*/
+reg size_t	n;	/* number of bytes. 		*/
 #endif
 {
-	reg char*	s;	/* r9 on Vax	*/
-	reg uchar*	next;	/* r8 on Vax	*/
-	reg int		w;	/* r7 on Vax	*/
+	reg char*	s;
+	reg uchar*	next;
+	reg ssize_t	w;
 	reg char*	begs;
 	reg int		local;
 
@@ -40,8 +37,8 @@ reg int		n;	/* number of bytes. r10 on Vax		*/
 
 		if(f->mode&SF_PKRD)
 		{	/* read past peeked data */
-			char	buf[16];
-			reg int	r;
+			char		buf[16];
+			reg ssize_t	r;
 
 			for(w = n; w > 0; )
 			{	if((r = w) > sizeof(buf))
@@ -58,7 +55,7 @@ reg int		n;	/* number of bytes. r10 on Vax		*/
 			f->here += n;
 		}
 
-		if((f->mode&SF_READ) && (f->flags&SF_PROCESS))
+		if((f->mode&SF_READ) && (f->bits&SF_PROCESS))
 			f->next += n;
 	}
 
@@ -74,7 +71,7 @@ reg int		n;	/* number of bytes. r10 on Vax		*/
 		SFLOCK(f,local);
 
 		/* current available buffer space */
-		if((w = f->endb - f->next) > n)
+		if((size_t)(w = f->endb - f->next) > n)
 			w = n;
 
 		if((uchar*)s == f->next)
@@ -88,14 +85,7 @@ reg int		n;	/* number of bytes. r10 on Vax		*/
 		if(w > 0 && ((f->flags&SF_STRING) || w != (f->endb-f->data)) )
 		{	/* copy into buffer */
 			next = f->next;
-
-#if _vax_asm		/* s is r9, next is r8, w is r7 */
-			asm( "movc3	r7,(r9),(r8)" );
-			s += w;
-			next += w;
-#else
 			MEMCPY(next,s,w);
-#endif
 			f->next = next;
 			if((n -= w) <= 0)
 				break;
@@ -119,15 +109,15 @@ reg int		n;	/* number of bytes. r10 on Vax		*/
 
 	/* check to see if buffer should be flushed */
 	else if(n == 0 && (f->flags&SF_LINE) && !(f->flags&SF_STRING))
-	{	if((n = f->next-f->data) > (w = s-begs))
+	{	if((n = f->next-f->data) > (size_t)(w = s-begs))
 			n = w;
 		if(n > 0 && n < HIFORLINE)
-		{	w = *(next = f->next-n); *next = '\n'; next += n;
-			while(*--next != '\n')
-				;
-			f->next[-n] = w;
-			if(*next == '\n')
-				n = HIFORLINE;
+		{	for(next = f->next-n; next < f->next; )
+			{	if(*next++ == '\n')
+				{	n = HIFORLINE;
+					break;
+				}
+			}
 		}
 		if(n >= HIFORLINE)
 			(void)SFFLSBUF(f,-1);

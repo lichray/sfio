@@ -6,15 +6,15 @@
 
 
 #if __STD_C
-FILE* freopen(char *name,const char *mode, reg FILE *fp)
+FILE* freopen(char*name, const char* mode, reg FILE* fp)
 #else
 FILE* freopen(name,mode,fp)
-reg char	*name;
-reg char	*mode;
-reg FILE	*fp;
+reg char*	name;
+reg char*	mode;
+reg FILE*	fp;
 #endif
 {
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(fp)))
 		return NIL(FILE*);
@@ -25,6 +25,18 @@ reg FILE	*fp;
 
 #if _FILE_cnt
 	fp->std_cnt = 0;
+#endif
+#if _FILE_r
+	fp->std_r = 0;
+#endif
+#if _FILE_w
+	fp->std_w = 0;
+#endif
+#if _FILE_readptr
+	fp->std_readptr = fp->std_readend = NIL(uchar*);
+#endif
+#if _FILE_writeptr
+	fp->std_writeptr = fp->std_writeend = NIL(uchar*);
 #endif
 #if _FILE_flag
 	fp->std_flag = 0;

@@ -5,14 +5,14 @@
 **	Written by Kiem-Phong Vo (06/27/90)
 */
 #if __STD_C
-int sfllen(reg long v)
+int _sfllen(reg Sflong_t v)
 #else
-int sfllen(v)
-reg long	v;
+int _sfllen(v)
+reg Sflong_t	v;
 #endif
 {
 	if(v < 0)
 		v = -(v+1);
-	v = (ulong)v >> SF_SBITS;
+	v = (Sfulong_t)v >> SF_SBITS;
 	return 1 + (v > 0 ? sfulen(v) : 0);
 }

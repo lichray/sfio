@@ -1,4 +1,22 @@
+#if defined(__STDPP__directive) && defined(__STDPP__hide)
+__STDPP__directive pragma pp:hide getpagesize
+#else
+#define getpagesize	______getpagesize
+#endif
+
 #include	"sfhdr.h"
+
+#if defined(__STDPP__directive) && defined(__STDPP__hide)
+__STDPP__directive pragma pp:nohide getpagesize
+#else
+#undef	getpagesize
+#endif
+
+#if _lib_getpagesize
+_BEGIN_EXTERNS_
+_astimport int	getpagesize _ARG_((void));
+_END_EXTERNS_
+#endif
 
 /*	Set a (new) buffer for a stream.
 **	If size < 0, it is assigned a suitable value depending on the
@@ -8,27 +26,35 @@
 **	Written by Kiem-Phong Vo (06/27/90)
 */
 
+#if !_sys_stat
+struct stat
+{	int	st_mode;
+	int	st_size;
+};
+#define fstat(fd,st)	(-1)
+#endif /*_sys_stat*/
+
 #if __STD_C
-Void_t* sfsetbuf(reg Sfio_t* f, reg Void_t* buf, reg int size)
+Void_t* sfsetbuf(reg Sfio_t* f, reg Void_t* buf, reg size_t size)
 #else
 Void_t* sfsetbuf(f,buf,size)
 reg Sfio_t*	f;	/* stream to be buffered */
 reg Void_t*	buf;	/* new buffer */
-reg int		size;	/* buffer size, -1 for default size */
+reg size_t	size;	/* buffer size, -1 for default size */
 #endif
 {
 	reg int		sf_malloc;
-	struct stat	st;
 	reg uchar*	obuf;
 	reg Sfdisc_t*	disc;
-	reg int		osize, oflags, blksize;
-	reg int		justopen, init, okmmap, local;
+	reg ssize_t	osize, blksize;
+	reg int		oflags, justopen, init, okmmap, local;
+	Stat_t		st;
 
 	GETLOCAL(f,local);
 
 	if(size == 0 && buf)
 	{	/* special case to get buffer info */
-		_Sfi = (f->flags&SF_MMAP) ? (f->endb-f->data) : f->size;
+		_Sfi = f->val = (f->bits&SF_MMAP) ? (f->endb-f->data) : f->size;
 		return (Void_t*)f->data;
 	}
 
@@ -43,16 +69,15 @@ reg int		size;	/* buffer size, -1 for default size */
 	else if((f->mode&SF_RDWR) != SFMODE(f,local) && _sfmode(f,0,local) < 0)
 		return NIL(Void_t*);
 
-	justopen = f->mode&SF_OPEN;
-	f->mode &= ~SF_OPEN;
+	justopen = f->mode&SF_OPEN; f->mode &= ~SF_OPEN;
 	if(init)
 		f->mode = (f->mode&SF_RDWR)|SF_LOCK;
 	else
 	{	int	rv;
 
 		/* make sure there is no hidden read data */
-		if((f->flags&(SF_PROCESS|SF_READ)) == (SF_PROCESS|SF_READ) &&
-		   (f->mode&SF_WRITE) && _sfmode(f,SF_READ,local) < 0)
+		if((f->bits&SF_PROCESS) && (f->flags&SF_READ) && (f->mode&SF_WRITE) &&
+		   _sfmode(f,SF_READ,local) < 0)
 			return NIL(Void_t*);
 
 		/* synchronize first */
@@ -74,9 +99,9 @@ reg int		size;	/* buffer size, -1 for default size */
 
 	/* save old buffer info */
 #ifdef MAP_TYPE
-	if(f->flags&SF_MMAP)
+	if(f->bits&SF_MMAP)
 	{	if(f->data)
-		{	(void)munmap((caddr_t)f->data,f->endb-f->data);
+		{	SFMUNMAP(f,f->data,f->endb-f->data);
 			f->data = NIL(uchar*);
 		}
 	} else
@@ -88,10 +113,11 @@ reg int		size;	/* buffer size, -1 for default size */
 	obuf  = f->data;
 	osize = f->size;
 
-	f->flags &= ~(SF_MMAP|SF_MALLOC);
+	f->flags &= ~SF_MALLOC;
+	f->bits  &= ~SF_MMAP;
 
 	/* pure read/string streams must have a valid string */
-	if((f->flags&(SF_RDWR|SF_STRING)) == SF_RDSTR && (size < 0 || !buf))
+	if((f->flags&(SF_RDWR|SF_STRING)) == SF_RDSTR && (size == SF_UNBOUND || !buf))
 		size = 0;
 
 	/* set disc to the first discipline with a seekf */
@@ -104,35 +130,37 @@ reg int		size;	/* buffer size, -1 for default size */
 		st.st_mode = 0;
 
 		/* if has discipline, set size by discipline if possible */
-		if(disc)
-		{	if((f->here = SFSK(f,0L,1,disc)) < 0)
+		if(!_sys_stat || disc)
+		{	if((f->here = SFSK(f,(Sfoff_t)0,1,disc)) < 0)
 				goto unseekable;
 			else
-			{	f->extent = SFSK(f,0L,2,disc);
+			{	Sfoff_t	e;
+				if((e = SFSK(f,(Sfoff_t)0,2,disc)) >= 0)
+					f->extent = e > f->here ? e : f->here;
 				(void)SFSK(f,f->here,0,disc);
 				goto setbuf;
 			}
 		}
 
 		/* get file descriptor status */
-		if(fstat(f->file,&st) < 0)
-			goto unseekable;
-
-#if _stat_blksize	/* preferred io block size */
-		if((blksize = (int)st.st_blksize) > 0)
-			while((blksize + (int)st.st_blksize) <= SF_PAGE)
-				blksize += (int)st.st_blksize;
+		if(fstat((int)f->file,&st) < 0)
+			f->here = -1;
+		else
+		{
+#if _sys_stat && _stat_blksize	/* preferred io block size */
+			if((blksize = (ssize_t)st.st_blksize) > 0)
+				while((blksize + (ssize_t)st.st_blksize) <= SF_PAGE)
+					blksize += (ssize_t)st.st_blksize;
 #endif
-		if(S_ISREG(st.st_mode) || S_ISDIR(st.st_mode))
-			f->here = justopen ? 0L : SFSK(f,0L,1,f->disc);
-		else	f->here = -1;
-		if(f->here >= 0)
-		{	/* normal file, set file extent */
-			f->extent = (long)st.st_size;
-
-			/* don't MMAP directories */
-			if(S_ISDIR(st.st_mode) )
+			if(S_ISDIR(st.st_mode) || (int)st.st_size < SF_GRAIN)
 				okmmap = 0;
+			if(S_ISREG(st.st_mode) || S_ISDIR(st.st_mode))
+				f->here = justopen ? 0 : SFSK(f,(Sfoff_t)0,1,f->disc);
+			else	f->here = -1;
+		}
+
+		if(f->here >= 0)
+		{	f->extent = (Sfoff_t)st.st_size;
 
 			/* seekable std-devices are share-public by default */
 			if(f == sfstdin || f == sfstdout || f == sfstderr)
@@ -141,34 +169,31 @@ reg int		size;	/* buffer size, -1 for default size */
 		else
 		{
 		unseekable:
-			f->extent = -1L;
-			f->here = 0L;
+			f->extent = -1;
+			f->here = 0;
 
 			if(init)
-			{	/* pipe std-devices are automatically shared */
-				if(S_ISFIFO(st.st_mode) )
-				{	if(f == sfstdin || f == sfstdout || f == sfstderr) 						f->flags |= SF_SHARE;
-				}
-				else if(S_ISCHR(st.st_mode) )
-				{	/* set line mode for terminals */
+			{	if(S_ISCHR(st.st_mode) )
+				{	blksize = SF_GRAIN;
+
+					/* set line mode for terminals */
 					if(!(f->flags&SF_LINE) && isatty(f->file))
 						f->flags |= SF_LINE;
-	
-					/* special case /dev/null for efficiency */
-					else
+#if _sys_stat
+					else	/* special case /dev/null */
 					{	reg int	dev, ino;
 						dev = (int)st.st_dev;	
 						ino = (int)st.st_ino;	
 						if(stat(DEVNULL,&st) >= 0 &&
-						   dev == st.st_dev && ino == st.st_ino)
-						{	SFSETNULL(f);
-							blksize = 1024;
-						}
+						   dev == (int)st.st_dev &&
+						   ino == (int)st.st_ino)
+							SFSETNULL(f);
 					}
+#endif
 				}
 
 				/* initialize save input buffer for r+w streams */
-				if(!(f->flags&SF_PROCESS) && (f->flags&SF_BOTH) )
+				if(!(f->bits&SF_PROCESS) && (f->bits&SF_BOTH) )
 					(void)_sfpopen(f,-1,-1);
 			}
 		}
@@ -176,7 +201,7 @@ reg int		size;	/* buffer size, -1 for default size */
 		/* set page size, this is also the desired default buffer size */
 #if _lib_getpagesize
 		if(_Sfpage <= 0)
-			_Sfpage = (int)getpagesize();
+			_Sfpage = (size_t)getpagesize();
 #endif
 		if(_Sfpage <= 0)
 			_Sfpage = SF_PAGE;
@@ -190,8 +215,8 @@ reg int		size;	/* buffer size, -1 for default size */
 				if(disc->readf)
 					break;
 		if(!disc)
-		{	f->flags |= SF_MMAP;
-			if(size < 0)
+		{	f->bits |= SF_MMAP;
+			if(size == SF_UNBOUND)
 			{	size = (blksize > 0 ? blksize : _Sfpage) * SF_NMAP;
 				size = ((size+_Sfpage-1)/_Sfpage)*_Sfpage;
 			}
@@ -201,28 +226,28 @@ reg int		size;	/* buffer size, -1 for default size */
 
 	/* get buffer space */
 setbuf:
-	if(size < 0)
+	if(size == SF_UNBOUND)
 	{	/* define a default size suitable for block transfer */
-		if(init && osize > 0)
+		if((init || local) && osize > 0)
 			size = osize;
 		else if(f == sfstderr && (f->mode&SF_WRITE))
 			size = 0;
-		else if((f->flags&SF_STRING) || f->extent < 0)
+		else if(f->flags&SF_STRING )
 			size = SF_GRAIN;
 		else if(blksize > 0)
 			size = blksize;
-		else if((f->flags&(SF_READ|SF_BOTH)) == SF_READ &&
-			f->extent > 0 && f->extent < _Sfpage )
-			size = (((int)f->extent + SF_GRAIN-1)/SF_GRAIN)*SF_GRAIN;
+		else if((f->flags&SF_READ) && !(f->bits&SF_BOTH) &&
+			f->extent > 0 && (size_t)f->extent < _Sfpage )
+			size = (((size_t)f->extent + SF_GRAIN-1)/SF_GRAIN)*SF_GRAIN;
 		else	size = _Sfpage;
 
 		buf = NIL(Void_t*);
 	}
 
 	sf_malloc = 0;
-	if(size > 0 && !buf && !(f->flags&SF_MMAP))
+	if(size > 0 && !buf && !(f->bits&SF_MMAP))
 	{	/* try to allocate a buffer */
-		if(obuf && size == osize)
+		if(obuf && size == (size_t)osize && local)
 		{	buf = (Void_t*)obuf;
 			obuf = NIL(uchar*);
 			sf_malloc = (oflags&SF_MALLOC);
@@ -236,7 +261,7 @@ setbuf:
 		}
 	}
 
-	if(size == 0 && !(f->flags&(SF_MMAP|SF_STRING)) && (f->mode&SF_READ))
+	if(size == 0 && !(f->flags&SF_STRING) && !(f->bits&SF_MMAP) && (f->mode&SF_READ))
 	{	/* use the internal buffer */
 		size = sizeof(f->tiny);
 		buf = (Void_t*)f->tiny;
@@ -248,8 +273,9 @@ setbuf:
 	f->endb = (f->mode&SF_READ) ? f->data : f->data+size;
 	if(f->flags&SF_STRING)
 	{	/* these fields are used to test actual size - see sfseek() */
-		f->extent = (!sf_malloc && (f->flags&(SF_BOTH|SF_READ))) ? size : 0;
-		f->here = 0L;
+		f->extent = (!sf_malloc &&
+			     ((f->flags&SF_READ) || (f->bits&SF_BOTH)) ) ? size : 0;
+		f->here = 0;
 
 		/* read+string stream should have all data available */
 		if((f->mode&SF_READ) && !sf_malloc)
@@ -263,7 +289,7 @@ setbuf:
 		obuf = NIL(uchar*);
 	}
 
-	_Sfi = obuf ? osize : 0;
+	_Sfi = f->val = obuf ? osize : 0;
 
 	SFOPEN(f,local);
 

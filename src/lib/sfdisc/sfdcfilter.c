@@ -11,31 +11,31 @@
 **	int sfdcdelfilter(Sfdisc_t* disc):
 **		Delete the discipline.
 **
-**	Written by (Kiem-)Phong Vo, kpv@research.att.com, 03/06/92.
+**	Written by Kiem-Phong Vo, kpv@research.att.com, 03/06/92.
 */
 
 typedef struct _filter_
 {
 	Sfdisc_t	disc;		/* discipline structure */
-	Sfio_t*	filter;		/* the filter stream */
+	Sfio_t*		filter;		/* the filter stream */
 	char		raw[1024];	/* raw data buffer */
-	char		*next;		/* remainder of data unwritten to pipe */
-	char		*endb;		/* end of data */
+	char*		next;		/* remainder of data unwritten to pipe */
+	char*		endb;		/* end of data */
 } Filter_t;
 
 /* read data from the filter */
-#ifdef __STD_C
-static filterread(Sfio_t* f, char* buf, int n, Sfdisc_t* disc)
+#if __STD_C
+static ssize_t filterread(Sfio_t* f, Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
-static filterread(f, buf, n, disc)
-Sfio_t*	f;	/* stream reading from */
-char*		buf;	/* buffer to read into */
-int		n;	/* number of bytes requested */
+static ssize_t filterread(f, buf, n, disc)
+Sfio_t*		f;	/* stream reading from */
+Void_t*		buf;	/* buffer to read into */
+size_t		n;	/* number of bytes requested */
 Sfdisc_t*	disc;	/* discipline */
 #endif
 {
 	reg Filter_t*	fdisc;
-	int		r, w;
+	ssize_t		r, w;
 
 	fdisc = (Filter_t*)disc;
 	for(;;)
@@ -77,12 +77,12 @@ Sfdisc_t*	disc;	/* discipline */
 }
 
 /* for the duration of this discipline, the stream is unseekable */
-#ifdef __STD_C
-static long filterseek(Sfio_t* f, long addr, int offset, Sfdisc_t* disc)
+#if __STD_C
+static Sfoff_t filterseek(Sfio_t* f, Sfoff_t addr, int offset, Sfdisc_t* disc)
 #else
-static long filterseek(f, addr, offset, disc)
-Sfio_t*	f;
-long		addr;
+static Sfoff_t filterseek(f, addr, offset, disc)
+Sfio_t*		f;
+Sfoff_t		addr;
 int		offset;
 Sfdisc_t*	disc;
 #endif
@@ -90,16 +90,17 @@ Sfdisc_t*	disc;
 	addr = 0;
 	offset = 0;
 	disc = NIL(Sfdisc_t*);
-	return -1L;
+	return (Sfoff_t)(-1);
 }
 
 /* on close, remove the discipline */
-#ifdef __STD_C
-static filterexcept(Sfio_t* f, int type, Sfdisc_t* disc)
+#if __STD_C
+static filterexcept(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-static filterexcept(f,type,disc)
-Sfio_t*	f;
+static filterexcept(f,type,data,disc)
+Sfio_t*		f;
 int		type;
+Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
@@ -113,7 +114,7 @@ Sfdisc_t*	disc;
 	return 0;
 }
 
-#ifdef __STD_C
+#if __STD_C
 Sfdisc_t* sfdcnewfilter(char* program)
 #else
 Sfdisc_t* sfdcnewfilter(program)
@@ -128,7 +129,7 @@ char*	program;	/* program to run as a filter */
 		return NIL(Sfdisc_t*);
 
 	/* unbuffered so that write data will get to the pipe right away */
-	sfsetbuf(filter,NIL(char*),0);
+	sfsetbuf(filter,NIL(Void_t*),0);
 
 	/* make the write descriptor nonblocking */
 	sfset(filter,SF_READ,0);
@@ -147,7 +148,7 @@ char*	program;	/* program to run as a filter */
 
 	disc->disc.readf = filterread;
 	disc->disc.seekf = filterseek;
-	disc->disc.writef = NIL(int(*)_ARG_((Sfio_t*,char*,int,Sfdisc_t*)) );
+	disc->disc.writef = NIL(Sfwrite_f);
 	disc->disc.exceptf = filterexcept;
 	disc->filter = filter;
 	disc->next = disc->endb = NIL(char*);
@@ -156,7 +157,7 @@ char*	program;	/* program to run as a filter */
 }
 
 
-#ifdef __STD_C
+#if __STD_C
 sfdcdelfilter(Sfdisc_t* disc)
 #else
 sfdcdelfilter(disc)
@@ -164,7 +165,7 @@ Sfdisc_t*	disc;
 #endif
 {
 	sfclose(((Filter_t*)disc)->filter);
-	free((char*)disc);
+	free(disc);
 	return 0;
 }
 
@@ -196,7 +197,7 @@ main()
 	sfdisc(sfstdin,upper);
 
 	/* now just copy data from stdin to stdout */
-	sfmove(sfstdin,sfstdout,-1L,-1);
+	sfmove(sfstdin,sfstdout,-1,-1);
 
 	return 0;
 }

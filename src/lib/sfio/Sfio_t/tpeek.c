@@ -3,7 +3,7 @@
 main()
 {
 	char		buf[6000];
-	int		n, p, w;
+	ssize_t		n, p, w;
 	char*		s;
 	Sfio_t*	f;
 
@@ -17,16 +17,18 @@ main()
 	if(sfopen(sfstdin,"xxx","r+") != sfstdin)
 		terror("Can't open xxx to read+write\n");
 
-	if(sfseek(sfstdin,4L,0) != 4)
+	if(sfseek(sfstdin,(Sfoff_t)4,0) != 4)
 		terror("Can't seek\n");
-	if(sfset(sfstdin,0,0)&SF_MMAP)
+	if(sfstdin->bits&SF_MMAP)
 		terror("Unexpected memory mapping\n");
 	if(sfpeek(sfstdin,(Void_t**)&s,-1) <= 0)
 		terror("Bad peek\n");
+	if(s[0] != '4')
+		terror("Bad data\n");
 	s[0] = 'a';
 	if(sfwrite(sfstdin,s,1) != 1)
 		terror("Bad write\n");
-	if(sfseek(sfstdin,0L,0) != 0)
+	if(sfseek(sfstdin,(Sfoff_t)0,0) != 0)
 		terror("Bad seek2\n");
 
 	if(!(f = sfopen(NIL(Sfio_t*),"xxx","r")) )
@@ -52,7 +54,7 @@ main()
 		terror("Can't open yyy to write2\n");
 
 	/* use our own buffer */
-	sfseek(sfstdin,0L,0);
+	sfseek(sfstdin,(Sfoff_t)0,0);
 	sfsetbuf(sfstdin,buf,sizeof(buf));
 	while((n = sfpeek(sfstdin,(Void_t**)&s,5000)) > 0)
 		if((w = sfwrite(sfstdout,s,n)) != n)
@@ -64,7 +66,7 @@ main()
 	if(sfopen(sfstdout,"yyy","w+") != sfstdout)
 		terror("Can't open yyy to write3\n");
 	sfwrite(sfstdout,"abcd",4);
-	sfseek(sfstdout,1L,0);
+	sfseek(sfstdout,(Sfoff_t)1,0);
 	if(sfpeek(sfstdout,(Void_t**)&s,-1) != 3)
 		terror("Failure reading yyy\n");
 	s[2] = 'e';

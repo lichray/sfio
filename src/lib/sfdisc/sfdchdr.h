@@ -1,13 +1,8 @@
 #include	"sfdisc.h"
 
-#define NIL(type)	((type)0)
 #define reg		register
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-extern char*	malloc _ARG_((int));
-extern void	free _ARG_((char*));
-#ifdef __cplusplus
-}
-#endif
+_BEGIN_EXTERNS_
+extern Void_t*	malloc _ARG_((size_t));
+extern void	free _ARG_((Void_t*));
+_END_EXTERNS_

@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-static char	buf[128];
+static char	Buf[128];
 
 typedef struct _coord_
 {	int	x;
@@ -10,81 +10,81 @@ typedef struct _coord_
 Coord_t	Coord;
 
 #if __STD_C
-coordarg(int fmt, char* val, char* type, int n)
+coordarg(Sfio_t* f, Void_t* val, Sffmt_t* fe)
 #else
-coordarg(fmt,val,type,n)
-int	fmt;
-char*	val;
-char*	type;
-int	n;
+coordarg(f,val,fe)
+Sfio_t*		f;
+Void_t*		val;
+Sffmt_t*	fe;
 #endif
 {	
 	*((Coord_t**)val) = &Coord;
-	return 0;
+	return 1;
 }
 
 #if __STD_C
-abCprint(char* v, int fmt, int precis, char** rets, int base, char* type, int n)
+abCprint(Sfio_t* f, Void_t* v, int width, Sffmt_t* fe)
 #else
-abCprint(v, fmt, precis, rets, base, type, n)
-char*	v;
-int	fmt;
-int	precis;
-char**	rets;
-int	base;
-char*	type;
-int	n;
+abCprint(f, v, width, fe)
+Sfio_t*		f;
+Void_t*		v;
+int		width;
+Sffmt_t*	fe;
 #endif
 {
 	Coord_t*	cp;
 	int		p;
 	char		mytype[128];
 
-	switch(fmt)
+	switch(fe->fmt)
 	{
 	case 'a' :
-		if(base > 0)
-			sfsprintf(buf,sizeof(buf),"%..*u",base,(unsigned int)v);
-		else	sfsprintf(buf,sizeof(buf),"%u",(unsigned int)v);
-		*rets = buf;
-		return strlen(buf);
+		if(fe->base > 0)
+			sfsprintf(Buf,sizeof(Buf),"%..*u",fe->base,(unsigned int)v);
+		else	sfsprintf(Buf,sizeof(Buf),"%u",(unsigned int)v);
+		fe->t_str = Buf;
+		fe->n_str = sfslen();
+		return 1;
 	case 'b' :
-		if(base > 0)
-			sfsprintf(buf,sizeof(buf),"%..*d",base,(int)v);
-		else	sfsprintf(buf,sizeof(buf),"%d",(int)v);
-		*rets = buf;
-		return strlen(buf);
+		if(fe->base > 0)
+			sfsprintf(Buf,sizeof(Buf),"%..*d",fe->base,(int)v);
+		else	sfsprintf(Buf,sizeof(Buf),"%d",(int)v);
+		fe->t_str = Buf;
+		fe->n_str = sfslen();
+		return 1;
 	case 'C' :
 		cp = (Coord_t*)v;
 		for(p = 0; ; ++p)
-			if(type[p] != '(' )
+			if(fe->t_str[p] != '(' )
 				break;
-		type += p;
-		n -= 2*p;
-		memcpy(mytype,type,n); mytype[n] = 0;
-		sfsprintf(buf,sizeof(buf),mytype,cp->x,cp->y);
-		*rets = buf;
-		return strlen(buf);
+		fe->t_str += p;
+		fe->n_str -= 2*p;
+		memcpy(mytype,fe->t_str,fe->n_str); mytype[fe->n_str] = 0;
+		sfsprintf(Buf,sizeof(Buf),mytype,cp->x,cp->y);
+		fe->t_str = Buf;
+		fe->n_str = sfslen();
+		return 1;
+	case 'z' : /* test return value of extension function */
+		fe->t_str = (char*)v;
+		fe->n_str = 10;
+		return 1;
 	case 'Z' : /* terminate format processing */
-		*rets = NIL(char*);
-		return -1;
 	default :
 		return -1;
 	}
 }
 
 #if __STD_C
-intarg(int fmt, char* val, char* type, int n)
+intarg(Sfio_t* f, Void_t* val, Sffmt_t* fe)
 #else
-intarg(fmt,val,type,n)
-int	fmt;
-char*	val;
-char*	type;
-int	n;
+intarg(f, val, fe)
+Sfio_t*		f;
+Void_t*		val;
+Sffmt_t*	fe;
 #endif
 {	static int	i = 1;
 	*((int*)val) = i++;
-	return 0;
+	return 1;
 }
 
 
@@ -92,60 +92,72 @@ int	n;
 void stkprint(char* buf, int n, char* form, ...)
 #else
 void stkprint(buf,n,form,va_alist)
-char	*buf;
+char*	buf;
 int	n;
-char	*form;
+char*	form;
 va_dcl
 #endif
 {	va_list	args;
+	Sffmt_t	fe;
 #if __STD_C
 	va_start(args,form);
 #else
 	va_start(args);
 #endif
-	sfsprintf(buf,n,"%: %d %d",form,&args,3,4);
+	fe.form = form;
+	va_copy(fe.args,args);
+	fe.argf = NIL(Sfarg_f);
+	fe.extf = NIL(Sfext_f);
+	sfsprintf(buf,n,"%! %d %d",&fe,3,4);
 	va_end(args);
 }
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
-	char	buf1[1024], buf2[1024];
+	char	buf1[1024], buf2[1024], *list[4], *s;
 	float	x=0.0051;
+	int	i, j;
+	Sffmt_t	fe;
 
 	sfsprintf(buf1,sizeof(buf1),"%6.2f",x);
 	if(strcmp(buf1,"  0.01") != 0)
 		terror("%%f rounding wrong\n");
 
-	sfsprintf(buf1,sizeof(buf1),"%..4u %..4d",-1,-1);
-	sfsprintf(buf2,sizeof(buf2),"%&%..4a %..4b%Zxxx",abCprint,-1,-1,0);
+	fe.form = NIL(char*);
+	fe.argf = NIL(Sfarg_f);
+	fe.extf = abCprint;
+	sfsprintf(buf1,sizeof(buf1),"%..4u %..4d9876543210",-1,-1);
+	sfsprintf(buf2,sizeof(buf2),"%!%..4a %..4b%z%Zxxx",
+			&fe,-1,-1,"98765432109876543210",0);
 	if(strcmp(buf1,buf2) != 0)
-		terror("%%&: Extension function failed\n");
+		terror("%%!: Extension function failed\n");
 
+	fe.argf = intarg;
+	fe.extf = NIL(Sfext_f);
 	sfsprintf(buf1,sizeof(buf1),"%d %d",1,2);
-	sfsprintf(buf2,sizeof(buf2),"%@%d %d",intarg);
+	sfsprintf(buf2,sizeof(buf2),"%!%d %d",&fe);
 	if(strcmp(buf1,buf2) != 0)
-		terror("%%@: Getarg function failed\n");
+		terror("%%!: Getarg function failed\n");
 
 	Coord.x = 5;
 	Coord.y = 7;
 	sfsprintf(buf1,sizeof(buf1),"%d %d",Coord.x,Coord.y);
 
-	sfsprintf(buf2,sizeof(buf2),"%&%((%d %d))C",abCprint,&Coord);
+	fe.argf = NIL(Sfarg_f);
+	fe.extf = abCprint;
+	sfsprintf(buf2,sizeof(buf2),"%!%((%d %d))C",&fe,&Coord);
 	if(strcmp(buf1,buf2) != 0)
 		terror("%%()C failed\n");
 
-	sfsprintf(buf2,sizeof(buf2),"%&%@%((%d %d))C",abCprint,coordarg);
+	fe.argf = coordarg;
+	sfsprintf(buf2,sizeof(buf2),"%!%((%d %d))C",&fe);
 	if(strcmp(buf1,buf2) != 0)
 		terror("%%()C failed2\n");
 
 	sfsprintf(buf1,sizeof(buf1),"%d %d %d %d",1,2,3,4);
 	stkprint(buf2,sizeof(buf2),"%d %d",1,2);
 	if(strcmp(buf1,buf2) != 0)
-		terror("%%:: Stack function failed\n");
+		terror("%%!: Stack function failed\n");
 
 	sfsprintf(buf1,sizeof(buf1),"% +G",-1.2345);
 #if _lib_locale
@@ -160,11 +172,17 @@ main()
 	if(strcmp(buf1,buf2) != 0)
 		terror("Failed %% +G test\n");
 
+	if(sizeof(int) == 4 &&  sizeof(short) == 2)
+	{	char* s = sfprints("%hx",0xffffffff);
+		if(!s || strcmp(s,"ffff") != 0)
+			terror("Failed %%hx test\n");
+	}
+
 	sfsprintf(buf1,sizeof(buf1),"%#..16d",-0xabc);
 	if(strcmp(buf1,"-16#abc") != 0)
 		terror("Failed %%..16d test\n");
 
-	sfsprintf(buf1,sizeof(buf1),"%#..16lu",0xc2c01576);
+	sfsprintf(buf1,sizeof(buf1),"%#..16lu",(long)0xc2c01576);
 	if(strcmp(buf1,"16#c2c01576") != 0)
 		terror("Failed %%..16u test\n");
 
@@ -199,6 +217,50 @@ main()
 	sfsprintf(buf1,sizeof(buf1),"%10.5G",(double)0.0000625);
 	if(strcmp(buf1,"  6.25E-05") != 0)
 		terror("Failed %%G test\n");
+
+	list[0] = "0";
+	list[1] = "1";
+	list[2] = "2";
+	list[3] = 0;
+	sfsprintf(buf1,sizeof(buf1),"%..*s", ',', list);
+	if(strcmp(buf1,"0,1,2") != 0)
+		terror("Failed %%..*s test\n");
+
+	sfsprintf(buf1,sizeof(buf1),"%.2.*c", ',', "012");
+	if(strcmp(buf1,"00,11,22") != 0)
+		terror("Failed %%..*c test\n");
+
+#if _typ_long_long
+	{ long long	ll;
+	  char* s = sfprints("%#..16llu",~((long long)0));
+	  sfsscanf(s,"%lli", &ll);
+	  if(ll != (~((long long)0)) )
+		terror("Failed inverting printf/scanf long long1\n");
+
+	  s = sfprints("%#..18lld",~((long long)0));
+	  sfsscanf(s,"%lli", &ll);
+	  if(ll != (~((long long)0)) )
+		terror("Failed inverting printf/scanf long long2\n");
+
+	  s = sfprints("%#..lli",~((long long)0));
+	  sfsscanf(s,"%lli", &ll);
+	  if(ll != (~((long long)0)) )
+		terror("Failed inverting printf/scanf long long3\n");
+	}
+#endif
+
+	i = (int)(~(~((uint)0) >> 1));
+	s = sfprints("%d",i);
+	j = atoi(s);
+	if(i != j)
+		terror("Failed converting highbit\n");
+	
+	for(i = -10000; i < 10000; i += 123)
+	{	s = sfprints("%d",i);
+		j = atoi(s);
+		if(j != i)
+			terror("Failed integer conversion\n");
+	}
 
 	return 0;
 }

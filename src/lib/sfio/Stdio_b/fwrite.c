@@ -5,26 +5,27 @@
 */
 
 #if __STD_C
-int fwrite(const void *buf, int size, int nmem, reg FILE *fp)
+size_t fwrite(const void* buf, size_t size, size_t nmem, reg FILE* fp)
 #else
-int fwrite(buf,size,nmem,fp)
-reg char	*buf;
-reg int		size;
-reg int		nmem;
-reg FILE	*fp;
+size_t fwrite(buf,size,nmem,fp)
+reg char*	buf;
+reg size_t	size;
+reg size_t	nmem;
+reg FILE*	fp;
 #endif
 {
-	reg int		rv;
-	reg Sfio_t	*sp;
+	reg ssize_t	rv;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(fp)))
-		return -1;
+		return 0;
 
 	_stdclrerr(fp,sp);
 
-	if((rv = sfwrite(sp,(char*)buf,size*nmem)) < 0)
-		_stderr(fp);
-	else	rv /= size;
-
-	return(rv);
+	if((rv = sfwrite(sp,buf,size*nmem)) >= 0)
+		return rv/size;
+	else
+	{	_stderr(fp);
+		return 0;
+	}
 }

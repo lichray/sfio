@@ -1,5 +1,7 @@
 #include	"sftest.h"
 
+#undef fork	/* make sure fork() is used, not vfork() */
+
 static int	Count = 0;
 static Sfdisc_t	Disc;
 
@@ -12,83 +14,87 @@ int type;
 int fd;
 #endif
 {
-	Count += 1;
+	if(fd >= 0)
+		Count += 1;
 }
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	Sfio_t	*f;
 	char	*s;
 
-	f = sftmp(SF_UNBOUND);
+	/* let two run concurrently */
+	fork();
+
+	f = sftmp((size_t)SF_UNBOUND);
 
 	sfputr(f,"1234",'\n');	/* write a string into it */
-	sfseek(f,0L,0);		/* get back so we can read the string */
+	sfseek(f,(Sfoff_t)0,0);		/* get back so we can read the string */
 	s = sfreserve(f,-1,0);
-	if(sfslen() != 5)
-		terror("Get n=%d, expect n=5\n", sfslen());
+	if(sfvalue(f) != 5)
+		terror("Get n=%d, expect n=5\n", sfvalue(f));
 
-	sfseek(f,10L,1);	/* seek to extend buffer */
+	sfseek(f,(Sfoff_t)10,1);	/* seek to extend buffer */
 	if(s = sfreserve(f,-1,0))
-		terror("Get n=%d, expect n=0\n", sfslen());
+		terror("Get n=%d, expect n=0\n", sfvalue(f));
 
 	sfset(f,SF_READ,0);	/* turn off read mode so stream is write only */
 
-	sfseek(f,-10L,1);	/* back 10 places to get space to write */
+	sfseek(f,(Sfoff_t)(-10),1);	/* back 10 places to get space to write */
 	if(!(s = sfreserve(f,-1,1)) || sfwrite(f,s,0) != 0)
-		terror("Get n=%d, expect n > 0\n", sfslen());
+		terror("Get n=%d, expect n > 0\n", sfvalue(f));
 	strcpy(s,"5678\n");
 
 	sfset(f,SF_READ,1);
-	sfseek(f,0L,0);		/* read 1234\n5678\n */
+	sfseek(f,(Sfoff_t)0,0);		/* read 1234\n5678\n */
 	if(!(s = sfreserve(f,-1,1)) || sfread(f,s,0) != 0)
-		terror("Get n=%d, expect n > 0\n", sfslen());
+		terror("Get n=%d, expect n > 0\n", sfvalue(f));
 	if(strncmp(s,"1234\n5678\n",10) != 0)
 		terror("Get wrong string\n");
 	sfclose(f);
 
 	sfnotify(count);
-	f = sftmp(0);
+	if(!(f = sftmp(0)) )
+		terror("sftmp failed 1\n");
 	if(Count != 1)
-		terror("notify function should have been called 1 time\n");
+		terror("wrong count 1, count=%d\n", Count);
 	sfclose(f);
 	if(Count != 2)
-		terror("notify function should have been called 2 times\n");
+		terror("wrong count 2 count=%d\n", Count);
 
-	f = sftmp(8);
-	if(Count != 3)
-		terror("notify function should have been called 3 times\n");
+	if(!(f = sftmp(8)) )
+		terror("sftmp failed 2\n");
+	if(Count != 2)
+		terror("wrong count 2.2 count=%d\n", Count);
 	sfdisc(f,&Disc);
+	if(Count != 3)
+		terror("wrong count 3 count=%d\n", Count);
+	sfclose(f);
 	if(Count != 4)
-		terror("notify function should have been called 4 times\n");
-	sfclose(f);
-	if(Count != 5)
-		terror("notify function should have been called 5 times\n");
+		terror("wrong count 4 count=%d\n", Count);
 
-	f = sftmp(8);
-	if(Count != 6)
-		terror("notify function should have been called 6 times\n");
+	if(!(f = sftmp(8)) )
+		terror("sftmp failed 3\n");
+	if(Count != 4)
+		terror("wrong count 4.2 count=%d\n", Count);
 	sfwrite(f,"0123456789",10);
-	if(Count != 7)
-		terror("notify function should have been called 7 times\n");
+	if(Count != 5)
+		terror("wrong count 5 count=%d\n", Count);
 	sfclose(f);
-	if(Count != 8)
-		terror("notify function should have been called 8 times\n");
+	if(Count != 6)
+		terror("wrong count 6 count=%d\n", Count);
 
-	f = sftmp(1024);
+	if(!(f = sftmp(1024)) )
+		terror("sftmp failed 4\n");
 	sfwrite(f,"1234567890",10);
-	sfseek(f,0L,0);
+	sfseek(f,(Sfoff_t)0,0);
 	if(sfsize(f) != 10)
 		terror("Wrong size1\n");
 	sfdisc(f,SF_POPDISC);
 	if(sfsize(f) != 10)
 		terror("Wrong size2\n");
 	s = sfreserve(f,-1,0);
-	if(sfslen() != 10 || strncmp(s,"1234567890",10) != 0)
+	if(sfvalue(f) != 10 || strncmp(s,"1234567890",10) != 0)
 		terror("did not create correct real file\n");
 
 	return 0;

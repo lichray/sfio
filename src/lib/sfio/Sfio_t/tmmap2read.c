@@ -4,7 +4,7 @@
 /* This test causes mmap() to fail so that read() must be used. */
 
 #if __STD_C
-void* mmap(void* addr, size_t size, int x, int y, int z, long offset)
+void* mmap(void* addr, size_t size, int x, int y, int z, Sfoff_t offset)
 #else
 void* mmap()
 #endif
@@ -37,5 +37,5 @@ main()
 			terror("Get wrong data\n");
 	}
 
-	exit(0);
+	return 0;
 }

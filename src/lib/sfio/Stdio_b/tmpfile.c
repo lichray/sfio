@@ -10,10 +10,10 @@ FILE* tmpfile(void)
 FILE* tmpfile()
 #endif
 {
-	reg Sfio_t	*sp;
-	reg FILE	*fp;
+	reg Sfio_t*	sp;
+	reg FILE*	fp;
 
-	if(!(sp = sftmp(SF_BUFSIZE)))
+	if(!(sp = sftmp(0)))
 		return NIL(FILE*);
 	if(!(fp = _stdstream(sp)))
 	{	sfclose(sp);

@@ -6,15 +6,15 @@
 */
 
 #if __STD_C
-int sfdlen(reg double v)
+int _sfdlen(reg Sfdouble_t v)
 #else
-int sfdlen(v)
-reg double	v;
+int _sfdlen(v)
+reg Sfdouble_t	v;
 #endif
 {
-#define N_ARRAY		(16*sizeof(double))
+#define N_ARRAY		(16*sizeof(Sfdouble_t))
 	reg int		n, w;
-	reg double	x;
+	reg Sfdouble_t	x;
 	int		exp;
 
 	if(v < 0)

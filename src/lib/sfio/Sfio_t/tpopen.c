@@ -1,10 +1,6 @@
 #include	"sftest.h"
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	Sfio_t	*f;
 	char	*s, *endos, *os = "one\ntwo\nthree\n";
@@ -21,7 +17,7 @@ main()
 
 	endos = os + strlen(os);
 	while(s = sfgetr(f,'\n',0))
-	{	n = sfslen();
+	{	n = sfvalue(f);
 		if(strncmp(s,os,n) != 0)
 		{	s[n-1] = os[n-1] = 0;
 			terror("Input=%s, Expect=%s\n",s,os);

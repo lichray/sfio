@@ -8,17 +8,16 @@
 **	Written by Kiem-Phong Vo
 */
 #if __STD_C
-int sfputr(reg Sfio_t* f, const char* s, reg int rc)
+ssize_t sfputr(reg Sfio_t* f, const char* s, reg int rc)
 #else
-int sfputr(f,s,rc)
-reg Sfio_t*	f;	/* write to this stream. r11 on Vax	*/
-char*		s;	/* string to write			*/
-reg int		rc;	/* record separator. r10 on Vax		*/
+ssize_t sfputr(f,s,rc)
+reg Sfio_t*	f;	/* write to this stream	*/
+char*		s;	/* string to write	*/
+reg int		rc;	/* record separator.	*/
 #endif
 {
-	reg int		p;		/* r9 on Vax		*/
-	reg uchar	*os, *ps;	/* r8, r7 on Vax	*/
-	reg int		n;		/* r6 on Vax		*/
+	reg ssize_t	p, n;
+	reg uchar	*os, *ps;
 
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
 		return -1;
@@ -37,15 +36,6 @@ reg int		rc;	/* record separator. r10 on Vax		*/
 	{	/* peek buffer for space */
 		if(SFWPEEK(f,ps,p) <= 0)
 			break;
-
-#if _vax_asm	/* p is r9, os is r8, and ps is r7 */
-		0;					/* avoid if() branching bug */
-		asm( "locc	$0,r9,(r8)" );		/* look for the \0 */
-		asm( "subl2	r0,r9" );		/* length of data to copy */
-		asm( "movc3	r9,(r8),(r7)" );	/* copy data */
-		ps += p;
-		os += p;
-#else
 #if _lib_memccpy
 		if((ps = (uchar*)memccpy(ps,os,'\0',p)) != NIL(uchar*))
 			ps -= 1;
@@ -58,7 +48,6 @@ reg int		rc;	/* record separator. r10 on Vax		*/
 		if(*--ps != 0)
 			ps += 1;
 		else	os -= 1;
-#endif
 #endif
 		f->next = ps;
 	}

@@ -8,10 +8,10 @@
 int fileno(FILE* fp)
 #else
 int fileno(fp)
-FILE	*fp;
+FILE*	fp;
 #endif
 {
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 	
 	if(!(sp = _sfstream(fp)))
 		return -1;

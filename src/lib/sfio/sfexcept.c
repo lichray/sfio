@@ -4,17 +4,18 @@
 **	Written by Kiem-Phong Vo (8/18/90)
 */
 #if __STD_C
-int _sfexcept(reg Sfio_t* f, reg int type, reg int io, reg Sfdisc_t* disc)
+int _sfexcept(reg Sfio_t* f, reg int type, ssize_t io, reg Sfdisc_t* disc)
 #else
 int _sfexcept(f,type,io,disc)
-reg Sfio_t	*f;	/* stream where the exception happened */
+reg Sfio_t*	f;	/* stream where the exception happened */
 reg int		type;	/* io type that was performed */
-reg int		io;	/* the io return value that indicated exception */
-reg Sfdisc_t	*disc;	/* discipline in use */
+ssize_t		io;	/* the io return value that indicated exception */
+reg Sfdisc_t*	disc;	/* discipline in use */
 #endif
 {
-	reg int		d, local, lock;
-	reg uchar	*data;
+	reg int		ev, local, lock;
+	reg ssize_t	size;
+	reg uchar*	data;
 
 	GETLOCAL(f,local);
 	lock = f->mode&SF_LOCK;
@@ -29,17 +30,17 @@ reg Sfdisc_t	*disc;	/* discipline in use */
 
 		/* so that exception handler knows what we are asking for */
 		_Sfi = io;
-		d = (*(disc->exceptf))(f,type,disc);
+		ev = (*(disc->exceptf))(f,type,&io,disc);
 
 		/* relock if necessary */
 		if(local && lock)
 			SFLOCK(f,0);
 
 		if(io > 0 && !(f->flags&SF_STRING) )
-			return d;
-		else if(d < 0)
+			return ev;
+		else if(ev < 0)
 			return SF_EDONE;
-		else if(d > 0)
+		else if(ev > 0)
 			return SF_EDISC;
 	}
 
@@ -52,20 +53,20 @@ reg Sfdisc_t	*disc;	/* discipline in use */
 		{	if(f->size >= 0 && !(f->flags&SF_MALLOC))
 				goto chk_stack;
 			/* extend buffer */
-			if((d = f->size) < 0)
-				d = 0;
-			if((io -= d) <= 0)
+			if((size = f->size) < 0)
+				size = 0;
+			if((io -= size) <= 0)
 				io = SF_GRAIN;
-			d = ((d+io+SF_GRAIN-1)/SF_GRAIN)*SF_GRAIN;
+			size = ((size+io+SF_GRAIN-1)/SF_GRAIN)*SF_GRAIN;
 			if(f->size > 0)
-				data = (uchar*)realloc((char*)f->data,d);
-			else	data = (uchar*)malloc(d);
+				data = (uchar*)realloc((char*)f->data,size);
+			else	data = (uchar*)malloc(size);
 			if(!data)
 				goto chk_stack;
-			f->endb = data + d;
+			f->endb = data + size;
 			f->next = data + (f->next - f->data);
 			f->endr = f->endw = f->data = data;
-			f->size = d;
+			f->size = size;
 		}
 		return SF_EDISC;
 	}
@@ -89,13 +90,13 @@ chk_stack:
 
 		/* pop and close */
 		pf = (*_Sfstack)(f,NIL(Sfio_t*));
-		if((d = sfclose(pf)) < 0) /* can't close, restack */
+		if((ev = sfclose(pf)) < 0) /* can't close, restack */
 			(*_Sfstack)(f,pf);
 
 		if(lock)
 			SFLOCK(f,0);
 
-		return d < 0 ? SF_EDONE : SF_ESTACK;
+		return ev < 0 ? SF_EDONE : SF_ESTACK;
 	}
 
 	return SF_EDONE;

@@ -1,21 +1,12 @@
 #include	"sfhdr.h"
 
-#if __STD_C
-static int __sfslen(void)
-#else
-static int __sfslen()
-#endif
-{
-	return sfslen();
-}
-
 #undef sfslen
 
 #if __STD_C
-int sfslen(void)
+ssize_t sfslen(void)
 #else
-int sfslen()
+ssize_t sfslen()
 #endif
 {
-	return __sfslen();
+	return __sf_slen();
 }

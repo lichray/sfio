@@ -85,8 +85,8 @@ reg int		newfd;
 				}
 
 #ifdef MAP_TYPE
-				if((f->flags&SF_MMAP) && f->data)
-				{	(void)munmap((caddr_t)f->data,f->endb-f->data);
+				if((f->bits&SF_MMAP) && f->data)
+				{	SFMUNMAP(f,f->data,f->endb-f->data);
 					f->data = NIL(uchar*);
 				}
 #endif
@@ -95,7 +95,7 @@ reg int		newfd;
 				f->endb = f->endr = f->endw = f->data;
 				f->extent = f->here = 0;
 				f->mode = (f->mode&SF_RDWR)|SF_INIT;
-				f->flags &= ~SF_HOLE;	/* off /dev/null handling */
+				f->bits &= ~SF_NULL;	/* off /dev/null handling */
 			}
 		}
 

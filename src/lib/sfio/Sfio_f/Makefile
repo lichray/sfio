@@ -9,10 +9,12 @@ CXFLAGS=
 CCMODE=	-O
 CCFLAGS= -I.. $(CCMODE) $(CXFLAGS)
 
-SRCS=	_sfclrerr.c _sfeof.c _sferror.c _sffileno.c _sfgetc.c _sfgetl.c _sfgetu.c \
-	_sfstacked.c _sfputc.c _sfputd.c _sfputl.c _sfputu.c _sfslen.c _sfulen.c
-OBJS=	_sfclrerr.o _sfeof.o _sferror.o _sffileno.o _sfgetc.o _sfgetl.o _sfgetu.o \
-	_sfstacked.o _sfputc.o _sfputd.o _sfputl.o _sfputu.o _sfslen.o _sfulen.o
+SRCS=	_sfclrerr.c _sfdlen.c _sfeof.c _sferror.c _sffileno.c _sfgetc.c \
+	_sfgetl.c _sfgetu.c _sfllen.c _sfputc.c _sfputd.c _sfputl.c _sfputu.c \
+	_sfslen.c _sfstacked.c _sfulen.c _sfvalue.c
+OBJS=	_sfclrerr.o _sfdlen.o _sfeof.o _sferror.o _sffileno.o _sfgetc.o \
+	_sfgetl.o _sfgetu.o _sfllen.o _sfputc.o _sfputd.o _sfputl.o _sfputu.o \
+	_sfslen.o _sfstacked.o _sfulen.o _sfvalue.o
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $*.c

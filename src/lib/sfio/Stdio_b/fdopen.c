@@ -5,15 +5,15 @@
 */
 
 #if __STD_C
-FILE* fdopen(int fd,const char *mode)
+FILE* fdopen(int fd, const char* mode)
 #else
 FILE* fdopen(fd,mode)
 int	fd;
-char	*mode;
+char*	mode;
 #endif
 {
-	reg Sfio_t	*sp;
-	reg FILE	*fp;
+	reg Sfio_t*	sp;
+	reg FILE*	fp;
 	reg int		flags = 0;
 
 	while(1) switch(*mode++)
@@ -41,7 +41,7 @@ e_mode :
 	if(!flags)
 		return NIL(FILE*);
 
-	if(!(sp = sfnew(NIL(Sfio_t*), NIL(Void_t*), SF_UNBOUND, fd, flags)))
+	if(!(sp = sfnew(NIL(Sfio_t*), NIL(Void_t*), (size_t)SF_UNBOUND, fd, flags)))
 		return NIL(FILE*);
 	if(!(fp = _stdstream(sp)))
 	{	sfclose(sp);

@@ -1,10 +1,6 @@
 #include	"sftest.h"
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	char	buf[100];
 	Sfio_t	*fp;
@@ -21,7 +17,7 @@ main()
 			terror("Writing %s\n",buf);
 	}
 
-	sfseek(fp,0L,0);
+	sfseek(fp,(Sfoff_t)0,0);
 
 	for(i = 0; i < 1000; ++i)
 	{	sfsprintf(buf,sizeof(buf),"Number: %d",i);
@@ -31,14 +27,14 @@ main()
 			terror("Input=%s, Expect=%s\n",s,buf);
 	}
 
-	sfseek(fp,0L,0);
+	sfseek(fp,(Sfoff_t)0,0);
 	s = sfgetr(fp,'\0',1);
 	if(s)
 		terror("Expecting a null string\n");
 	s = sfgetr(fp,'\0',-1);
 	if(!s)
 		terror("Expecting a non-null string\n");
-	if(sfslen() != sfsize(fp))
+	if(sfvalue(fp) != sfsize(fp))
 		terror("Wrong size\n");
 
 	return 0;

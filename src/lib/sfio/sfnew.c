@@ -8,12 +8,12 @@
 */
 
 #if __STD_C
-Sfio_t* sfnew(Sfio_t* oldf, Void_t* buf, int size, int file, int flags)
+Sfio_t* sfnew(Sfio_t* oldf, Void_t* buf, size_t size, int file, int flags)
 #else
 Sfio_t* sfnew(oldf,buf,size,file,flags)
 Sfio_t* oldf;	/* old stream to be reused */
 Void_t*	buf;	/* a buffer to read/write, if NULL, will be allocated */
-int	size;	/* buffer size if buf is given or desired buffer size */
+size_t	size;	/* buffer size if buf is given or desired buffer size */
 int	file;	/* file descriptor to read/write from */
 int	flags;	/* type of file stream */
 #endif
@@ -42,7 +42,7 @@ int	flags;	/* type of file stream */
 			sflags = f->flags;
 			if(SFCLOSE(f) < 0)
 				return NIL(Sfio_t*);
-			if(f->data && ((flags&SF_STRING) || size >= 0) )
+			if(f->data && ((flags&SF_STRING) || size != SF_UNBOUND) )
 			{	if(sflags&SF_MALLOC)
 					free((Void_t*)f->data);
 				f->data = NIL(uchar*);
@@ -70,14 +70,14 @@ int	flags;	/* type of file stream */
 
 	/* stream type */
 	f->mode = (flags&SF_READ) ? SF_READ : SF_WRITE;
-	f->flags = (flags&SF_FLAGS) | ((flags&SF_RDWR) == SF_RDWR ? SF_BOTH : 0);
-	f->flags |= (sflags&(SF_MALLOC|SF_STATIC));
+	f->flags = (flags&SF_FLAGS) | (sflags&(SF_MALLOC|SF_STATIC));
+	f->bits = (flags&SF_RDWR) == SF_RDWR ? SF_BOTH : 0;
 	f->file = file;
-	f->here = f->extent = 0L;
+	f->here = f->extent = 0;
 	f->getr = f->tiny[0] = 0;
 
 	f->mode |= SF_INIT | (flags&SF_OPEN);
-	if(size >= 0)
+	if(size != SF_UNBOUND)
 	{	f->size = size;
 		f->data = size <= 0 ? NIL(uchar*) : (uchar*)buf;
 	}

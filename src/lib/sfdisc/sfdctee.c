@@ -10,29 +10,29 @@
 **	int sfdcdeltee(Sfdisc_t* teedisc):
 **		Delete the discipline.
 **
-**	Written by (Kiem-)Phong Vo, kpv@research.att.com, 03/05/92.
+**	Written by Kiem-Phong Vo, kpv@research.att.com, 03/05/92.
 */
 
 /* the discipline structure for tee-ing */
 typedef struct _tee_
 {
 	Sfdisc_t	disc;	/* the sfio discipline structure */
-	Sfio_t*	tee;	/* the stream to tee to */
+	Sfio_t*		tee;	/* the stream to tee to */
 	int		status;	/* if tee stream is still ok */
 } Tee_t;
 
 /*	write to the teed stream.  */
-#ifdef __STD_C
-static teewrite(Sfio_t* f, char* buf, int size, Sfdisc_t* disc)
+#if __STD_C
+static ssize_t teewrite(Sfio_t* f, const Void_t* buf, size_t size, Sfdisc_t* disc)
 #else
-static teewrite(f,buf,size,disc)
+static ssize_t teewrite(f,buf,size,disc)
 Sfio_t* 	f;	/* the stream being written to */
-char*		buf;	/* the buffer of data being output */
-int		size;	/* the data size */
+Void_t*		buf;	/* the buffer of data being output */
+size_t		size;	/* the data size */
 Sfdisc_t*	disc;	/* the tee discipline */
 #endif
 {
-	reg Tee_t	*tdisc = (Tee_t*)disc;
+	reg Tee_t*	tdisc = (Tee_t*)disc;
 
 	/* tee data if still ok */
 	if(tdisc->status == 0 && sfwrite(tdisc->tee,buf,size) != size)
@@ -43,12 +43,13 @@ Sfdisc_t*	disc;	/* the tee discipline */
 }
 
 /* on close, remove the discipline */
-#ifdef __STD_C
-static teeexcept(Sfio_t* f, int type, Sfdisc_t* disc)
+#if __STD_C
+static teeexcept(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-static teeexcept(f,type,disc)
-Sfio_t*	f;
+static teeexcept(f,type,data,disc)
+Sfio_t*		f;
 int		type;
+Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
@@ -62,7 +63,7 @@ Sfdisc_t*	disc;
 	return 0;
 }
 
-#ifdef __STD_C
+#if __STD_C
 Sfdisc_t* sfdcnewtee(Sfio_t* tee)
 #else
 Sfdisc_t* sfdcnewtee(tee)
@@ -74,8 +75,8 @@ Sfio_t*	tee;	/* stream to tee to */
 	if(!(disc = (Tee_t*)malloc(sizeof(Tee_t))) )
 		return NIL(Sfdisc_t*);
 
-	disc->disc.readf = NIL(int(*)_ARG_((Sfio_t*,char*,int,Sfdisc_t*)) );
-	disc->disc.seekf = NIL(long(*)_ARG_((Sfio_t*,long,int,Sfdisc_t*)) );
+	disc->disc.readf = NIL(Sfread_f);
+	disc->disc.seekf = NIL(Sfseek_f);
 	disc->disc.writef = teewrite;
 	disc->disc.exceptf = teeexcept;
 	disc->tee = tee;
@@ -84,14 +85,14 @@ Sfio_t*	tee;	/* stream to tee to */
 	return (Sfdisc_t*)disc;
 }
 
-#ifdef __STD_C
+#if __STD_C
 sfdcdeltee(Sfdisc_t* disc)
 #else
 sfdcdeltee(disc)
 Sfdisc_t*	disc;	/* tee discipline being ended */
 #endif
 {
-	free((char*)disc);
+	free(disc);
 	return 0;
 }
 
@@ -99,7 +100,7 @@ Sfdisc_t*	disc;	/* tee discipline being ended */
 /*	Here is the UNIX tee program
 */
 
-#ifdef __STD_C
+#if __STD_C
 main(int argc, char** argv)
 #else
 main(argc,argv)
@@ -108,7 +109,7 @@ char**	argv;
 #endif
 {
 	Sfdisc_t*	disc;
-	Sfio_t*	tee;
+	Sfio_t*		tee;
 
 	if(argc <= 1)
 	{	sfprintf(sfstderr,"Called as: %s file\n", argv[0]);
@@ -127,7 +128,7 @@ char**	argv;
 	sfdisc(sfstdout,disc);
 
 	/* now just copy data from stdin to stdout */
-	sfmove(sfstdin,sfstdout,-1L,-1);
+	sfmove(sfstdin,sfstdout,-1,-1);
 
 	return 0;
 }

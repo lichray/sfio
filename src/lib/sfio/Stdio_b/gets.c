@@ -5,14 +5,14 @@
 */
 
 #if __STD_C
-char *gets(char *buf)
+char* gets(char* buf)
 #else
-char *gets(buf)
-char	*buf;
+char* gets(buf)
+char*	buf;
 #endif
 {
-	reg Sfio_t	*sp;
-	reg char	*rv;
+	reg Sfio_t*	sp;
+	reg char*	rv;
 
 	if(!(sp = _sfstream(stdin)))
 		return NIL(char*);

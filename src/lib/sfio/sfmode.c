@@ -1,5 +1,10 @@
 #include	"sfhdr.h"
-static char*	Version = "\n@(#)sfio (AT&T Bell Laboratories) 09/28/94\0\n";
+static char*	Version = "\n@(#)sfio (AT&T Labs) 01/01/97\0\n";
+
+#if _PACKAGE_ast
+#include <sig.h>
+#include <wait.h>
+#endif
 
 /*	Switch the given stream to a desired mode
 **
@@ -96,11 +101,11 @@ Sfio_t*	f;
 static Sfrsrv_t*	_Sfrsrv;
 
 #if __STD_C
-Sfrsrv_t* _sfrsrv(reg Sfio_t* f, reg int size)
+Sfrsrv_t* _sfrsrv(reg Sfio_t* f, reg ssize_t size)
 #else
 Sfrsrv_t* _sfrsrv(f,size)
 reg Sfio_t*	f;
-reg int		size;	/* closing if size < 0 */
+reg ssize_t	size;	/* closing if size < 0 */
 #endif
 {
 	reg Sfrsrv_t	*last, *frs;
@@ -117,7 +122,7 @@ reg int		size;	/* closing if size < 0 */
 
 	if(size < 0)	/* closing stream */
 	{	if(frs)
-			free((char*)frs);
+			free(frs);
 		return NIL(Sfrsrv_t*);
 	}
 
@@ -129,9 +134,8 @@ reg int		size;	/* closing if size < 0 */
 		else
 		{	if(frs)
 			{	if(frs->slen > 0)
-					memcpy((char*)last,(char*)frs,
-						sizeof(Sfrsrv_t)+frs->slen);
-				free((char*)frs);
+					memcpy(last,frs,sizeof(Sfrsrv_t)+frs->slen);
+				free(frs);
 			}
 			frs = last;
 			frs->size = size;
@@ -182,7 +186,7 @@ int		pid;
 	if(!(p = (Sfpopen_t*)malloc(sizeof(Sfpopen_t))) )
 		return -1;
 
-	f->flags |= SF_PROCESS;
+	f->bits |= SF_PROCESS;
 
 	p->pid = pid;
 	p->sf = f;
@@ -222,9 +226,9 @@ reg Sfio_t*	f;	/* stream to close */
 	if(!p)
 		return -1;
 
-	f->flags &= ~SF_PROCESS;
+	f->bits &= ~SF_PROCESS;
 	if(sfclose(f) < 0)
-	{	f->flags |= SF_PROCESS;
+	{	f->bits |= SF_PROCESS;
 		return -1;
 	}
 
@@ -254,7 +258,7 @@ reg Sfio_t*	f;	/* stream to close */
 	sigcritical(0);
 #endif
 
-	free((char*)p);
+	free(p);
 	return (pid == -1 ? -1 : status);
 }
 
@@ -374,7 +378,7 @@ reg int		local;	/* a local call */
 #endif
 {
 	reg int		n;
-	reg long	addr;
+	reg Sfoff_t	addr;
 	reg int		rv = 0;
 
 	if((!local && SFFROZEN(f)) || (!(f->flags&SF_STRING) && f->file < 0))
@@ -391,7 +395,7 @@ reg int		local;	/* a local call */
 		(*_Sfstdio)(f);
 
 	if(f->disc == _Sfudisc && wanted == SF_WRITE &&
-	   sfclose((*_Sfstack)(f,NIL(Sfile_t*))) < 0 )
+	   sfclose((*_Sfstack)(f,NIL(Sfio_t*))) < 0 )
 	{	local = 1;
 		goto err_notify;
 	}
@@ -419,12 +423,13 @@ reg int		local;	/* a local call */
 		if(wanted == 0)
 			goto done;
 
-		if(wanted != (f->mode&SF_RDWR) && !(f->flags&wanted) )
+		if(wanted != (int)(f->mode&SF_RDWR) && !(f->flags&wanted) )
 			goto err_notify;
 
 		if((f->flags&SF_STRING) && f->size >= 0 && f->data)
 		{	f->mode &= ~SF_INIT;
-			f->extent = (f->flags&(SF_READ|SF_BOTH)) ? f->size : 0;
+			f->extent = ((f->flags&SF_READ) || (f->bits&SF_BOTH)) ?
+					f->size : 0;
 			f->here = 0;
 			f->endb = f->data + f->size;
 			f->next = f->endr = f->endw = f->data;
@@ -434,12 +439,12 @@ reg int		local;	/* a local call */
 		}
 		else
 		{	n = f->flags;
-			(void)SFSETBUF(f,(char*)f->data,f->size);
+			(void)SFSETBUF(f,f->data,f->size);
 			f->flags |= (n&SF_MALLOC);
 		}
 	}
 
-	if(wanted == SFMODE(f,1))
+	if(wanted == (int)SFMODE(f,1))
 		goto done;
 
 	switch(SFMODE(f,1))
@@ -469,7 +474,7 @@ reg int		local;	/* a local call */
 		f->mode = SF_READ|SF_LOCK;
 
 		/* restore saved read data for coprocess */
-		if((f->flags&SF_PROCESS) && _sfpmode(f,wanted) < 0)
+		if((f->bits&SF_PROCESS) && _sfpmode(f,wanted) < 0)
 			goto err_notify;
 
 		break;
@@ -481,11 +486,11 @@ reg int		local;	/* a local call */
 
 			/* see if must go with new physical location */
 			if((f->flags&(SF_SHARE|SF_PUBLIC)) == (SF_SHARE|SF_PUBLIC) &&
-			   (addr = SFSK(f,0L,1,f->disc)) != f->here)
+			   (addr = SFSK(f,0,1,f->disc)) != f->here)
 			{
 #ifdef MAP_TYPE
-				if((f->flags&SF_MMAP) && f->data)
-				{	munmap((caddr_t)f->data,f->endb-f->data);
+				if((f->bits&SF_MMAP) && f->data)
+				{	SFMUNMAP(f,f->data,f->endb-f->data);
 					f->data = NIL(uchar*);
 				}
 #endif
@@ -515,13 +520,13 @@ reg int		local;	/* a local call */
 		}
 
 		/* save unread data before switching mode */
-		if((f->flags&SF_PROCESS) && _sfpmode(f,wanted) < 0)
+		if((f->bits&SF_PROCESS) && _sfpmode(f,wanted) < 0)
 			goto err_notify;
 
 		/* reset buffer and seek pointer */
 		if(!(f->mode&SF_SYNCED) )
 		{	n = f->endb - f->next;
-			if(f->extent >= 0 && (n > 0 || (f->data && (f->flags&SF_MMAP))) )
+			if(f->extent >= 0 && (n > 0 || (f->data && (f->bits&SF_MMAP))) )
 			{	/* reset file pointer */
 				addr = f->here - n;
 				if(SFSK(f,addr,0,f->disc) < 0)
@@ -532,13 +537,13 @@ reg int		local;	/* a local call */
 
 		f->mode = SF_WRITE|SF_LOCK;
 #ifdef MAP_TYPE
-		if(f->flags&SF_MMAP)
+		if(f->bits&SF_MMAP)
 		{	if(f->data)
 			{	(void)munmap((caddr_t)f->data,f->endb-f->data);
 				f->endb = f->endr = f->endw =
 				f->next = f->data = NIL(uchar*);
 			}
-			(void)SFSETBUF(f,(char*)f->tiny,-1);
+			(void)SFSETBUF(f,(Void_t*)f->tiny,(size_t)SF_UNBOUND);
 		}
 #endif
 		if(f->data == f->tiny)

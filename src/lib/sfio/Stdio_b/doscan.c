@@ -1,3 +1,4 @@
+#define _in_doscan	1
 #include	"sfstdio.h"
 
 /*	The internal scanf engine.
@@ -8,13 +9,13 @@
 int _doscan(FILE *fp, const char* form, va_list args)
 #else
 int _doscan(fp,form,args)
-FILE	*fp;
-char    *form;          /* format to use */
+FILE*	fp;
+char*	form;          /* format to use */
 va_list args;           /* arg list if argf == 0 */
 #endif
 {
 	reg int		rv;
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(fp)))
 		return -1;

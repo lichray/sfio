@@ -2,11 +2,7 @@
 
 Sfdisc_t Disc;
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	int	n, fd;
 	Sfio_t	*f;
@@ -36,7 +32,7 @@ main()
 	if(!(f = sfnew((Sfio_t*)0,buf,sizeof(buf),fd,SF_WRITE)))
 		terror("Making stream\n");
 
-	if(!(s = sfreserve(f,-1,1)) || s != buf)
+	if(!(s = sfreserve(f,SF_UNBOUND,1)) || s != buf)
 		terror("sfreserve1 returns the wrong pointer\n");
 	sfwrite(f,s,0);
 
@@ -58,16 +54,16 @@ main()
 					i, fd, fd+NEXTFD);
 	}
 
-	if(!(s = sfreserve(f,-1,1)) || s != buf)
+	if(!(s = sfreserve(f,SF_UNBOUND,1)) || s != buf)
 		terror("sfreserve2 returns the wrong pointer\n");
 	sfwrite(f,s,0);
 
-	if(sfsetbuf(f,(char*)0,-1) != buf)
+	if(sfsetbuf(f,NIL(Void_t*),(size_t)SF_UNBOUND) != buf)
 		terror("sfsetbuf didnot returns last buffer\n");
 
 	sfsetbuf(f,buf,sizeof(buf));
 
-	if(sfreserve(f,-1,1) != buf || sfslen() != sizeof(buf) )
+	if(sfreserve(f,SF_UNBOUND,1) != buf || sfvalue(f) != sizeof(buf) )
 		terror("sfreserve3 returns the wrong value\n");
 	sfwrite(f,s,0);
 

@@ -23,8 +23,8 @@ main()
 	if(strcmp(s,str) != 0)
 		terror("Bad conversion, expecting %s and getting %s\n",str,s);
 
-	exit(0);
+	return 0;
 }
 #else
-main() { exit(0);}
+main() { return 0;}
 #endif

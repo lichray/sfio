@@ -1,0 +1,134 @@
+################################################################
+## Need to hide certain names such as _doprnt, _doscan
+################################################################
+
+#pragma weak note{ compile system supports symbol transform }end link{
+#	main() { return _xyz(); }
+#	#pragma weak   _xyz =  __xyz
+#	#define                _xyz    __xyz
+#	_xyz() { return 0; }
+#}end
+
+################################################################
+## To emulate old-style stdio at binary level
+################################################################
+
+tst - output{
+	#include	<stdio.h>
+	main() { printf("#define _siz_fpos_t	%d\\n", sizeof(fpos_t)); exit(0); }
+}end
+
+FILE cnt note{ field FILE._cnt exists }end compile{
+	#include	<stdio.h>
+	main() { return (stdin->_cnt == 0) ? 0 : -1; }
+}end
+FILE ptr note{ field FILE._ptr exists }end compile{
+	#include	<stdio.h>
+	main() { return (stdin->_ptr == 0) ? 0 : -1; }
+}end
+FILE file note{ field FILE._file exists }end compile{
+	#include	<stdio.h>
+	main() { return (stdin->_file == 0) ? 0 : -1; }
+}end
+FILE flag note{ field FILE._flag exists }end compile{
+	#include	<stdio.h>
+	main() { return (stdin->_flag != 0) ? 0 : -1; }
+}end
+
+############################################################################
+# To emulate Linux-stdio at binary level
+############################################################################
+FILE readptr note{ fields FILE._IO_read_ptr/end exist }end execute{
+	#include	<stdio.h>
+	main()
+	{ if(sizeof(stdin->_IO_read_ptr) != sizeof(char*) ) return 1;
+	  if(sizeof(stdin->_IO_read_end) != sizeof(char*) ) return 1;
+	  return 0;
+	}
+}end
+FILE writeptr note{ fields FILE._IO_write_ptr/end exist }end execute{
+	#include	<stdio.h>
+	main()
+	{ if(sizeof(stdin->_IO_write_ptr) != sizeof(char*) ) return 1;
+	  if(sizeof(stdin->_IO_write_end) != sizeof(char*) ) return 1;
+	  return 0;
+	}
+}end
+FILE flags note{ field FILE._flags exists }end compile{
+	#include	<stdio.h>
+	main()
+	{ return stdin->_flags == 0 ? 1 : 0;
+	}
+}end
+FILE fileno note{ field FILE._fileno exists }end compile{
+	#include	<stdio.h>
+	main()
+	{ return stdin->_fileno == 0 ? 1 : 0;
+	}
+}end
+u flow note{ uflow() does bump buffer }end excute{
+	#include	<stdio.h>
+        #if _STD_
+        main(int argc, char** argv)
+        #else
+        main(argc,argv)
+        int     argc;
+        char**  argv;
+        #endif
+	{ FILE*	f;
+	  char	file[BUFSIZ];
+	  sprintf(file,"%s.D",argv[0]);
+	  if(!(f = fopen(file,"w+")) )
+		exit(1);
+	  unlink(file);
+	  setbuf(f,file);
+	  fputs("123456789",f);
+	  fseek(f,0L,0);
+	  if(__uflow(f) == EOF)
+		exit(1);
+	  if(*f->_IO_read_ptr == '1')
+		exit(1);
+	  else	exit(0);
+	}
+}end
+under flow note{ underflow() does not bump buffer }end excute{
+	#include	<stdio.h>
+        #if _STD_
+        main(int argc, char** argv)
+        #else
+        main(argc,argv)
+        int     argc;
+        char**  argv;
+        #endif
+	{ FILE*	f;
+	  char	file[BUFSIZ];
+	  sprintf(file,"%s.D",argv[0]);
+	  if(!(f = fopen(file,"w+")) )
+		exit(1);
+	  unlink(file);
+	  setbuf(f,file);
+	  fputs("123456789",f);
+	  fseek(f,0L,0);
+	  if(__underflow(f) == EOF)
+		exit(1);
+	  if(*f->_IO_read_ptr == '1')
+		exit(0);
+	  else	exit(1);
+	}
+}end
+
+######################################################################
+# To emulate BSD-style stdio
+######################################################################
+FILE p	note{ FILE._p field }end compile{
+	#include <stdio.h>
+	main() { return stdin->_p == 0 ? 0 : 1; }
+}end
+FILE r	note{ FILE._r field }end compile{
+	#include <stdio.h>
+	main() { return stdin->_r == 0 ? 0 : 1; }
+}end
+FILE w	note{ FILE._w field }end compile{
+	#include <stdio.h>
+	main() { return stdout->_w == 0 ? 0 : 1; }
+}end

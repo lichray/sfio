@@ -6,7 +6,7 @@
 */
 
 #if __STD_C
-int sfscanf(Sfio_t *f, const char *form, ...)
+int sfscanf(Sfio_t* f, const char* form, ...)
 #else
 int sfscanf(va_alist)
 va_dcl
@@ -18,8 +18,8 @@ va_dcl
 #if __STD_C
 	va_start(args,form);
 #else
-	reg Sfio_t	*f;
-	reg char	*form;
+	reg Sfio_t*	f;
+	reg char*	form;
 	va_start(args);
 	f = va_arg(args,Sfio_t*);
 	form = va_arg(args,char*);
@@ -31,24 +31,15 @@ va_dcl
 }
 
 #if __STD_C
-int sfsscanf(const char *s, const char *form,...)
+int sfvsscanf(const char* s, const char* form, va_list args)
 #else
-int sfsscanf(va_alist)
-va_dcl
+int sfvsscanf(s, form, args)
+char*	s;
+char*	form;
+va_list	args;
 #endif
 {
-	va_list		args;
-	Sfio_t		f;
-	reg int		rv;
-#if __STD_C
-	va_start(args,form);
-#else
-	reg char	*s;
-	reg char	*form;
-	va_start(args);
-	s = va_arg(args,char*);
-	form = va_arg(args,char*);
-#endif
+	Sfio_t	f;
 
 	if(!s)
 		return -1;
@@ -61,7 +52,29 @@ va_dcl
 	f.data = f.next = f.endw = (uchar*)s;
 	f.endb = f.endr = f.data+f.size;
 
-	rv = sfvscanf(&f,form,args);
+	return sfvscanf(&f,form,args);
+}
+
+#if __STD_C
+int sfsscanf(const char* s, const char* form,...)
+#else
+int sfsscanf(va_alist)
+va_dcl
+#endif
+{
+	va_list		args;
+	reg int		rv;
+#if __STD_C
+	va_start(args,form);
+#else
+	reg char*	s;
+	reg char*	form;
+	va_start(args);
+	s = va_arg(args,char*);
+	form = va_arg(args,char*);
+#endif
+
+	rv = sfvsscanf(s,form,args);
 	va_end(args);
 
 	return rv;

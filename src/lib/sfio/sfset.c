@@ -9,25 +9,39 @@
 int sfset(reg Sfio_t* f, reg int flags, reg int set)
 #else
 int sfset(f,flags,set)
-reg Sfio_t	*f;
+reg Sfio_t*	f;
 reg int		flags;
 reg int		set;
 #endif
 {
 	reg int	oflags;
 
+	if(flags == 0 && set == 0)
+		return (f->flags&SF_FLAGS);
+
+	if((oflags = (f->mode&SF_RDWR)) != (int)f->mode && _sfmode(f,oflags,0) < 0)
+		return 0;
+
 	if(flags == 0)
 		return (f->flags&SF_FLAGS);
 
-	if((oflags = (f->mode&SF_RDWR)) != f->mode && _sfmode(f,oflags,0) < 0)
-		return 0;
-
 	SFLOCK(f,0);
 
-	/* at least preserve one rd/wr flag of the right type */
+	/* preserve at least one rd/wr flag */
 	oflags = f->flags;
-	if(!(oflags&SF_BOTH))
+	if(!(f->bits&SF_BOTH))
 		flags &= ~SF_RDWR;
+
+	/* make sure that mapped area has the right mode */
+#ifdef MAP_TYPE
+	if(f->data && (f->bits&SF_MMAP) && (flags&SF_BUFCONST) &&
+	   ((set && !(f->flags&SF_BUFCONST)) || (!set && (f->flags&SF_BUFCONST)) ) )
+	{	f->here -= f->endb-f->next;
+		SFSK(f,f->here,0,f->disc);
+		SFMUNMAP(f,f->data,f->endb-f->data);
+		f->endb = f->endr = f->endw = f->next = f->data = NIL(uchar*);
+	}
+#endif
 
 	/* set the flag */
 	if(set)

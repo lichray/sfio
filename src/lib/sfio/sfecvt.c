@@ -10,5 +10,5 @@ int*	decpt;		/* to return decimal point */
 int*	sign;		/* to return sign */
 #endif
 {
-	return _sfcvt((Double_t)dval,n_digit,decpt,sign,1);
+	return _sfcvt((Sfdouble_t)dval,n_digit,decpt,sign,F_EFORMAT);
 }

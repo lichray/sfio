@@ -8,12 +8,12 @@
 */
 
 #if __STD_C
-Sfio_t *sfopen(reg Sfio_t* f, const char* file, const char* mode)
+Sfio_t* sfopen(reg Sfio_t* f, const char* file, const char* mode)
 #else
-Sfio_t *sfopen(f,file,mode)
-reg Sfio_t	*f;		/* old stream structure */
-char		*file;		/* file/string to be opened */
-reg char	*mode;		/* mode of the stream */
+Sfio_t* sfopen(f,file,mode)
+reg Sfio_t*	f;		/* old stream structure */
+char*		file;		/* file/string to be opened */
+reg char*	mode;		/* mode of the stream */
 #endif
 {
 	int	fd, oldfd, oflags, sflags;
@@ -28,27 +28,33 @@ reg char	*mode;		/* mode of the stream */
 		if(!file)
 			return NIL(Sfio_t*);
 
-#ifndef NO_OFLAGS
-		while((fd = open((char*)file,oflags,0666)) < 0 && errno == EINTR)
+#if _has_oflags
+		while((fd = open((char*)file,oflags,SF_CREATMODE)) < 0 && errno == EINTR)
 			errno = 0;
 #else
-		while((fd = open(file,oflags&03)) < 0 && errno == EINTR)
+		while((fd = open(file,oflags&(O_WRONLY|O_RDWR))) < 0 && errno == EINTR)
 			errno = 0;
 		if(fd >= 0)
-		{	if(oflags&O_TRUNC)
+		{	if(oflags&(O_CREAT|O_EXCL) ) /* error: file already exists */
+			{	CLOSE(fd);
+				return NIL(Sfio_t*);
+			}
+			if(oflags&O_TRUNC )	/* truncate file */
 			{	reg int	tf;
-				while((tf = creat(file,0666)) < 0 && errno == EINTR)
+				while((tf = creat(file,SF_CREATMODE)) < 0 &&
+				      errno == EINTR)
 					errno = 0;
 				CLOSE(tf);
 			}
 		}
 		else if(oflags&O_CREAT)
-		{	while((fd = creat(file,0666)) < 0 && errno == EINTR)
+		{	while((fd = creat(file,SF_CREATMODE)) < 0 && errno == EINTR)
 				errno = 0;
 			if(!(oflags&O_WRONLY))
 			{	/* the file now exists, reopen it for read/write */
 				CLOSE(fd);
-				while((fd = open(file,oflags&03)) < 0 && errno == EINTR)
+				while((fd = open(file,oflags&(O_WRONLY|O_RDWR))) < 0 &&
+				      errno == EINTR)
 					errno = 0;
 			}
 		}
@@ -60,19 +66,21 @@ reg char	*mode;		/* mode of the stream */
 	oldfd = (f && !(f->flags&SF_STRING)) ? f->file : -1;
 
 	if(sflags&SF_STRING)
-		f = sfnew(f,(char*)file,file ? (int)strlen((char*)file) : -1,fd,sflags);
-	else if((f = sfnew(f,NIL(char*),-1,fd,sflags|SF_OPEN)) && oldfd >= 0)
+		f = sfnew(f,(char*)file,file ? (int)strlen((char*)file) : SF_UNBOUND,
+			  fd,sflags);
+	else if((f = sfnew(f,NIL(char*),(size_t)SF_UNBOUND,
+			   fd,sflags|SF_OPEN)) && oldfd >= 0)
 		(void)sfsetfd(f,oldfd);
 
 	return f;
 }
 
 #if __STD_C
-int _sftype(reg const char *mode, int *oflagsp)
+int _sftype(reg const char* mode, int* oflagsp)
 #else
 int _sftype(mode, oflagsp)
-reg char	*mode;
-int		*oflagsp;
+reg char*	mode;
+int*		oflagsp;
 #endif
 {
 	reg int	sflags, oflags;
@@ -109,11 +117,16 @@ int		*oflagsp;
 		oflags &= ~O_BINARY;
 		oflags |= O_TEXT;
 		continue;
+	case 'x' :
+		oflags |= O_EXCL;
+		continue;
 	case '+' :
 		if(sflags)
 			sflags |= SF_READ|SF_WRITE;
 		continue;
 	default :
+		if(!(oflags&O_CREAT) )
+			oflags &= ~O_EXCL;
 		if((sflags&SF_RDWR) == SF_RDWR)
 			oflags = (oflags&~(O_RDONLY|O_WRONLY))|O_RDWR;
 		if(!(oflags&O_BINARY) && (sflags&SF_READ))

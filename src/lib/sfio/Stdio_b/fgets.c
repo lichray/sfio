@@ -5,16 +5,16 @@
 */
 
 #if __STD_C
-char *fgets(char *buf,int n,FILE *fp)
+char* fgets(char* buf, int n, FILE* fp)
 #else
-char *fgets(buf,n,fp)
-char	*buf;
+char* fgets(buf,n,fp)
+char*	buf;
 int	n;
-reg FILE *fp;
+FILE*	fp;
 #endif
 {
-	reg Sfio_t	*sp;
-	reg char	*rv;
+	reg Sfio_t*	sp;
+	reg char*	rv;
 
 	if(!(sp = _sfstream(fp)))
 		return NIL(char*);

@@ -2,16 +2,16 @@
 
 main()
 {
-	Sfile_t	*f1, *f2;
+	Sfio_t	*f1, *f2;
 	char*	s;
-	long	p;
+	Sfoff_t	p;
 
-	if(!(f1 = sfopen(NIL(Sfile_t*),"xxx","w")) )
+	if(!(f1 = sfopen(NIL(Sfio_t*),"xxx","w")) )
 		terror("Can't open f1\n");
 	if(!(f1 = sfopen(f1,"xxx","a+")) )
 		terror("Can't open f1\n");
 
-	if(!(f2 = sfopen(NIL(Sfile_t*),"xxx","a+")) )
+	if(!(f2 = sfopen(NIL(Sfio_t*),"xxx","a+")) )
 		terror("Can't open f2\n");
 
 	if(sfwrite(f1,"012345678\n",10) != 10 || sfsync(f1) < 0)
@@ -24,7 +24,7 @@ main()
 	if((p = sftell(f2)) != 20)
 		terror("Bad sftell2\n");
 
-	if((p = sfseek(f1,0L,0)) != 0L)
+	if((p = sfseek(f1,(Sfoff_t)0,0)) != 0)
 		terror("Bad seek\n");
 	if(!(s = sfgetr(f1,'\n',1)) )
 		terror("Bad getr1\n");
@@ -39,7 +39,7 @@ main()
 	if((p = sftell(f1)) != 30)
 		terror("Bad sftell4\n");
 
-	if((p = sfseek(f2,10L,0)) != 10L)
+	if((p = sfseek(f2,(Sfoff_t)10,0)) != 10)
 		terror("Bad seek\n");
 	if(!(s = sfgetr(f2,'\n',1)) )
 		terror("Bad getr2\n");
@@ -52,5 +52,5 @@ main()
 		terror("Bad input3\n");
 
 	system("rm xxx >/dev/null 2>&1");
-	exit(0);
+	return 0;
 }

@@ -6,15 +6,15 @@
 */
 
 #if __STD_C
-double sfgetd(Sfio_t* f)
+Sfdouble_t sfgetd(Sfio_t* f)
 #else
-double sfgetd(f)
-Sfio_t	*f;
+Sfdouble_t sfgetd(f)
+Sfio_t*	f;
 #endif
 {
 	reg uchar	*s, *ends, c;
-	reg double	v;
 	reg int		p, sign, exp;
+	reg double	v;
 
 	if((sign = sfgetc(f)) < 0 || (exp = (int)sfgetu(f)) < 0)
 		return -1.;
@@ -31,8 +31,7 @@ Sfio_t	*f;
 		}
 
 		for(ends = s+p; s < ends; )
-		{
-			c = *s++;
+		{	c = *s++;
 			v += SFUVALUE(c);
 			v = ldexp(v,-SF_PRECIS);
 			if(!(c&SF_MORE))
@@ -49,5 +48,5 @@ done:
 		v = -v;
 
 	SFOPEN(f,0);
-	return v;
+	return (Sfdouble_t)v;
 }

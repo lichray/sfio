@@ -3,11 +3,12 @@
 static int	Didsync;
 
 #if __STD_C
-static except(Sfio_t* f, int type, Sfdisc_t* disc)
+static except(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-static except(f, type, disc)
+static except(f, type, data, disc)
 Sfio_t*		f;
 int		type;
+Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
@@ -75,12 +76,13 @@ main()
 	if(Didsync)
 		terror("Should not have seen SF_SYNC yet\n");
 	sfsync(NIL(Sfio_t*));
-	if(Didsync)
-		terror("Should not have seen SF_SYNC yet2\n");
+	if(!Didsync)
+		terror("Should have seen SF_SYNC\n");
 
 	sfputc(f1,'7');
 	sfputc(f1,'8');
 
+	Didsync = 0;
 	sfsync(f1);
 	if(!Didsync)
 		terror("Did not see SF_SYNC1\n");
@@ -94,7 +96,7 @@ main()
 	if(Didsync)
 		terror("Should not have seen this\n");
 
-	sfseek(f2,0L,0);
+	sfseek(f2,(Sfoff_t)0,0);
 	sfgetc(f2);
 	if((s = sftell(f2)) != 1)
 		terror("Wrong sfseek location s=%ld\n",s);
@@ -109,5 +111,5 @@ main()
 
 	unlink("xxx");
 
-	exit(0);
+	return 0;
 }

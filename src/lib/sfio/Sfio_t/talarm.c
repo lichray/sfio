@@ -17,11 +17,12 @@ int	sig;
 }
 
 #if __STD_C
-exceptf(Sfio_t* f, int type, Sfdisc_t* disc)
+exceptf(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-exceptf(f, type, disc)
+exceptf(f, type, data, disc)
 Sfio_t* 	f;
 int		type;
+Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
@@ -41,7 +42,7 @@ main()
 
 	if(pipe(fd) < 0)
 		terror("Can't make pipe\n");
-	if(sfnew(sfstdin,NIL(char*),-1,fd[0],SF_READ) != sfstdin)
+	if(sfnew(sfstdin,NIL(char*),(size_t)SF_UNBOUND,fd[0],SF_READ) != sfstdin)
 		terror("Can't renew stdin\n");
 	sfdisc(sfstdin,&Disc);
 	sfset(sfstdin,SF_SHARE,1);

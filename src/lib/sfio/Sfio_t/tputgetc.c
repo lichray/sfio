@@ -1,11 +1,7 @@
 #include	"sftest.h"
 
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {	Sfio_t	*f;
 	int	i, c;
 
@@ -16,7 +12,7 @@ main()
 		if(sfputc(f,(i%26)+'a') < 0)
 			terror("Writing %c\n",(i%26)+'a');
 
-	sfseek(f,0L,0);
+	sfseek(f,(Sfoff_t)0,0);
 
 	for(i = 0; i < 10000; ++i)
 		if((c = sfgetc(f)) != ((i%26)+'a'))

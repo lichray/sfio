@@ -1,42 +1,58 @@
+#define _in_filbuf	1
 #include	"sfstdio.h"
 
 /*	Fill buffer.
 **	Written by Kiem-Phong Vo.
 */
 
-#if __STD_C
-int _filbuf(FILE *fp)
-#else
-int _filbuf(fp)
-reg FILE	*fp;
-#endif
+FILBUF(f)
 {
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sf;
 	reg int		rv;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
-	_stdclrerr(fp,sp);
-	if((rv = sfgetc(sp)) < 0)
-	{
-		if(sfeof(sp))
-			_stdeof(fp);
-		if(sferror(sp))
-			_stderr(fp);
+	_stdclrerr(f,sf);
+	if((rv = sfgetc(sf)) < 0)
+	{	if(sfeof(sf))
+			_stdeof(f);
+		if(sferror(sf))
+			_stderr(f);
 	}
-#if _FILE_cnt
 	else
-	{	/* let user have fast access to the data */
-		fp->std_ptr = sp->next;
-		fp->std_cnt = sp->endb-sp->next;
-
-		/* protection against mixing sfio/stdio */
-		_Sfstdio = _sfstdio;
-		sp->mode |= SF_STDIO;
-		sp->endr = sp->endw = sp->data;
-	}
+	{
+#if _FILE_readptr	/* Linux-stdio */
+#if _under_flow && !_u_flow	/* __underflow does not bump pointer */
+		f->std_readptr = sf->next-1;
+#else
+		f->std_readptr = sf->next;
 #endif
+		f->std_readend = sf->endb;
+#endif
+#if _FILE_writeptr
+		f->std_writeptr = f->std_writeend = NIL(uchar*);
+#endif
+
+#if _FILE_ptr || _FILE_p	/* old/BSD-stdio */
+		f->std_ptr = sf->next;
+#endif
+#if _FILE_cnt
+		f->std_cnt = sf->endb - sf->next;
+#endif
+#if _FILE_r
+		f->std_r = sf->endb - sf->next;
+#endif
+#if _FILE_w
+		f->std_w = 0;
+#endif
+
+#if _FILE_readptr || _FILE_cnt || _FILE_r
+		_Sfstdio = _sfstdio;
+		sf->mode |= SF_STDIO;
+		sf->endr = sf->endw = sf->data;
+#endif
+	}
 
 	return(rv);
 }

@@ -1,10 +1,6 @@
 #include	"sftest.h"
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	Sfio_t	*f;
 	char	*ss, *s;
@@ -22,7 +18,7 @@ main()
 
 	if(!(f = sfopen(f,"xxx","r")))
 		terror("Opening file to read\n");
-	if(sfseek(f,0L,2) != (i*n))
+	if(sfseek(f,(Sfoff_t)0,2) != (i*n))
 		terror("Bad file length\n");
 	if(sftell(f) != (i*n))
 		terror("sftell\n");
@@ -30,7 +26,7 @@ main()
 	{	sfseek(f,-i*n,2);
 		if(!(ss = sfgetr(f,'\n',1)))
 			terror("sfgetr\n");
-		if(strncmp(ss,s,sfslen()-1) != 0)
+		if(strncmp(ss,s,sfvalue(f)-1) != 0)
 			terror("Expect=%s\n",s);
 	}
 
@@ -40,9 +36,9 @@ main()
 		zero[n] = 0;
 	if(sfwrite(f,zero,sizeof(zero)) != sizeof(zero))
 		terror("Writing data\n");
-	if(sfseek(f,0L,2) != lseek(sffileno(f),0L,2))
+	if(sfseek(f,(Sfoff_t)0,2) != (Sfoff_t)lseek(sffileno(f),0L,2))
 		terror("seeking1\n");
-	if(sfseek(f,-1L,2) != lseek(sffileno(f),-1L,2))
+	if(sfseek(f,(Sfoff_t)(-1),2) != (Sfoff_t)lseek(sffileno(f),-1L,2))
 		terror("seeking2\n");
 
 	if(!(f = sfopen(f,"xxx","w")))

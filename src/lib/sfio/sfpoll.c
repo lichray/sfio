@@ -1,6 +1,8 @@
 #include	"sfhdr.h"
 
 /*	Poll a set of streams to see if any is available for I/O.
+**	Ready streams are moved to front of array but retain the
+**	same relative order.
 **
 **	Written by Kiem-Phong Vo (06/18/92).
 */
@@ -17,50 +19,54 @@ int		tm;	/* the amount of time in ms to wait for selecting */
 	reg int		r, c, m;
 	reg Sfio_t*	f;
 	reg Sfdisc_t*	d;
+	reg int		*status, *check;
 
 	if(n <= 0 || !fa)
 		return -1;
 
-	/* this loop partitions the streams into 3 sets: Ready, Check, Notready */
-	r = c = 0;
-	while(c < n)
-	{	f = fa[c];
+	if(!(status = (int*)malloc(2*n*sizeof(int))) )
+		return -1;
+	else	check = status+n;
+
+	/* this loop partitions the streams into 3 sets: Check, Ready, Notready */
+retry:	for(r = c = 0; r < n; ++r)
+	{	f = fa[r];
 
 		/* this loop pops a stream stack as necessary */
 		for(;;)
 		{	/* check accessibility */
 			m = f->mode&SF_RDWR;
-			if(f->mode != m && _sfmode(f,m,0) < 0)
-				goto not_ready;
+			if((int)f->mode != m && _sfmode(f,m,0) < 0)
+				goto do_never;
 
 			/* clearly ready */
 			if(f->next < f->endb)
-				goto ready;
+				goto do_ready;
 
 			/* has discipline, ask its opinion */
 			for(d = f->disc; d; d = d->disc)
 				if(d->exceptf)
 					break;
 			if(d)
-			{	if((m = (*d->exceptf)(f,SF_DPOLL,d)) < 0)
-					goto not_ready;
+			{	if((m = (*d->exceptf)(f,SF_DPOLL,&tm,d)) < 0)
+					goto do_never;
 				else if(m > 0)
-					goto ready;
+					goto do_ready;
 				/*else check file descriptor*/
 			}
 
 			/* unseekable stream, must check for blockability */
 			if(f->extent < 0)
-				goto check;
+				goto do_check;
 
 			/* string/regular streams with no possibility of blocking */
 			if(!f->push)
-				goto ready;
+				goto do_ready;
 
 			/* stacked regular file stream with I/O possibility */
 			if(!(f->flags&SF_STRING) &&
 			   ((f->mode&SF_WRITE) || f->here < f->extent) )
-				goto ready;
+				goto do_ready;
 
 			/* at an apparent eof, pop stack if ok, then recheck */
 			SETLOCAL(f);
@@ -68,68 +74,52 @@ int		tm;	/* the amount of time in ms to wait for selecting */
 			{
 			case SF_EDONE:
 				if(f->flags&SF_STRING)
-					goto not_ready;
-				else	goto ready;
+					goto do_never;
+				else	goto do_ready;
 			case SF_EDISC:
 				if(f->flags&SF_STRING)
-					goto ready;
+					goto do_ready;
 			case SF_ESTACK:
 			case SF_ECONT:
 				continue;
 			}
 		}
 
-		check:	/* local function to set a stream for further checking */
-		{	c += 1;
-			continue;
-		}
-
-		ready:	/* local function to set the ready streams */
-		{	if(r < c)
-			{	fa[c] = fa[r];
-				fa[r] = f;
-			}
-			r += 1;
+		do_check:	/* local function to set a stream for further checking */
+		{	status[r] = 0;
+			check[c] = r;
 			c += 1;
 			continue;
 		}
 
-		not_ready: /* local function to set the not-ready streams */
-		{	if((n -= 1) > c)
-			{	fa[c] = fa[n];
-				fa[n] = f;
-			}
+		do_ready:	/* local function to set the ready streams */
+		{	status[r] = 1;
+			continue;
+		}
+
+		do_never: 	/* local function to set the not-ready streams */
+		{	status[r] = -1;
 			continue;
 		}
 	}
 
 #if _lib_poll
-	if(r == 0 && c > 0)
-	{	static struct pollfd*	fds;
-		static int		n_fds;
-
-		if(c > n_fds)	/* get space for the poll structures */
-		{	if(n_fds > 0)
-				free((char*)fds);
-			if(!(fds = (struct pollfd*)malloc(c*sizeof(struct pollfd))) )
-			{	n_fds = 0;
-				return -1;
-			}
-			n_fds = c;
-		}
+	if(c > 0)
+	{	struct pollfd*	fds;
 
 		/* construct the poll array */
-		for(m = 0; m < c; ++m)
-		{	fds[m].fd = fa[m]->file;
-			fds[m].events = (fa[m]->mode&SF_READ) ? POLLIN : POLLOUT;
-			fds[m].revents = 0;
+		if(!(fds = (struct pollfd*)malloc(c*sizeof(struct pollfd))) )
+			return -1;
+		for(r = 0; r < c; r++)
+		{	fds[r].fd = fa[check[r]]->file;
+			fds[r].events = (fa[check[r]]->mode&SF_READ) ? POLLIN : POLLOUT;
+			fds[r].revents = 0;
 		}
 
 		for(;;)	/* this loop takes care of interrupts */
-		{	reg int	p;
-			if((p = SFPOLL(fds,c,tm)) == 0)
+		{	if((r = SFPOLL(fds,c,tm)) == 0)
 				break;
-			else if(p < 0)
+			else if(r < 0)
 			{	if(errno == EINTR || errno == EAGAIN)
 				{	errno = 0;
 					continue;
@@ -137,31 +127,29 @@ int		tm;	/* the amount of time in ms to wait for selecting */
 				else	break;
 			}
 
-			while(r < c)
-			{	f = fa[r];
+			for(r = 0; r < c; ++r)
+			{	f = fa[check[r]];
 				if(((f->mode&SF_READ) && (fds[r].revents&POLLIN)) ||
-			   	((f->mode&SF_WRITE) && (fds[r].revents&POLLOUT)) )
-					r += 1;
-				else if((c -= 1) > r)
-				{	fa[r] = fa[c];
-					fa[c] = f;
-				}
+			   	   ((f->mode&SF_WRITE) && (fds[r].revents&POLLOUT)) )
+					status[check[r]] = 1;
 			}
 			break;
 		}
+
+		free((Void_t*)fds);
 	}
 #endif /*_lib_poll*/
 
 #if _lib_select
-	if(r == 0 && c > 0)
+	if(c > 0)
 	{	fd_set		rd, wr;
 		struct timeval	tmb, *tmp;
 
 		FD_ZERO(&rd);
 		FD_ZERO(&wr);
 		m = 0;
-		for(n = 0; n < c; ++n)
-		{	f = fa[n];
+		for(r = 0; r < c; ++r)
+		{	f = fa[check[r]];
 			if(f->file > m)
 				m = f->file;
 			if(f->mode&SF_READ)
@@ -176,29 +164,50 @@ int		tm;	/* the amount of time in ms to wait for selecting */
 			tmb.tv_usec = (tm%SECOND)*SECOND;
 		}
 		for(;;)
-		{	reg int	s;
-			if((s = select(m+1,&rd,&wr,NIL(fd_set*),tmp)) == 0)
+		{	if((r = select(m+1,&rd,&wr,NIL(fd_set*),tmp)) == 0)
 				break;
-			else if(s < 0)
+			else if(r < 0)
 			{	if(errno == EINTR)
 					continue;
 				else	break;
 			}
 
-			while(r < c)
-			{	f = fa[r];
+			for(r = 0; r < c; ++r)
+			{	f = fa[check[r]];
 				if(((f->mode&SF_READ) && FD_ISSET(f->file,&rd)) ||
 				   ((f->mode&SF_WRITE) && FD_ISSET(f->file,&wr)) )
-					r += 1;
-				else if((c -= 1) > r)
-				{	fa[r] = fa[c];
-					fa[c] = f;
-				}
+					status[check[r]] = 1;
 			}
 			break;
 		}
 	}
 #endif /*_lib_select*/
 
+	/* call exception functions */
+	for(c = 0; c < n; ++c)
+	{	if(status[c] <= 0)
+			continue;
+		if((d = fa[c]->disc) && d->exceptf)
+		{	if((r = (*d->exceptf)(fa[c],SF_READY,(Void_t*)0,d)) < 0)
+				goto done;
+			else if(r > 0)
+				goto retry;
+		}
+	}
+
+	/* move ready streams to the front */
+	for(r = c = 0; c < n; ++c)
+	{	if(status[c] > 0)
+		{	if(c > r)
+			{	f = fa[r];
+				fa[r] = fa[c];
+				fa[c] = f;
+			}
+			r += 1;
+		}
+	}
+
+done:
+	free((Void_t*)status);
 	return r;
 }

@@ -5,17 +5,17 @@
 */
 
 #if __STD_C
-int fsetpos(reg FILE* fp, reg long* pos)
+int fsetpos(reg FILE* fp, reg fpos_t* pos)
 #else
 int fsetpos(fp, pos)
 reg FILE*	fp;
-reg long*	pos;
+reg fpos_t*	pos;
 #endif
 {
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 	if(!pos || *pos < 0 || !(sp = _sfstream(fp)))
 		return -1;
 	_stdclrerr(fp,sp);
-	return sfseek(sp,*pos,0) == *pos ? 0 : -1;
+	return (fpos_t)sfseek(sp,(Sfoff_t)(*pos),0) == *pos ? 0 : -1;
 }

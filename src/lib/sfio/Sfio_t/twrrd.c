@@ -1,11 +1,7 @@
 #include	"sftest.h"
 
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	int	i;
 	char	wbuf[1023];
@@ -23,10 +19,10 @@ main()
 		if(sfwrite(fp,wbuf,sizeof(wbuf)) != sizeof(wbuf))
 			terror("Writing\n");
 
-	sfseek(fp,0L,0);
+	sfseek(fp,(Sfoff_t)0,0);
 	sfset(fp,SF_WRITE,0);
 	sfsetbuf(fp,NIL(char*),0);
-	sfsetbuf(fp,NIL(char*),-1);
+	sfsetbuf(fp,NIL(char*),SF_UNBOUND);
 
 	for(i = 0; i < 1024; ++i)
 	{	if(sfread(fp,rbuf,sizeof(rbuf)) != sizeof(rbuf))

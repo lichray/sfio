@@ -6,13 +6,13 @@
 
 
 #if __STD_C
-int getw(FILE *fp)
+int getw(FILE* fp)
 #else
 int getw(fp)
-reg FILE	*fp;
+reg FILE*	fp;
 #endif
 {
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 	int		w;
 
 	if(!(sp = _sfstream(fp)))

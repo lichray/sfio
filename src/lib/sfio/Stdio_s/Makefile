@@ -9,10 +9,8 @@ CXFLAGS=
 CCMODE=	-O
 CCFLAGS= -I.. $(CCMODE) $(CXFLAGS)
 
-SRCS=	stdgets.c stdprintf.c stdscanf.c stdvbuf.c stdsprnt.c \
-	stdvsprnt.c stdvsnprnt.c stdvsscn.c stdopen.c
-OBJS=	stdgets.o stdprintf.o stdscanf.o stdvbuf.o stdsprnt.o \
-	stdvsprnt.o stdvsnprnt.o stdvsscn.o stdopen.o
+SRCS=	stdgets.c stdopen.c stdprintf.c stdscanf.c stdsprintf.c stdvbuf.c
+OBJS=	stdgets.o stdopen.o stdprintf.o stdscanf.o stdsprintf.o stdvbuf.o
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $*.c

@@ -6,25 +6,25 @@
 */
 
 #if __STD_C
-long sfseek(reg Sfio_t* f, reg long p, reg int type)
+Sfoff_t sfseek(reg Sfio_t* f, reg Sfoff_t p, reg int type)
 #else
-long sfseek(f,p,type)
+Sfoff_t sfseek(f,p,type)
 reg Sfio_t	*f;	/* seek to a new location in this stream */
-reg long	p;	/* place to seek to */
+reg Sfoff_t	p;	/* place to seek to */
 int		type;	/* 0: from org, 1: from here, 2: from end */
 #endif
 {
-	reg long	r, s;
+	reg Sfoff_t	r, s;
 	reg int		mode, local;
 
 	GETLOCAL(f,local);
 
 	/* set and initialize the stream to a definite mode */
-	if(SFMODE(f,local) != (mode = f->mode&SF_RDWR) && _sfmode(f,mode,local) < 0 )
-		return -1L;
+	if((int)SFMODE(f,local) != (mode = f->mode&SF_RDWR) && _sfmode(f,mode,local) < 0 )
+		return -1;
 
-	if(type < 0 || type > 2 || f->extent < 0L)
-		return -1L;
+	if(type < 0 || type > 2 || f->extent < 0)
+		return -1;
 
 	/* throw away ungetc data */
 	if(f->disc == _Sfudisc)
@@ -56,20 +56,20 @@ int		type;	/* 0: from org, 1: from here, 2: from end */
 
 		/* check exception handler, note that this may pop stream */
 		if(SFSK(f,r,0,f->disc) != 0)
-		{	p = -1L;
+		{	p = -1;
 			goto done;
 		}
 	}
 
 	/* flush any pending write data */
 	if((f->mode&SF_WRITE) && f->next > f->data && SFSYNC(f) < 0)
-	{	p = -1L;
+	{	p = -1;
 		goto done;
 	}
 
 	/* currently known seek location */
 	if((f->flags&(SF_SHARE|SF_PUBLIC)) == (SF_SHARE|SF_PUBLIC))
-	{	s = SFSK(f,0L,1,f->disc);
+	{	s = SFSK(f,0,1,f->disc);
 		if(s == f->here)
 			goto logical_seek;
 	}
@@ -83,9 +83,9 @@ int		type;	/* 0: from org, 1: from here, 2: from end */
 		goto done;
 
 #ifdef MAP_TYPE
-	if(f->flags&SF_MMAP)
+	if(f->bits&SF_MMAP)
 	{	/* move buffer pointer if possible */
-		p += type == 0 ? 0L : type == 1 ? s : f->extent;
+		p += type == 0 ? 0 : type == 1 ? s : f->extent;
 		if(p >= (f->here - (f->endb-f->data)) && p < f->here)
 			f->next = f->endb - (f->here - p);
 		else if(p >= 0)
@@ -94,7 +94,7 @@ int		type;	/* 0: from org, 1: from here, 2: from end */
 
 			/* map is now invalid */
 			if(f->data)
-			{	(void)munmap((caddr_t)f->data,f->endb-f->data);
+			{	SFMUNMAP(f,f->data,f->endb-f->data);
 				f->endb = f->endr = f->endw =
 				f->next = f->data = NIL(uchar*);
 			}
@@ -107,7 +107,7 @@ int		type;	/* 0: from org, 1: from here, 2: from end */
 	if(type == 1 && p == 0 && !(f->flags&(SF_APPENDWR|SF_SHARE)) )
 	{	/* certify current location only */
 		if((p = SFSK(f,f->here,0,f->disc)) != f->here)
-			p = -1L;
+			p = -1;
 		else	p = s;
 		goto done;
 	}
@@ -120,7 +120,7 @@ int		type;	/* 0: from org, 1: from here, 2: from end */
 		}
 	}
 	else if(type < 2 && !(f->flags&(SF_SHARE|SF_APPENDWR)) &&
-		(r = p + (type == 0 ? 0L : s)) > f->here && r < f->extent)
+		(r = p + (type == 0 ? 0 : s)) > f->here && r < f->extent)
 	{	/* move forward by reading */
 		if(f->next == f->endb)
 			f->endb = f->endr = f->next = f->data;
@@ -130,7 +130,7 @@ int		type;	/* 0: from org, 1: from here, 2: from end */
 
 	if(type < 2)
 	{	/* place to seek to */	
-		p += type == 0 ? 0L : s;
+		p += type == 0 ? 0 : s;
 
 		if((f->mode&SF_READ) && !(f->flags&(SF_SHARE|SF_APPENDWR)) &&
 		   p >= (f->here - (f->endb-f->data)) && p <= f->here)
@@ -155,7 +155,7 @@ int		type;	/* 0: from org, 1: from here, 2: from end */
 		{	f->here = r;
 			SFFILBUF(f,-1);
 			if(f->here < p)
-				p = -1L;
+				p = -1;
 			else	f->next = f->endb - (f->here-p);
 			goto done;
 		}

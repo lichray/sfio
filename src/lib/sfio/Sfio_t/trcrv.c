@@ -1,12 +1,12 @@
 #include	"sftest.h"
 
 #if __STD_C
-myread(Sfio_t* f, Void_t* buf, int n, Sfdisc_t* disc)
+ssize_t myread(Sfio_t* f, Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
-myread(f, buf, n, disc)
+ssize_t myread(f, buf, n, disc)
 Sfio_t*	f;
 Void_t*	buf;
-int	n;
+size_t	n;
 Sfdisc_t* disc;
 #endif
 {
@@ -22,12 +22,12 @@ main()
 	if(pipe(fd) < 0)
 		terror("Can't open pipe\n");
 
-	if(sfnew(sfstdin,NIL(char*),-1,fd[0],SF_READ) != sfstdin)
+	if(sfnew(sfstdin,NIL(Void_t*),(size_t)SF_UNBOUND,fd[0],SF_READ) != sfstdin)
 		terror("Can't initialize sfstdin\n");
 	sfset(sfstdin,SF_SHARE,1);
 	sfdisc(sfstdin,&Disc);
 
-	if(sfnew(sfstdout,NIL(char*),0,fd[1],SF_WRITE) != sfstdout)
+	if(sfnew(sfstdout,NIL(Void_t*),0,fd[1],SF_WRITE) != sfstdout)
 		terror("Can't initialize sfstdout\n");
 	sfputr(sfstdout,"111\n222\n333\n",-1);
 	sfsync(sfstdout);
@@ -42,5 +42,5 @@ main()
 	if(sfstdin->endb > sfstdin->next)
 		terror("sfgetr reads too much2\n");
 
-	exit(0);
+	return 0;
 }

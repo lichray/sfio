@@ -1,0 +1,173 @@
+iff AST_COMMON
+sys types
+typ ssize_t
+typ long.double
+typ long.long
+typ int64_t
+typ uint64_t
+typ __int64
+
+dll import note{ Microsoft import/export nonsense }end execute{
+	__declspec(dllimport) int foo;
+	main() { return foo == 5 ? 0 : 1; }
+	int	bar = 5;
+	int*	_imp__foo = &bar;
+}end
+
+cat{
+	/* __STD_C indicates that the language is ANSI-C or C++ */
+	#ifndef __STD_C
+	#ifdef __STDC__
+	#define	__STD_C		1
+	#else
+	#if __cplusplus || c_plusplus
+	#define __STD_C		1
+	#else
+	#define __STD_C		0
+	#endif /*__cplusplus*/
+	#endif /*__STDC__*/
+	#endif /*__STD_C*/
+
+	/* extern symbols must be protected against C++ name mangling */
+	#ifndef _BEGIN_EXTERNS_
+	#if __cplusplus || c_plusplus
+	#define _BEGIN_EXTERNS_	extern "C" {
+	#define _END_EXTERNS_	}
+	#else
+	#define _BEGIN_EXTERNS_
+	#define _END_EXTERNS_
+	#endif
+	#endif /*_BEGIN_EXTERNS_*/
+
+	/* _ARG_ simplifies function prototyping among flavors of C */
+	#ifndef _ARG_
+	#if __STD_C
+	#define _ARG_(x)	x
+	#else
+	#define _ARG_(x)	()
+	#endif
+	#endif /*_ARG_*/
+
+	/* __INLINE__ is the inline keyword */
+	#if !defined(__INLINE__) && defined(__cplusplus)
+	#define __INLINE__	inline
+	#endif
+	#if !defined(__INLINE__) && defined(_WIN32)
+	#define __INLINE__	__inline
+	#endif
+
+	/* Void_t is defined so that Void_t* can address any type */
+	#ifndef Void_t
+	#if __STD_C
+	#define Void_t		void
+	#else
+	#define Void_t		char
+	#endif
+	#endif /*Void_t*/
+
+	/* NIL() simplifies defining nil pointers to a given type */
+	#ifndef NIL
+	#define NIL(type)	((type)0)
+	#endif /*NIL*/
+
+	/* dynamic linked library external scope handling */
+	#undef extern
+	#if _DLL && defined(_WIN32) && !defined(__EXPORT__)
+	#define __EXPORT__	__declspec(dllexport)
+	#endif
+	#if defined(_WIN32) && !defined(__IMPORT__)
+	#define __IMPORT__	__declspec(dllimport)
+	#endif
+	#ifndef _astimport
+	#if _DLL && defined(__IMPORT__)
+	#define _astimport	__IMPORT__
+	#else
+	#define _astimport	extern
+	#endif
+	#endif /*_astimport*/
+}end
+
+cat{
+	#if !_DLL && _dll_import
+	#	ifdef __STDC__
+	#	define __EXTERN__(T,obj)	extern T obj; T* _imp__ ## obj = &obj
+	#	define __DEFINE__(T,obj,val)	T obj = val; T* _imp__ ## obj = &obj
+	#	else
+	#	define __EXTERN__(T,obj)	extern T obj; T* _imp__/**/obj = &obj
+	#	define __DEFINE__(T,obj,val)	T obj = val; T* _imp__/**/obj = &obj
+	#	endif
+	#else
+	#	define __EXTERN__(T,obj)	extern T obj
+	#	define __DEFINE__(T,obj,val)	T obj = val
+	#endif
+}end
+
+cat{
+	#if !_PACKAGE_ast
+	#	if __STD_C
+	#	include	<stddef.h>
+	#	endif
+	#	if _sys_types
+	#	include	<sys/types.h>
+	#	endif
+	#endif
+	#if !_typ_ssize_t
+	#define _typ_ssize_t	1
+	typedef int ssize_t;
+	#endif
+}end
+
+tst - -DTRY=1 - -DTRY=2 - -DTRY=3 - -DTRY=4 output{
+	#include <stdio.h>
+	#ifdef __STDC__
+	#include <stdarg.h>
+	#else
+	#include <varargs.h>
+	#endif
+	static va_list ap;
+	main()
+	{
+	#if TRY == 4
+		printf("\\n#ifndef va_listref\\n");
+		printf("#define va_listref(p) (&(p))\\t");
+			printf("/* pass va_list to varargs function */\\n");
+		printf("#define va_listval(p) (*(p))\\t");
+			printf("/* retrieve va_list from va_arg(ap,va_listarg) */\\n");
+		printf("#define va_listarg va_list*\\t");
+			printf("/* va_arg() va_list type */\\n");
+	#else
+	#if TRY == 1
+		*ap++;
+	#endif /*TRY == 1*/
+	#if TRY == 2
+		*ap;
+	#endif /*TRY == 2*/
+	#if TRY == 3
+		ap++;
+	#endif /*TRY == 3*/
+
+		printf("\\n#ifndef va_listref\\n");
+		printf("#define va_listref(p) (p)\\t");
+			printf("/* pass va_list to varargs function */\\n");
+		printf("#define va_listval(p) (p)\\t");
+			printf("/* retrieve va_list from va_arg(ap,va_listarg) */\\n");
+	#if TRY == 2
+		printf("#define va_listarg va_list*\\t");
+	#else
+		printf("#define va_listarg va_list\\t");
+	#endif /*TRY == 2*/
+			printf("/* va_arg() va_list type */\\n");
+	#endif /*TRY == 4*/
+
+	#if TRY == 2
+		printf("#define va_copy(to,fr) memcpy(to,fr,sizeof(va_list))\\t");
+			printf("/* copy va_list fr -> to */\\n");
+		printf("#endif\\n");
+	#else
+		printf("#define va_copy(to,fr) ((to)=(fr))\\t");
+			printf("/* copy va_list fr -> to */\\n");
+		printf("#endif\\n");
+	#endif
+		return 0;
+	}
+}end

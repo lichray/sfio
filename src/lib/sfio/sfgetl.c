@@ -6,36 +6,35 @@
 */
 
 #if __STD_C
-long _sfgetl(reg Sfio_t* f)
+Sflong_t _sfgetl(reg Sfio_t* f)
 #else
-long _sfgetl(f)
-reg Sfio_t	*f;
+Sflong_t _sfgetl(f)
+reg Sfio_t*	f;
 #endif
 {
+	reg Sflong_t	v;
 	reg uchar	*s, *ends, c;
 	reg int		p;
-	reg long	v;
 
-	if(!(_Sfi&SF_MORE))	/* must be a small negative number */
-		return -SFSVALUE(_Sfi)-1;
+	v = (Sflong_t)f->val;
+	if(!(v&SF_MORE))	/* must be a small negative number */
+		return -SFSVALUE(v)-1;
 
 	SFLOCK(f,0);
-	v = SFUVALUE(_Sfi);
+	v = SFUVALUE(v);
 	for(;;)
-	{
-		if(SFRPEEK(f,s,p) <= 0)
+	{	if(SFRPEEK(f,s,p) <= 0)
 		{	f->flags |= SF_ERROR;
-			v = -1L;
+			v = (Sflong_t)(-1);
 			goto done;
 		}
 		for(ends = s+p; s < ends;)
-		{
-			c = *s++;
+		{	c = *s++;
 			if(c&SF_MORE)
-				v = ((ulong)v << SF_UBITS) | SFUVALUE(c);
+				v = ((Sfulong_t)v << SF_UBITS) | SFUVALUE(c);
 			else
 			{	/* special translation for this byte */
-				v = ((ulong)v << SF_SBITS) | SFSVALUE(c);
+				v = ((Sfulong_t)v << SF_SBITS) | SFSVALUE(c);
 				f->next = s;
 				v = (c&SF_SIGN) ? -v-1 : v;
 				goto done;

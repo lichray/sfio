@@ -1,14 +1,10 @@
 #include	"sfhdr.h"
 
-/*	Convert a Double_t value represented in an ASCII format into
-**	the internal Double_t representation.
+/*	Convert a Sfdouble_t value represented in an ASCII format into
+**	the internal Sfdouble_t representation.
 **
 **	Written by David Korn and Kiem-Phong Vo (06/27/90)
 */
-
-#if !_sfio_cvt
-int	_Sfstrtod_already_defined;
-#else
 
 #define BATCH	(2*sizeof(int))	/* accumulate this many digits at a time */
 #define IPART		0	/* doing integer part */
@@ -16,55 +12,49 @@ int	_Sfstrtod_already_defined;
 #define EPART		2	/* doing exponent part */
 
 #if __STD_C
-static Double_t pow10(reg int n)
+static Sfdouble_t sfpow10(reg int n)
 #else
-static Double_t pow10(n)
+static Sfdouble_t sfpow10(n)
 reg int	n;
 #endif
 {
-	reg int		m, pow;
-	reg Double_t	dval, d, *pow10;
+	reg Sfdouble_t	dval;
 
-	/* set up look up table */
-	if((pow = n) < 0)
-	{	pow10 = _Sfneg10;
-		pow = -pow;
-	}
-	else	pow10 = _Sfpos10;
-
-	/* reduce to a low exponent */
-	dval = 1.;
-	if(pow >= SF_MAXPOW10)
-	{	d = pow10[SF_MAXEXP10-1]*pow10[SF_MAXEXP10-1];	
-		for(m = pow/SF_MAXPOW10; m > 0; --m)
-			dval *= d;
-		pow = pow%SF_MAXPOW10;
+	switch(n)
+	{	case -3:	return .001;
+		case -2:	return .01;
+		case -1:	return .1;
+		case  0:	return 1.;
+		case  1:	return 10.;
+		case  2:	return 100.;
+		case  3:	return 1000.;
 	}
 
-	/* fast loop for the rest */
-	for(m = 1; m <= pow;)
-	{	if(m&pow)
-			dval *= *pow10;
-		pow10 += 1;
-		if(n < 0)
-			pow >>= 1;
-		else	m <<= 1;
+	if(n < 0)
+	{	dval = .0001;
+		for(n += 4; n < 0; n += 1)
+			dval /= 10.;
+	}
+	else
+	{	dval = 10000.;
+		for(n -= 4; n > 0; n -= 1)
+			dval *= 10.;
 	}
 
 	return dval;
 }
 
 #if __STD_C
-Double_t _sfstrtod(reg const char* s, char** retp)
+Sfdouble_t _sfstrtod(reg const char* s, char** retp)
 #else
-Double_t _sfstrtod(s,retp)
+Sfdouble_t _sfstrtod(s,retp)
 reg char*	s;	/* string to convert */
 char**		retp;	/* to return the remainder of string */
 #endif
 {
 	reg int		n, c, m;
 	reg int		mode, fexp, sign, expsign;
-	Double_t	dval;
+	Sfdouble_t	dval;
 #if _lib_locale
 	struct lconv*	lv;
 	int		decpoint = 0;
@@ -100,20 +90,20 @@ char**		retp;	/* to return the remainder of string */
 		if(mode == IPART)
 		{	/* doing the integer part */
 			if(dval == 0.)
-				dval = (Double_t)n;
-			else	dval = dval*pow10(m) + (Double_t)n;
+				dval = (Sfdouble_t)n;
+			else	dval = dval*sfpow10(m) + (Sfdouble_t)n;
 		}
 		else if(mode == FPART)
 		{	/* doing the fractional part */
 			fexp -= m;
 			if(n > 0)
-				dval += n*pow10(fexp);
+				dval += n*sfpow10(fexp);
 		}
 		else if(n)
 		{	/* doing the exponent part */
 			if(expsign)
 				n = -n;
-			dval *= pow10(n);
+			dval *= sfpow10(n);
 		}
 
 		if(!c)
@@ -144,5 +134,3 @@ char**		retp;	/* to return the remainder of string */
 		*retp = (char*)s;
 	return sign ? -dval : dval;
 }
-
-#endif /* !_sfio_cvt */

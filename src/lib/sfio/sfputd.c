@@ -1,24 +1,24 @@
 #include	"sfhdr.h"
 
-/*	Write out a double value in a portable format
+/*	Write out a floating point value in a portable format
 **
 **	Written by Kiem-Phong Vo (08/05/90)
 */
 
 #if __STD_C
-int _sfputd(Sfio_t* f, reg double v)
+int _sfputd(Sfio_t* f, reg Sfdouble_t v)
 #else
 int _sfputd(f,v)
-Sfio_t		*f;
-reg double	v;
+Sfio_t*		f;
+reg Sfdouble_t	v;
 #endif
 {
-#define N_ARRAY		(16*sizeof(double))
-	reg int		n, w;
-	reg double	x;
+#define N_ARRAY		(16*sizeof(Sfdouble_t))
+	reg ssize_t	n, w;
 	reg uchar	*s, *ends;
 	int		exp;
 	uchar		c[N_ARRAY];
+	reg double	x;
 
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
 		return -1;
@@ -31,9 +31,16 @@ reg double	v;
 	}
 	else	n = 0;
 
+#if _typ_long_double /* don't know how to do these yet */
+	if(v > MAXDOUBLE)
+	{	SFOPEN(f,0);
+		return -1;
+	}
+#endif
+
 	/* make the magnitude of v < 1 */
 	if(v != 0.)
-		v = frexp(v,&exp);
+		v = frexp((double)v,&exp);
 	else	exp = 0;
 
 	/* code the sign of v and exp */
@@ -52,7 +59,7 @@ reg double	v;
 	s = (ends = &c[0])+sizeof(c);
 	while(s > ends)
 	{	/* get 2^SF_PRECIS precision at a time */
-		n = (int)(x = ldexp(v,SF_PRECIS));
+		n = (int)(x = ldexp((double)v,SF_PRECIS));
 		*--s = n|SF_MORE;
 		if((v = x-n) <= 0.)
 			break;

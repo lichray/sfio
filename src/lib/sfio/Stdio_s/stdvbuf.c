@@ -7,13 +7,13 @@
 */
 
 #if __STD_C
-int _stdsetvbuf(Sfio_t* f, char *buf, int type, int size)
+int _stdsetvbuf(Sfio_t* f, char* buf, int type, size_t size)
 #else
 int _stdsetvbuf(f,buf,type,size)
-Sfio_t	*f;
-char	*buf;
+Sfio_t*	f;
+char*	buf;
 int	type;
-int	size;
+size_t	size;
 #endif
 {
 	if(type == _IOLBF)

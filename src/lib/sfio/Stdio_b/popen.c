@@ -6,15 +6,15 @@
 
 
 #if __STD_C
-FILE* popen(const char *string,const char *mode)
+FILE* popen(const char* string,const char* mode)
 #else
 FILE* popen(string,mode)
-char	*string;
-char	*mode;
+char*	string;
+char*	mode;
 #endif
 {
-	reg Sfio_t	*sp;
-	reg FILE	*fp;
+	reg Sfio_t*	sp;
+	reg FILE*	fp;
 
 	if(!(sp = sfpopen(NIL(Sfio_t*), string, mode)))
 		return NIL(FILE*);

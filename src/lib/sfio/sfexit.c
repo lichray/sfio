@@ -9,7 +9,7 @@ int	_AST_already_has_them;
 #else
 
 #if !_lib_atexit
-#if _lib_onexit || _lib_on_exit
+#if _lib_onexit
 
 #if __STD_C
 int atexit(void (*exitf)(void))
@@ -20,18 +20,14 @@ void	(*exitf)();
 {
 #if _lib_onexit
 	return onexit(exitf);
-#else
-#if _lib_on_exit
-	return on_exit(exitf,NIL(char*));
-#endif
 #endif
 }
 
-#else /* !_lib_onexit && !_lib_onexit */
+#else /* !_lib_onexit */
 
 typedef struct _exit_s
 {	struct _exit_s*	next;
-	void(*		exitf)_ARG_((void));
+	void		(*exitf)_ARG_((void));
 } Exit_t;
 static Exit_t*	Exit;
 
@@ -53,7 +49,11 @@ void	(*exitf)();
 
 #if _exit_cleanup
 /* since exit() calls _cleanup(), we only need to redefine _cleanup() */
+#if __STD_C
+_cleanup(void)
+#else
 _cleanup()
+#endif
 {
 	Exit_t*	e;
 	for(e = Exit; e; e = e->next)
@@ -80,7 +80,7 @@ int	type;
 }
 #endif /* _exit_cleanup */
 
-#endif	/* _lib_onexit || _lib_on_exit */
+#endif	/* _lib_onexit */
 
 #endif /* !_lib_atexit */
 

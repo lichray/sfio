@@ -6,7 +6,11 @@
 **	Written by Kiem-Phong Vo (06/27/90)
 */
 
+#if __STD_C
+static int _sfall(void)
+#else
 static int _sfall()
+#endif
 {
 	reg Sfpool_t	*p, *next;
 	reg Sfio_t*	f;
@@ -33,17 +37,15 @@ static int _sfall()
 					continue;
 				if((f->mode&SF_READ) && (f->mode&SF_SYNCED) )
 					goto did_sync;
-				if((f->mode&SF_READ) && !(f->flags&SF_MMAP) &&
+				if((f->mode&SF_READ) && !(f->bits&SF_MMAP) &&
 				   f->next == f->endb)
 					goto did_sync;
-				if((f->mode&SF_WRITE) && !(f->flags&SF_HOLE) &&
+				if((f->mode&SF_WRITE) && !(f->bits&SF_HOLE) &&
 				   f->next == f->data)
 					goto did_sync;
 
-				SFLOCK(f,0);
-				if(SFSYNC(f) < 0)
+				if(sfsync(f) < 0)
 					rv = -1;
-				SFOPEN(f,0);
 
 			did_sync:
 				nsync += 1;
@@ -91,23 +93,23 @@ reg Sfio_t*	f;	/* stream to be synchronized */
 		if((f->flags&SF_STRING) || (f->mode&SF_SYNCED))
 			goto next;
 
-		if((f->mode&SF_WRITE) && (f->next > f->data || (f->flags&SF_HOLE)) )
+		if((f->mode&SF_WRITE) && (f->next > f->data || (f->bits&SF_HOLE)) )
 		{	/* sync the buffer, make sure pool don't move */
 			reg int pool = f->mode&SF_POOL;
 			f->mode &= ~SF_POOL;
-			if(f->next > f->data && SFFLSBUF(f,-1) < 0)
+			if(f->next > f->data && (SFWRALL(f), SFFLSBUF(f,-1)) < 0)
 				rv = -1;
-			if(!SFISNULL(f) && (f->flags&SF_HOLE) )
+			if(!SFISNULL(f) && (f->bits&SF_HOLE) )
 			{	/* realize a previously created hole of 0's */
-				if(lseek(f->file,-1L,1) >= 0)
+				if(lseek(f->file,(off_t)(-1),1) >= 0)
 					(void)write(f->file,"",1);
-				f->flags &= ~SF_HOLE;
+				f->bits &= ~SF_HOLE;
 			}
 			f->mode |= pool;
 		}
 
 		if((f->mode&SF_READ) && f->extent >= 0 &&
-		   ((f->flags&SF_MMAP) || f->next < f->endb) )
+		   ((f->bits&SF_MMAP) || f->next < f->endb) )
 		{	/* make sure the file pointer is at the right place */
 			f->here -= (f->endb-f->next);
 			f->endr = f->endw = f->data;
@@ -115,7 +117,7 @@ reg Sfio_t*	f;	/* stream to be synchronized */
 			(void)SFSK(f,f->here,0,f->disc);
 
 			if((f->flags&SF_SHARE) && !(f->flags&SF_PUBLIC) &&
-			   !(f->flags&SF_MMAP) )
+			   !(f->bits&SF_MMAP) )
 			{	f->endb = f->next = f->data;
 				f->mode &= ~SF_SYNCED;
 			}
@@ -127,7 +129,7 @@ reg Sfio_t*	f;	/* stream to be synchronized */
 
 		if(!local && !(f->flags&SF_ERROR) && (f->mode&~SF_RDWR) == 0 &&
 		   (f->flags&SF_IOCHECK) && f->disc && f->disc->exceptf)
-			(void)(*f->disc->exceptf)(f,SF_SYNC,f->disc);
+			(void)(*f->disc->exceptf)(f,SF_SYNC,NIL(Void_t*),f->disc);
 	}
 
 done:

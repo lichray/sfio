@@ -14,11 +14,12 @@
 int _sffilbuf(reg Sfio_t* f, reg int n)
 #else
 int _sffilbuf(f,n)
-reg Sfio_t	*f;	/* fill the read buffer of this stream */
+reg Sfio_t*	f;	/* fill the read buffer of this stream */
 reg int		n;	/* see above */
 #endif
 {
-	reg int		r, local, rcrv, rc;
+	reg ssize_t	r, first;
+	reg int		local, rcrv, rc;
 
 	GETLOCAL(f,local);
 
@@ -26,7 +27,7 @@ reg int		n;	/* see above */
 	rcrv = f->mode&(SF_RC|SF_RV|SF_LOCK);
 	rc = f->getr;
 
-	for(;; f->mode &= ~SF_LOCK)
+	for(first = 1;; first = 0, (f->mode &= ~SF_LOCK) )
 	{	/* check mode */
 		if(SFMODE(f,local) != SF_READ && _sfmode(f,SF_READ,local) < 0)
 			return -1;
@@ -34,19 +35,23 @@ reg int		n;	/* see above */
 
 		/* current extent of available data */
 		if((r = f->endb-f->next) > 0)
-		{	if(n <= 0 || (f->flags&SF_STRING))
+		{	/* on first iteration, n is amount beyond current buffer;
+			   afterward, n is the exact amount requested */
+			if((first && n <= 0) || (!first && n <= r) ||
+			   (f->flags&SF_STRING))
 				break;
 
 			/* shift left to make room for new data */
-			if(!(f->flags&SF_MMAP) && n > (f->size - (f->endb-f->data)) )
+			if(!(f->bits&SF_MMAP) && f->next > f->data &&
+			   n > (f->size - (f->endb-f->data)) )
 			{	memcpy((char*)f->data,(char*)f->next,r);
 				f->endb = (f->next = f->data)+r;
 			}
 		}
-		else if(!(f->flags&(SF_STRING|SF_MMAP)) )
+		else if(!(f->flags&SF_STRING) && !(f->bits&SF_MMAP) )
 			f->next = f->endb = f->endr = f->data;
 
-		if(f->flags&SF_MMAP)
+		if(f->bits&SF_MMAP)
 			r = n > 0 ? n : f->size;
 		else if(!(f->flags&SF_STRING) )
 		{	/* make sure we read no more than required */
@@ -65,5 +70,5 @@ reg int		n;	/* see above */
 	}
 
 	SFOPEN(f,local);
-	return (n == 0) ? (r > 0 ? (int)(*f->next++) : EOF) : r;
+	return (n == 0) ? (r > 0 ? (int)(*f->next++) : EOF) : (int)r;
 }

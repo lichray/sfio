@@ -14,7 +14,7 @@ char    **argv;
 	if(argc > 1)
         {       /* coprocess only */
                 while(s = sfgetr(sfstdin,'\n',0))
-                        sfwrite(sfstdout,s,sfslen());
+                        sfwrite(sfstdout,s,sfvalue(sfstdin));
 		exit(0);
         }
 
@@ -43,5 +43,5 @@ char    **argv;
 	if(sftell(f) != 16)
 		terror("sftell 4\n");
 
-	exit(0);
+	return 0;
 }

@@ -5,40 +5,39 @@
 **	Written by Kiem-Phong Vo (02/12/91)
 */
 #if __STD_C
-long sfsk(reg Sfio_t* f, reg long addr, reg int type, reg Sfdisc_t* disc)
+Sfoff_t sfsk(reg Sfio_t* f, reg Sfoff_t addr, reg int type, Sfdisc_t* disc)
 #else
-long sfsk(f,addr,type,disc)
-reg Sfio_t	*f;
-reg long	addr;
+Sfoff_t sfsk(f,addr,type,disc)
+reg Sfio_t*	f;
+reg Sfoff_t	addr;
 reg int		type;
-reg Sfdisc_t	*disc;
+Sfdisc_t*	disc;
 #endif
 {
-	reg long	p;
-	reg int		s, local, string;
+	reg Sfoff_t	p;
+	reg Sfdisc_t*	dc;
+	reg ssize_t	s;
+	reg int		local;
 
 	GETLOCAL(f,local);
 	if(!local && !(f->mode&SF_LOCK))
 		return -1;
 
-	if(!(string = (f->flags&SF_STRING)))
-		SFDISC(f,disc,seekf,local);
-
 	for(;;)
-	{
-		if(string)
+	{	dc = disc;
+		if(f->flags&SF_STRING)
 		{	SFSTRSIZE(f);
 			if(type == 0)
-				s = (int)addr;
+				s = (ssize_t)addr;
 			else if(type == 1)
-				s = (int)(addr + f->here);
-			else	s = (int)(addr + f->extent);
+				s = (ssize_t)(addr + f->here);
+			else	s = (ssize_t)(addr + f->extent);
 		}
 		else
-		{
-			if(disc && disc->seekf)
-				p = (*(disc->seekf))(f,addr,type,disc);
-			else	p = lseek(f->file,addr,type);
+		{	SFDISC(f,dc,seekf,local);
+			if(dc && dc->seekf)
+				p = (*(dc->seekf))(f,addr,type,dc);
+			else	p = lseek(f->file,(off_t)addr,type);
 			if(p >= 0)
 				return p;
 			s = -1;
@@ -46,15 +45,21 @@ reg Sfdisc_t	*disc;
 
 		if(local)
 			SETLOCAL(f);
-		switch(_sfexcept(f,SF_SEEK,s,disc))
+		switch(_sfexcept(f,SF_SEEK,s,dc))
 		{
 		case SF_EDISC:
 		case SF_ECONT:
-			if(string)
-				return 0L;
-			continue;
+			if(f->flags&SF_STRING)
+				return 0;
+			goto do_continue;
 		default:
-			return -1L;
+			return -1;
 		}
+
+	do_continue:
+		for(dc = f->disc; dc; dc = dc->disc)
+			if(dc == disc)
+				break;
+		disc = dc;
 	}
 }

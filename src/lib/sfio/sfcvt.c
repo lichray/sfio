@@ -1,4 +1,25 @@
+#if defined(__STDPP__directive) && defined(__STDPP__hide)
+__STDPP__directive pragma pp:hide ecvt fcvt
+#else
+#define ecvt		______ecvt
+#define fcvt		______fcvt
+#endif
+
 #include	"sfhdr.h"
+
+#if defined(__STDPP__directive) && defined(__STDPP__hide)
+__STDPP__directive pragma pp:nohide ecvt fcvt
+#else
+#undef	ecvt
+#undef	fcvt
+#endif
+
+#if _lib_cvt
+_BEGIN_EXTERNS_
+_astimport char*	fcvt _ARG_((double,int,int*,int*));
+_astimport char*	ecvt _ARG_((double,int,int*,int*));
+_END_EXTERNS_
+#endif /*_lib_cvt*/
 
 /*	Convert a floating point value to ASCII
 **	This function unifies fcvt() and ecvt() in libc.a.
@@ -11,34 +32,40 @@ static char	*Inf = "Inf", *Zero = "0";
 #define INFINITE	((_Sfi = 3), Inf)
 #define ZERO		((_Sfi = 1), Zero)
 
-#if !_sfio_cvt
-_BEGIN_EXTERNS_
-extern char*	fcvt _ARG_((Double_t,int,int*,int*));
-extern char*	ecvt _ARG_((Double_t,int,int*,int*));
-_END_EXTERNS_
+#ifndef _typ_long_double
+#define _typ_long_double	0
+#endif
+#ifndef _lib_cvt
+#define _lib_cvt		0
 #endif
 
 #if __STD_C
-char* _sfcvt(Double_t dval, int n_digit, int* decpt, int* sign, int e_format)
+char* _sfcvt(Sfdouble_t dval, int n_digit, int* decpt, int* sign, int format)
 #else
-char* _sfcvt(dval,n_digit,decpt,sign,e_format)
-Double_t	dval;		/* value to convert */
-int		n_digit;	/* number of digits wanted */
-int*		decpt;		/* to return decimal point */
-int*		sign;		/* to return sign */
-int		e_format;	/* doing e-format */
+char* _sfcvt(dval,n_digit,decpt,sign,format)
+Sfdouble_t	dval;		/* value to convert		*/
+int		n_digit;	/* number of digits wanted	*/
+int*		decpt;		/* to return decimal point	*/
+int*		sign;		/* to return sign		*/
+int		format;		/* conversion format		*/
 #endif
 {
-#if !_sfio_cvt
-	reg char*	sp;
-	sp = e_format ? ecvt(dval,n_digit,decpt,sign) : fcvt(dval,n_digit,decpt,sign);
-	_Sfi = strlen(sp);
-	return sp;
-#else
-	reg long	n, v;
-	reg char	*sp, *ep, *buf, *endsp;
-	static char	*Buf;
+	reg char	*sp;
 
+#if !_lib_cvt || _typ_long_double
+	reg long	n, v;
+	reg char	*ep, *buf, *endsp;
+	static char	*Buf;
+#endif
+
+	if(_lib_cvt && (!_typ_long_double || !(format&F_LDOUBLE)) )
+	{	sp = (format&F_EFORMAT) ? ecvt((double)dval,n_digit,decpt,sign) :
+					  fcvt((double)dval,n_digit,decpt,sign);
+		_Sfi = strlen(sp);
+		return sp;
+	}
+
+#if !_lib_cvt || _typ_long_double
 	/* set up local buffer */
 	if(!Buf && !(Buf = (char*)malloc(SF_MAXDIGITS)))
 		return INFINITE;
@@ -50,7 +77,7 @@ int		e_format;	/* doing e-format */
 		dval = -dval;
 
 	n = 0;
-	if(dval >= (Double_t)SF_MAXLONG)
+	if(dval >= (Sfdouble_t)SF_MAXLONG)
 	{	/* scale to a small enough number to fit an int */
 		v = SF_MAXEXP10-1;
 		do
@@ -62,16 +89,16 @@ int		e_format;	/* doing e-format */
 				if((n += (1<<v)) >= SF_IDIGITS)
 					return INFINITE;
 			}
-		} while(dval >= (Double_t)SF_MAXLONG);
+		} while(dval >= (Sfdouble_t)SF_MAXLONG);
 	}
 	*decpt = (int)n;
 
 	buf = sp = Buf+INTPART;
 	if((v = (int)dval) != 0)
 	{	/* translate the integer part */
-		dval -= (Double_t)v;
+		dval -= (Sfdouble_t)v;
 
-		sfucvt(v,sp,n,ep);
+		sfucvt(v,sp,n,ep,long,ulong);
 
 		n = buf-sp;
 		if((*decpt += (int)n) >= SF_IDIGITS)
@@ -82,7 +109,7 @@ int		e_format;	/* doing e-format */
 	else	n = 0;
 
 	/* remaining number of digits to compute; add 1 for later rounding */
-	n = ((e_format || *decpt <= 0) ? 1 : *decpt+1) - n;
+	n = (((format&F_EFORMAT) || *decpt <= 0) ? 1 : *decpt+1) - n;
 	if(n_digit > 0)
 		n += n_digit;
 
@@ -91,8 +118,8 @@ int		e_format;	/* doing e-format */
 	if(sp > ep)
 		sp = ep;
 	else
-	{	if(e_format && *decpt == 0 && dval > 0.)
-		{	reg Double_t	d;
+	{	if((format&F_EFORMAT) && *decpt == 0 && dval > 0.)
+		{	reg Sfdouble_t	d;
 			while((int)(d = dval*10.) == 0)
 			{	dval = d;
 				*decpt -= 1;
@@ -107,7 +134,7 @@ int		e_format;	/* doing e-format */
 				goto done;
 			}
 			*sp++ = (char)('0' + (n = (int)(dval *= 10.)));
-			dval -= (Double_t)n;
+			dval -= (Sfdouble_t)n;
 		}
 	}
 
@@ -125,7 +152,7 @@ int		e_format;	/* doing e-format */
 			{	/* next power of 10 */
 				*sp = '1';
 				*decpt += 1;
-				if(!e_format)
+				if(!(format&F_EFORMAT))
 				{	/* add one more 0 for %f precision */
 					ep[-1] = '0';
 					ep += 1;
@@ -139,5 +166,5 @@ done:
 	_Sfi = ep-buf;
 	return buf;
 
-#endif /* !_sfio_cvt */
+#endif /* !_lib_cvt || _typ_long_double */
 }

@@ -6,16 +6,16 @@
 
 
 #if __STD_C
-int setvbuf(reg FILE *fp, char* buf, int flags, int size)
+int setvbuf(reg FILE* fp, char* buf, int flags, size_t size)
 #else
 int setvbuf(fp, buf, flags, size)
-reg FILE *fp;
-char	*buf;
-int	flags;
-int	size;
+reg FILE*	fp;
+char*		buf;
+int		flags;
+size_t		size;
 #endif
 {
-	reg Sfio_t *sp;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(fp)))
 		return -1;

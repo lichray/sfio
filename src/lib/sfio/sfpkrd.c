@@ -16,39 +16,40 @@
 #define SOCKET_PEEK	002
 
 #if __STD_C
-int sfpkrd(int fd, Void_t* argbuf, int n, int rc, long tm, int action)
+ssize_t sfpkrd(int fd, Void_t* argbuf, size_t n, int rc, long tm, int action)
 #else
-int sfpkrd(fd, argbuf, n, rc, tm, action)
+ssize_t sfpkrd(fd, argbuf, n, rc, tm, action)
 int	fd;	/* file descriptor */
 Void_t*	argbuf;	/* buffer to read data */
-int	n;	/* buffer size */
+size_t	n;	/* buffer size */
 int	rc;	/* record character */
 long	tm;	/* time-out */
-int	action;	/* >0: peeking,
-		   <0: no peeking, if rc>=0, get rec if able to, else just read,
-		   =0; no peeking, if rc>=0, must get a rec only
+int	action;	/* >0: peeking, if rc>=0, get action records,
+		   <0: no peeking, if rc>=0, get -action records,
+		   =0: no peeking, if rc>=0, must get a single record
 		*/
 #endif
 {
-	reg int		r, ntry, type;
-	reg char*	buf = (char*)argbuf;
+	reg ssize_t	r;
+	reg int		ntry, t;
+	reg char	*buf = (char*)argbuf, *endbuf;
 
 	if(rc < 0 && tm < 0 && action <= 0)
 		return read(fd,buf,n);
 
-	type = (action > 0 || rc >= 0) ? (STREAM_PEEK|SOCKET_PEEK) : 0;
+	t = (action > 0 || rc >= 0) ? (STREAM_PEEK|SOCKET_PEEK) : 0;
 #if !_stream_peek
-	type &= ~STREAM_PEEK;
+	t &= ~STREAM_PEEK;
 #endif
 #if !_socket_peek
-	type &= ~SOCKET_PEEK;
+	t &= ~SOCKET_PEEK;
 #endif
 
 	for(ntry = 0; ntry < 2; ++ntry)
 	{
 		r = -1;
 #if _stream_peek
-		if((type&STREAM_PEEK) && (ntry == 1 || tm < 0) )
+		if((t&STREAM_PEEK) && (ntry == 1 || tm < 0) )
 		{
 			struct strpeek	pbuf;
 			pbuf.flags = 0;
@@ -62,10 +63,10 @@ int	action;	/* >0: peeking,
 			if((r = ioctl(fd,I_PEEK,&pbuf)) < 0)
 			{	if(errno == EINTR)
 					return -1;
-				type &= ~STREAM_PEEK;
+				t &= ~STREAM_PEEK;
 			}
 			else
-			{	type &= ~SOCKET_PEEK;
+			{	t &= ~SOCKET_PEEK;
 				if(r > 0 && (r = pbuf.databuf.len) <= 0)
 				{	if(action <= 0)	/* read past eof */
 						r = read(fd,buf,1);
@@ -85,9 +86,9 @@ int	action;	/* >0: peeking,
 		/* poll or select to see if data is present.  */
 		while(tm >= 0 || action > 0 ||
 			/* block until there is data before peeking again */
-			((type&STREAM_PEEK) && rc >= 0) ||
+			((t&STREAM_PEEK) && rc >= 0) ||
 			/* let select be interrupted instead of recv which autoresumes */
-			(type&SOCKET_PEEK) )
+			(t&SOCKET_PEEK) )
 		{	r = -2;
 #if _lib_poll
 			if(r == -2)
@@ -155,8 +156,8 @@ int	action;	/* >0: peeking,
 							break;
 						}
 					}
-					else if((r = avail) <= 0)
-						r = -1;
+					else	r = avail <= 0 ? -1 : (ssize_t)avail;
+
 					if(r < 0 && nsec-- > 0)
 						sleep(1);
 				}
@@ -176,7 +177,7 @@ int	action;	/* >0: peeking,
 		}
 
 #if _socket_peek
-		if(type&SOCKET_PEEK)
+		if(t&SOCKET_PEEK)
 		{
 			while((r = recv(fd,(char*)buf,n,MSG_PEEK)) < 0)
 			{	if(errno == EINTR)
@@ -185,11 +186,11 @@ int	action;	/* >0: peeking,
 				{	errno = 0;
 					continue;
 				}
-				type &= ~SOCKET_PEEK;
+				t &= ~SOCKET_PEEK;
 				break;
 			}
 			if(r >= 0)
-			{	type &= ~STREAM_PEEK;
+			{	t &= ~STREAM_PEEK;
 				if(r > 0)
 					break;
 				else	/* read past eof */
@@ -205,34 +206,33 @@ int	action;	/* >0: peeking,
 	if(r < 0)
 	{	if(tm >= 0 || action > 0)
 			return -1;
-		else if(action < 0 || rc < 0)
-			return read(fd,buf,n);
-		else	/* read 1 byte at a time for a record */
-		{	if((r = read(fd,buf,1)) == 1)
-			{	while(r < n)
-				{	if(read(fd,buf+r,1) <= 0)
-						break;
-					if(buf[r++] == rc)
-						break;
-				}
+		else /* get here means: tm < 0 && action <= 0 && rc >= 0 */
+		{	/* number of records read at a time */
+			if((action = action ? -action : 1) > (int)n)
+				action = n;
+			r = 0;
+			while((t = read(fd,buf,action)) > 0)
+			{	r += t;
+				for(endbuf = buf+t; buf < endbuf;)
+					if(*buf++ == rc)
+						action -= 1;
+				if(action == 0 || (int)(n-r) < action)
+					break;
 			}
-			return r;
+			return r == 0 ? t : r;
 		}
 	}
 
 	/* successful peek, find the record end */
 	if(rc >= 0)
 	{	reg char*	sp;	
-#if _lib_memchr
-		if((sp = (char*)memchr(buf,rc,r)) )
-			r = (sp-buf) + 1;
-#else
-		reg char*	endbuf;
+
+		t = action == 0 ? 1 : action < 0 ? -action : action;
 		for(endbuf = (sp = buf)+r; sp < endbuf; )
 			if(*sp++ == rc)
-				break;
+				if((t -= 1) == 0)
+					break;
 		r = sp - buf;
-#endif
 	}
 
 	/* advance */

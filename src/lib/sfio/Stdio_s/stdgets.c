@@ -7,11 +7,11 @@
 */
 
 #if __STD_C
-char *_stdgets(reg Sfio_t *f, char* us, reg int n, int isgets)
+char* _stdgets(reg Sfio_t* f, char* us, reg int n, int isgets)
 #else
-char *_stdgets(f,us,n,isgets)
-reg Sfio_t	*f;	/* stream to read from */
-char		*us;	/* space to read into */
+char* _stdgets(f,us,n,isgets)
+reg Sfio_t*	f;	/* stream to read from */
+char*		us;	/* space to read into */
 reg int		n;	/* max number of bytes to read */
 int		isgets;	/* gets(), not fgets() */
 #endif
@@ -39,19 +39,6 @@ int		isgets;	/* gets(), not fgets() */
 		if(p > n)
 			p = n;
 
-#if _vax_asm	/* p is r9, is is r8, ps is r7 */
-		{ reg int	q;
-		q = p;					/* save data length */
-		asm( "locc	$0xa,r9,(r7)" );	/* look for \n */
-		asm( "subl2	r0,r9" );		/* copy length */
-		if(++p > q)				/* if \n found, copy it too */
-			--p;
-		0;					/* avoid if branching bug */
-		asm( "movc3	r9,(r7),(r8)" );	/* copy data */
-		ps += p;
-		is += p;
-		}
-#else
 #if _lib_memccpy
 		if((ps = (uchar*)memccpy((char*)is,(char*)ps,'\n',p)) != NIL(uchar*))
 			p = ps-is;
@@ -75,7 +62,6 @@ int		isgets;	/* gets(), not fgets() */
 					is[-1] = c;
 			}
 		}
-#endif
 #endif
 
 		/* gobble up read data and continue */

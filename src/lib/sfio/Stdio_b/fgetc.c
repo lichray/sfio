@@ -5,13 +5,13 @@
 */
 
 #if __STD_C
-int fgetc(reg FILE *fp)
+int fgetc(reg FILE* fp)
 #else
 int fgetc(fp)
-reg FILE *fp;
+reg FILE*	fp;
 #endif
 {
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 	reg int		rv;
 
 	if(!(sp = _sfstream(fp)))

@@ -1,20 +1,10 @@
-#ifdef SFIO_H_ONLY
-#include	"../sfio.h"
-#if __STD_C
-#include	<stddef.h>
-#include	<stdarg.h>
-#else
-#include	<varargs.h>
-#endif
-#else
-#include	"../sfhdr.h"
-#endif
+#include	"sfhdr.h"
 
 _BEGIN_EXTERNS_
 extern void	exit _ARG_((int));
 extern int	strncmp _ARG_((const char*, const char*, size_t));
 extern int	strcmp _ARG_((const char*, const char*));
-extern char*	system _ARG_((char*));
+extern int	system _ARG_((const char*));
 _END_EXTERNS_
 
 #if __STD_C
@@ -38,8 +28,8 @@ va_dcl
 	f = sfopen(NIL(Sfio_t*),NIL(char*),"sw");
 	sfvprintf(f,form,args);
 	sfputc(f,'\0');
-	sfseek(f,0L,0);
-	s = sfreserve(f,-1,1);
+	sfseek(f,(Sfoff_t)0,0);
+	s = sfreserve(f,SF_UNBOUND,1);
 
 	va_end(args);
 

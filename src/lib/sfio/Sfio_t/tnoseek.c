@@ -1,29 +1,29 @@
 #include	"sftest.h"
 
 char*	buffer;
-int	size;
-int	count;
+size_t	size;
+size_t	count;
 
 #if __STD_C
-long discseek(Sfio_t* f, long loc, int offset, Sfdisc_t* disc)
+Sfoff_t discseek(Sfio_t* f, Sfoff_t offset, int type, Sfdisc_t* disc)
 #else
-long discseek(f,loc,offset,disc)
+Sfoff_t discseek(f,offset,type,disc)
 Sfio_t*		f;
-long		loc;
-int		offset;
+Sfoff_t		offset;
+int		type;
 Sfdisc_t*	disc;
 #endif
 {
-	return 0L;
+	return 0;
 }
 
 #if __STD_C
-int discwrite(Sfio_t* f, const Void_t* s, int n, Sfdisc_t* disc)
+ssize_t discwrite(Sfio_t* f, const Void_t* s, size_t n, Sfdisc_t* disc)
 #else
-int discwrite(f,s,n,disc)
+ssize_t discwrite(f,s,n,disc)
 Sfio_t*		f;
 Void_t*		s;
-int		n;
+size_t		n;
 Sfdisc_t*	disc;
 #endif
 {
@@ -44,7 +44,7 @@ main()
 
 	if(sfdisc(sfstdout,&seekable) != &seekable)
 		terror("Can't set discipline\n");
-	if(sfseek(sfstdout,0,0) < 0)
+	if(sfseek(sfstdout,(Sfoff_t)0,0) < 0)
 		terror("Sfstdout should be seekable\n");
 	if(sfwrite(sfstdout,"123\n",4) != 4)
 		terror("Can't write\n");
@@ -56,5 +56,5 @@ main()
 	if(buffer != buf || size != 8 || count != 1)
 		terror("Wrong calls to write\n");
 
-	exit(0);
+	return 0;
 }

@@ -1,15 +1,11 @@
 #include	"sftest.h"
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	char		buf[1024], *s;
 	Sfio_t*	f;
 
-	f = sfnew(NIL(Sfio_t*),NIL(char*),-1,-1,SF_WRITE|SF_STRING);
+	f = sfnew(NIL(Sfio_t*),NIL(Void_t*),(size_t)SF_UNBOUND,-1,SF_WRITE|SF_STRING);
 	sfsetbuf(sfstdout,buf,sizeof(buf));
 	sfsetbuf(sfstderr,buf,sizeof(buf));
 	sfset(sfstdout,SF_SHARE,0);
@@ -26,8 +22,8 @@ main()
 	if(sfputc(f,'\0') < 0)
 		terror("Writing to string stream\n");
 
-	sfseek(f,0L,0);
-	if(!(s = sfreserve(f,-1,1)) )
+	sfseek(f,(Sfoff_t)0,0);
+	if(!(s = sfreserve(f,SF_UNBOUND,1)) )
 		terror("Peeking\n");
 	sfwrite(f,s,0);
 	if(strcmp(s,"0123456789") != 0)

@@ -22,7 +22,7 @@ main()
 	if(pipe(Fd) < 0)
 		terror("Can't make pipe\n");
 
-	if(sfnew(sfstdin,NIL(char*),-1,Fd[0],SF_READ) != sfstdin)
+	if(sfnew(sfstdin,NIL(Void_t*),(size_t)SF_UNBOUND,Fd[0],SF_READ) != sfstdin)
 		terror("Can't renew stdin\n");
 	sfset(sfstdin,SF_SHARE,1);
 
@@ -39,5 +39,5 @@ main()
 
 	if(!(s = sfgetr(sfstdin,'\n',1)) || strcmp(s,"56789") != 0)
 		terror("Expecting 56789\n");
-	exit(0);
+	return 0;
 }

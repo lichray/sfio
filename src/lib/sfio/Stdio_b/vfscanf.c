@@ -5,16 +5,16 @@
 */
 
 #if __STD_C
-int vfscanf(FILE *fp, const char* form, va_list args)
+int vfscanf(FILE* fp, const char* form, va_list args)
 #else
 int vfscanf(fp,form,args)
-FILE	*fp;
-char    *form;          /* format to use */
+FILE*	fp;
+char*	form;          /* format to use */
 va_list args;           /* arg list if argf == 0 */
 #endif
 {
 	reg int		rv;
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(fp)))
 		return -1;

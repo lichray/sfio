@@ -9,16 +9,16 @@
 int sfpurge(reg Sfio_t* f)
 #else
 int sfpurge(f)
-reg Sfio_t	*f;
+reg Sfio_t*	f;
 #endif
 {
 	reg int	mode;
 
-	if((mode = f->mode&SF_RDWR) != f->mode && _sfmode(f,mode,0) < 0)
+	if((mode = f->mode&SF_RDWR) != (int)f->mode && _sfmode(f,mode,0) < 0)
 		return -1;
 
 	if(f->disc == _Sfudisc)
-		(void)sfclose((*_Sfstack)(f,NIL(Sfile_t*)));
+		(void)sfclose((*_Sfstack)(f,NIL(Sfio_t*)));
 
 	/* cannot purge read string streams */
 	if((f->flags&SF_STRING) && (f->mode&SF_READ) )
@@ -28,7 +28,7 @@ reg Sfio_t	*f;
 
 	/* if memory map must be a read stream, pretend data is gone */
 #ifdef MAP_TYPE
-	if(f->flags&SF_MMAP)
+	if(f->bits&SF_MMAP)
 	{	f->here -= f->endb - f->next;
 		if(f->data)
 		{	(void)munmap((caddr_t)f->data,f->endb-f->data);
@@ -48,7 +48,7 @@ reg Sfio_t	*f;
 		return -1;
 	case SF_WRITE :
 		f->next = f->data;
-		if((f->flags&(SF_PROCESS|SF_RDWR)) != (SF_PROCESS|SF_RDWR))
+		if(!(f->bits&SF_PROCESS) || !(f->flags&SF_READ) || !(f->mode&SF_WRITE) )
 			break;
 
 		/* 2-way pipe, must clear read buffer */
@@ -67,7 +67,7 @@ reg Sfio_t	*f;
 
 done:
 	if((f->flags&SF_IOCHECK) && f->disc && f->disc->exceptf)
-		(void)(*f->disc->exceptf)(f,SF_PURGE,f->disc);
+		(void)(*f->disc->exceptf)(f,SF_PURGE,NIL(Void_t*),f->disc);
 
 	return 0;
 }

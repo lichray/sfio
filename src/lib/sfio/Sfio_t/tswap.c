@@ -14,7 +14,7 @@ main()
 	sfclose(sfstdin);
 	if(sfswap(f1,sfstdin) != sfstdin)
 		terror("Can't swap with sfstdin\n");
-	sfseek(sfstdin,0L,0);
+	sfseek(sfstdin,(Sfoff_t)0,0);
 	if(!(s = sfgetr(sfstdin,'\n',1)) )
 		terror("sfgetr failed\n");
 	if(strcmp(s,"0123456789") != 0)
@@ -32,5 +32,5 @@ main()
 		terror("sfswap should have failed\n");
 
 	system("rm xxx >/dev/null 2>&1");
-	exit(0);
+	return 0;
 }

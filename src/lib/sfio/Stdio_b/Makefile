@@ -8,6 +8,7 @@ CC=	cc
 CXFLAGS=
 CCMODE=	-O
 CCFLAGS= -I.. $(CCMODE) $(CXFLAGS)
+BINDIR= ../../../../bin
 
 SRCS=	doprnt.c doscan.c fclose.c fdopen.c fflush.c fgetc.c fgets.c filbuf.c \
 	flsbuf.c fopen.c fprintf.c fputc.c fputs.c fread.c freopen.c fscanf.c \
@@ -30,12 +31,15 @@ OBJS=	doprnt.o doscan.o fclose.o fdopen.o fflush.o fgetc.o fgets.o filbuf.o \
 .c.o:
 	$(CC) -c $(CCFLAGS) $*.c
 
-libstdio.a: must $(OBJS)
+libstdio.a: FEATURE/stdio must $(OBJS)
 	$(AR) cr libstdio.a $(OBJS)
 	-(ranlib libstdio.a; rm sfstdio.h; exit 0) >/dev/null 2>&1
 
+FEATURE/stdio: features/stdio
+	export CC; CC=$(CC); $(BINDIR)/iffe run features/stdio
+
 must:
-	sh ./sfstdhdr.sh $(CC)
+	./sfstdhdr.sh $(CC)
 	$(CC) -I.. sfstdio.c -o sfstdgen >/dev/null 2>&1
 	./sfstdgen > sfstdio.h; rm sfstdgen sfstdhdr.h
 

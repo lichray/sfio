@@ -1,13 +1,14 @@
 #include	"sftest.h"
 
-static Sfile_t*	okclose;
+static Sfio_t*	okclose;
 
 #ifdef __STC_C
-exceptf(Sfile_t*f, int type, Sfdisc_t* disc)
+exceptf(Sfio_t*f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-exceptf(f, type, disc)
-Sfile_t*	f;
+exceptf(f, type, data, disc)
+Sfio_t*	f;
 int		type;
+Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
@@ -19,12 +20,12 @@ Sfdisc_t*	disc;
 }
 
 #if __STD_C
-readf(Sfile_t* f, Void_t* buf, int n, Sfdisc_t* disc)
+ssize_t readf(Sfio_t* f, Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
-readf(f, buf, n, disc)
-Sfile_t*	f;
+ssize_t readf(f, buf, n, disc)
+Sfio_t*		f;
 Void_t*		buf;
-int		n;
+size_t		n;
 Sfdisc_t*	disc;
 #endif
 {
@@ -34,12 +35,12 @@ Sfdisc_t*	disc;
 }
 
 #if __STD_C
-writef(Sfile_t* f, const Void_t* buf, int n, Sfdisc_t* disc)
+ssize_t writef(Sfio_t* f, const Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
-writef(f, buf, n, disc)
-Sfile_t*	f;
+ssize_t writef(f, buf, n, disc)
+Sfio_t*		f;
 Void_t*		buf;
-int		n;
+size_t		n;
 Sfdisc_t*	disc;
 #endif
 {
@@ -56,9 +57,9 @@ main()
 	char	*s, *s1, *s2, *s3, *s4, str[1024], *ss;
 	int	n;
 
-	if(!(f1 = sfopen(NIL(Sfile_t*),"xxx","w+")) )
+	if(!(f1 = sfopen(NIL(Sfio_t*),"xxx","w+")) )
 		terror("Opening xxx1\n");
-	if(!(f2 = sfopen(NIL(Sfile_t*),"xxx","w+")) )
+	if(!(f2 = sfopen(NIL(Sfio_t*),"xxx","w+")) )
 		terror("Opening xxx2\n");
 	okclose = f2;
 	sfdisc(f1,&Disc);
@@ -89,27 +90,28 @@ main()
 	if(sffileno(sfstdin) != 0)
 		terror("Bad fd for stdin\n");
 
-	if(!(f = sfopen(NIL(Sfile_t*),"xxx","w+")) )
+	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w+")) )
 		terror("Opening xxx\n");
 	if(sfwrite(f,"0123456789",10) != 10)
 		terror("Write xxx\n");
-	if(sfseek(f,0L,0) != 0L)
+	if(sfseek(f,(Sfoff_t)0,0) != 0)
 		terror("Seek xxx\n");
 	
 	if(sfstack(sfstdin,f) != sfstdin)
 		terror("Stacking on stdin2\n");
 	if(sfopen(sfstdout,"/dev/null","w") != sfstdout)
 		terror("Opening sfstdout\n");
-	if(sfmove(sfstdin,sfstdout,-1,-1) != 10 || !sfeof(sfstdin) || sferror(sfstdout))
+	if(sfmove(sfstdin,sfstdout,SF_UNBOUND,-1) != 10 ||
+	   !sfeof(sfstdin) || sferror(sfstdout))
 		terror("Bad sfmove\n");
 
 	system("rm xxx >/dev/null 2>&1");
 
 	if(!(f = sftmp(0)))
 		terror("Opening temp file\n");
-	if(sfputr(f,s4,-1) != strlen(s4))
+	if(sfputr(f,s4,-1) != (ssize_t)strlen(s4))
 		terror("Writing s4\n");
-	sfseek(f,0L,0);
+	sfseek(f,(Sfoff_t)0,0);
 
 	if(sfstack(f,f3) != f)
 		terror("Stacking s3\n");
@@ -124,7 +126,7 @@ main()
 	else
 	{	if(!(ss = sfgetr(f,'\n',-1)) )
 			terror("Reading streams\n");
-		ss[sfslen()] = 0;
+		ss[sfvalue(f)] = 0;
 	}
 
 	if(strcmp(ss,str) != 0)
@@ -134,21 +136,21 @@ main()
 	   !(f2 = sfopen((Sfio_t*)0,s2,"s")) ||
 	   !(f3 = sfopen((Sfio_t*)0,s3,"s")))
 		terror("Opening strings2\n");
-	sfseek(f,0L,0);
+	sfseek(f,(Sfoff_t)0,0);
 
 	if(sfstack(f,f3) != f || sfstack(f,f2) != f || sfstack(f,f1) != f)
 		terror("Stacking streams2\n");
 
-	if(!(s = sfreserve(f,-1,0)) || s != s1)
+	if(!(s = sfreserve(f,SF_UNBOUND,0)) || s != s1)
 		terror("Sfpeek1\n");
 
-	if(!(s = sfreserve(f,-1,0)) || s != s2)
+	if(!(s = sfreserve(f,SF_UNBOUND,0)) || s != s2)
 		terror("Sfpeek2\n");
 
-	if(!(s = sfreserve(f,-1,0)) || s != s3)
+	if(!(s = sfreserve(f,SF_UNBOUND,0)) || s != s3)
 		terror("Sfpeek3\n");
 
-	if(!(s = sfreserve(f,-1,0)) || strncmp(s,s4,strlen(s4)) != 0)
+	if(!(s = sfreserve(f,SF_UNBOUND,0)) || strncmp(s,s4,strlen(s4)) != 0)
 		terror("Sfpeek4\n");
 
 	return 0;

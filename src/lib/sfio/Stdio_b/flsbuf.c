@@ -1,41 +1,51 @@
+#define _in_flsbuf	1
 #include	"sfstdio.h"
 
 /*	Flush output buffer.
 **	Written by Kiem-Phong Vo
 */
 
-
-#if __STD_C
-int _flsbuf(int c, FILE *fp)
-#else
-int _flsbuf(c, fp)
-reg int		c;
-reg FILE	*fp;
-#endif
+FLSBUF(c,f)
 {
-	reg Sfio_t *sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
-	_stdclrerr(fp,sp);
-	if(sfputc(sp,c) < 0)
-	{	_stderr(fp);
+	_stdclrerr(f,sf);
+	if(sfputc(sf,c) < 0)
+	{	_stderr(f);
 		return -1;
 	}
 
-	/* fast access to buffer for putc benefit */
+	if(!(sf->flags&SF_LINE))
+	{	/* fast access to buffer for putc benefit */
+#if _FILE_writeptr
+		f->std_writeptr = sf->next;
+		f->std_writeend = sf->endb;
+#endif
+#if _FILE_readptr
+		f->std_readptr = f->std_readend = NIL(uchar*);
+#endif
+#if _FILE_ptr || _FILE_p
+		f->std_ptr = sf->next;
+#endif
 #if _FILE_cnt
-	if(!(sp->flags&SF_LINE))
-	{	fp->std_ptr = sp->next;
-		fp->std_cnt = sp->endb - sp->next;
-
+		f->std_cnt = sf->endb - sf->next;
+#endif
+#if _FILE_w
+		f->std_w = sf->endb - sf->next;
+#endif
+#if _FILE_r
+		f->std_r = 0;
+#endif
+#if _FILE_writeptr || _FILE_cnt || _FILE_w
 		/* internal protection against mixing of sfio/stdio */
 		_Sfstdio = _sfstdio;
-		sp->mode |= SF_STDIO;
-		sp->endr = sp->endw = sp->data;
-	}
+		sf->mode |= SF_STDIO;
+		sf->endr = sf->endw = sf->data;
 #endif
+	}
 
 	return c;
 }

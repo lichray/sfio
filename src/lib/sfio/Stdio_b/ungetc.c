@@ -5,14 +5,14 @@
 */
 
 #if __STD_C
-int ungetc(int c,FILE *fp)
+int ungetc(int c, FILE* fp)
 #else
 int ungetc(c,fp)
 reg int		c;
-reg FILE	*fp;
+reg FILE*	fp;
 #endif
 {
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(fp)))
 		return -1;

@@ -6,16 +6,16 @@
 */
 
 #if __STD_C
-int sfnputc(reg Sfio_t* f, reg int c, reg int n)
+ssize_t sfnputc(reg Sfio_t* f, reg int c, reg size_t n)
 #else
-int sfnputc(f,c,n)
-reg Sfio_t	*f;	/* file to write */
+ssize_t sfnputc(f,c,n)
+reg Sfio_t*	f;	/* file to write */
 reg int		c;	/* char to be written */
-reg int		n;	/* number of time to repeat */
+reg size_t	n;	/* number of time to repeat */
 #endif
 {
-	reg uchar	*ps;
-	reg int		p, w;
+	reg uchar*	ps;
+	reg ssize_t	p, w;
 	uchar		buf[128];
 	reg int		local;
 
@@ -26,9 +26,9 @@ reg int		n;	/* number of time to repeat */
 	SFLOCK(f,local);
 
 	/* write into a suitable buffer */
-	if((p = (f->endb-(ps = f->next))) < n)
+	if((size_t)(p = (f->endb-(ps = f->next))) < n)
 		{ ps = buf; p = sizeof(buf); }
-	if(p > n)
+	if((size_t)p > n)
 		p = n;
 	MEMSET(ps,c,p);
 	ps -= p;
@@ -48,7 +48,7 @@ reg int		n;	/* number of time to repeat */
 		{	w -= n;
 			goto done;
 		}
-		if(p > n)
+		if((size_t)p > n)
 			p = n;
 	}
 done :

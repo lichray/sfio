@@ -17,7 +17,7 @@ main()
 
 	if(!(f = sfopen(f,"xxx","r")) )
 		terror("Can't open file to read1\n");
-	if(!(g = sfnew(NIL(Sfio_t*),NIL(char*),-1,sffileno(f),SF_READ)) )
+	if(!(g = sfnew(NIL(Sfio_t*),NIL(Void_t*),SF_UNBOUND,sffileno(f),SF_READ)) )
 		terror("Can't open file to read2\n");
 
 	sfset(f,SF_SHARE|SF_PUBLIC,1);
@@ -104,17 +104,15 @@ main()
 	sfclose(f);
 	if(sfopen(sfstdin,"xxx","r") != sfstdin)
 		terror("Can't open xxx as sfstdin\n");
-	if((n = (int)sfmove(sfstdin,NIL(Sfio_t*),-1L,'\n')) != 3)
+	if((n = (int)sfmove(sfstdin,NIL(Sfio_t*),SF_UNBOUND,'\n')) != 3)
 		terror("sfmove wrong number of lines %d\n",n);
-	if((sfset(sfstdin,0,0)&(SF_SHARE|SF_PUBLIC)) != (SF_SHARE|SF_PUBLIC))
-		terror("share&public flags are not on\n");
-	if(sfseek(sfstdin,0L,0) != 0L)
+	if(sfseek(sfstdin,(Sfoff_t)0,0) != 0)
 		terror("Can't seek back to 0\n");
-	if((n = (int)sfmove(sfstdin,NIL(Sfio_t*),2L,'\n')) != 2)
+	if((n = (int)sfmove(sfstdin,NIL(Sfio_t*),(Sfoff_t)2,'\n')) != 2)
 		terror("sfmove2 wrong number of lines %d\n",n);
-	if((n = (int)sfmove(sfstdin,NIL(Sfio_t*),-1L,'\n')) != 1)
+	if((n = (int)sfmove(sfstdin,NIL(Sfio_t*),SF_UNBOUND,'\n')) != 1)
 		terror("sfmove3 wrong number of lines %d\n",n);
 
 	system("rm xxx >/dev/null 2>&1");
-	exit(0);
+	return 0;
 }

@@ -11,13 +11,14 @@
 
 /* the parts of Sfio_t private to sfio functions */
 #define _SFIO_PRIVATE \
-	long		extent;	/* current file	size		*/ \
-	long		here;	/* current physical location	*/ \
-	unsigned char	getr;	/* the last sfgetr separator 	*/ \
-	unsigned char	tiny[1];/* for unbuffered read stream	*/ \
-	unsigned short	mode;	/* current io mode		*/ \
-	struct _sfdc_*	disc;	/* discipline			*/ \
-	struct _sfpl_*	pool;	/* the pool containing this	*/
+	Sfoff_t			extent;	/* current file	size		*/ \
+	Sfoff_t			here;	/* current physical location	*/ \
+	unsigned char		getr;	/* the last sfgetr separator 	*/ \
+	unsigned char		tiny[1];/* for unbuffered read stream	*/ \
+	unsigned short		bits;	/* private flags		*/ \
+	unsigned int		mode;	/* current io mode		*/ \
+	struct _sfdisc_s*	disc;	/* discipline			*/ \
+	struct _sfpool_s*	pool;	/* the pool containing this	*/
 
 #include	"sfio.h"
 
@@ -36,18 +37,20 @@
 	  (unsigned char*)(data),			/* endw		*/ \
 	  (unsigned char*)(data),			/* endr		*/ \
 	  (unsigned char*)(data),			/* endb		*/ \
-	  (struct _sfio_*)0,				/* push		*/ \
+	  (Sfio_t*)0,					/* push		*/ \
 	  (unsigned short)((type)&SF_FLAGS),		/* flags	*/ \
 	  (short)(file),				/* file		*/ \
 	  (unsigned char*)(data),			/* data		*/ \
-	  (int)(size),					/* size		*/ \
-	  0L,						/* extent	*/ \
-	  0L,						/* here		*/ \
+	  (ssize_t)(size),				/* size		*/ \
+	  (ssize_t)(-1),				/* val		*/ \
+	  (Sfoff_t)0,					/* extent	*/ \
+	  (Sfoff_t)0,					/* here		*/ \
 	  0,						/* getr		*/ \
 	  "",						/* tiny		*/ \
-	  (unsigned short)(((type)&(SF_RDWR))|SF_INIT),	/* mode		*/ \
-	  (struct _sfdc_*)(disc),			/* disc		*/ \
-	  (struct _sfpl_*)0,				/* pool		*/ \
+	  0,						/* bits		*/ \
+	  (unsigned int)(((type)&(SF_RDWR))|SF_INIT),	/* mode		*/ \
+	  (struct _sfdisc_s*)(disc),			/* disc		*/ \
+	  (struct _sfpool_s*)0,				/* pool		*/ \
 	}
 
 #endif /* _SFIO_T_H */

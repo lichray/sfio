@@ -17,7 +17,7 @@
 static void delpool(reg Sfpool_t* p)
 #else
 static void delpool(p)
-reg Sfpool_t	*p;
+reg Sfpool_t*	p;
 #endif
 {
 	if(p->s_sf && p->sf != p->array)
@@ -70,7 +70,7 @@ int		n;	/* current position in pool	*/
 #endif
 {
 	reg Sfio_t*	head;
-	reg int		k, w, v;
+	reg ssize_t	k, w, v;
 
 	if(n == 0)
 		return 0;
@@ -97,8 +97,7 @@ int		n;	/* current position in pool	*/
 			else	/* write failed, recover buffer then quit */
 			{	if(w > 0)
 				{	v -= w;
-					memcpy((Void_t*)head->data,
-						(Void_t*)(head->data+w),v);
+					memcpy(head->data,(head->data+w),v);
 				}
 				head->next = head->data+v;
 				return -1;
@@ -106,7 +105,7 @@ int		n;	/* current position in pool	*/
 		}
 
 		/* move data from head to f */
-		memcpy((Void_t*)f->data,(Void_t*)(head->data+k),v);
+		memcpy(f->data,(head->data+k),v);
 		f->mode &= ~SF_POOL;
 		f->next = f->data+v;
 		f->endw = f->endb;

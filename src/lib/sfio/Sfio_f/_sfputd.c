@@ -1,25 +1,14 @@
 #include	"sfhdr.h"
 
-#if __STD_C
-static int __sfputd(reg Sfio_t* f, reg double v)
-#else
-static int __sfputd(f,v)
-reg Sfio_t	*f;
-reg double	v;
-#endif
-{
-	return sfputd(f,v);
-}
-
 #undef sfputd
 
 #if __STD_C
-int sfputd(reg Sfio_t* f, reg double v)
+int sfputd(reg Sfio_t* f, Sfdouble_t d)
 #else
-int sfputd(f,v)
-reg Sfio_t	*f;
-reg double	v;
+int sfputd(f,d)
+reg Sfio_t*	f;
+reg Sfdouble_t	d;
 #endif
 {
-	return __sfputd(f,v);
+	return __sf_putd(f,d);
 }

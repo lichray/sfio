@@ -1,10 +1,6 @@
 #include	"sftest.h"
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	unsigned int	i, r;
 	Sfio_t	*fp;
@@ -16,7 +12,7 @@ main()
 		if(sfputu(fp,i) < 0)
 			terror("Writing %u\n",i);
 
-	sfseek(fp,0L,0);
+	sfseek(fp,(Sfoff_t)0,0);
 
 	for(i = 10000; i <= 100000; i += 9)
 		if((r = (unsigned int)sfgetu(fp)) != i)

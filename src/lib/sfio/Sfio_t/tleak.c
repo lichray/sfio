@@ -12,5 +12,5 @@ main()
 		terror("Can't open yyy to write\n");
 	sfclose(sfstdout);
 
-	exit(0);
+	return 0;
 }

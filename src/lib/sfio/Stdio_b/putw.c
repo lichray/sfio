@@ -6,14 +6,14 @@
 
 
 #if __STD_C
-int putw( int c, FILE *fp)
+int putw( int c, FILE* fp)
 #else
 int putw(c, fp)
-int	c;
-reg FILE *fp;
+int		c;
+reg FILE*	fp;
 #endif
 {
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(fp)))
 		return -1;

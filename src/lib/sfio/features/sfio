@@ -6,7 +6,14 @@
 # Converted to sfio v10/01/94 by Giampiero Sierra (06/08/95).
 ##################################################################
 
-lib atexit,onexit,on_exit
+hdr math
+hdr values
+lib atexit
+lib onexit
+
+lib lseek64
+lib stat64
+lib mmap64
 
 exit    cleanup note{ stuck with standard _cleanup }end execute{
         #include <stdio.h>
@@ -19,11 +26,16 @@ exit    cleanup note{ stuck with standard _cleanup }end execute{
         main() { printf("cleanup\n"); exit(1); }
 }end
 
-lib bcopy,bzero,memccpy,memchr
-sys types
+lib bcopy
+lib bzero
+lib memccpy
+lib memchr
+lib memcpy
+lib memset
 hdr time
+sys time
 
-sys stat note{ stat() in default lib(s) }end compile{
+sys stat note{ stat() in default lib(s) }end link{
 	#if _STD_
 	#include	<stddef.h>
 	#else
@@ -31,10 +43,13 @@ sys stat note{ stat() in default lib(s) }end compile{
 	#endif
 	#include	<time.h>
 	#include	<sys/stat.h>
-	main() { int s = (int)sizeof(struct stat); }
+	main()
+	{	struct stat	st;
+		fstat(0,&st);
+	}
 }end
 
-hdr stat compile{
+hdr stat note{ stat() in default lib(s) }end link{
 	#if _STD_
 	#include	<stddef.h>
 	#else
@@ -42,18 +57,19 @@ hdr stat compile{
 	#endif
 	#include	<time.h>
 	#include	<stat.h>
-	main() { int s = (int)sizeof(struct stat); }
+	main()
+	{	struct stat	st;
+		fstat(0,&st);
+	}
 }end
 
-##################################################
-# Tests for  memory mapping
-##################################################
-
+#############################################################
+# See if  memory mapping is available and fast enough to use
+#############################################################
 sys mman
-
 tst     lib_mmap sys/types.h sys/stat.h unistd.h fcntl.h mman.h sys/mman.h sys/times.h note{ standard mmap interface that works }end execute{
-        #define BUFSIZE (16*1024)
-        #define MAPSIZE (16*1024)
+        #define BUFSIZE (64*1024)
+        #define MAPSIZE (64*1024)
         #define WRITE   (64)
         #if _STD_
         main(int argc, char** argv)
@@ -132,36 +148,62 @@ hdr vfork
 sys vfork
 lib vfork
 
-pragma vfork note{ pragma vfork ok }end compile{
-	_BEGIN_EXTERNS_
-	extern int	vfork();
-	_END_EXTERNS_
-	#pragma unknown_control_flow(vfork)
-	main() { return vfork() >= 0 ? 0 : -1; }
-}end
-	
 ##################################################
 # file control checks
 ##################################################
 
 hdr filio
-sys filio,ioctl
-lib mktemp,remove,unlink
+sys filio
+sys ioctl
+lib remove
+lib unlink
 lib waitpid
 lib getpagesize
 
-typ long_double excecute{
-	main() { 
-	long double d = 0; 
-	return sizeof(long double) > sizeof(double) ? 0 : 1; 
+tmp rmfail note{ file not removable if still opened }end execute{
+	#include	<sys/time.h>
+	_BEGIN_EXTERNS_
+	extern int creat _ARG_((char*, int));
+	extern int unlink _ARG_((char*));
+	extern int write _ARG_((int, char*, int));
+	_END_EXTERNS_
+	main()
+	{	int		fw, fr;
+		char		file[128];
+		sprintf(file,"/tmp/iffe%lu",(unsigned long)time(0));
+		if((fw = creat(file,0666)) < 0)
+			return 0;
+		if((fr = open(file,0)) < 0 )
+			return 0;
+		if(unlink(file) < 0)
+			return 0;
+		if(write(fw,"0123456789",11) != 11 )
+			return 0;
+		if(read(fr,file,11) != 11)
+			return 0;
+		if(strcmp(file,"0123456789") != 0)
+			return 0;
+		return 1;
 	}
 }end
 
-##################################################
-# See if the preferred block size for a file system can be found
-##################################################
+more void_int note{ voidptr is larger than int }end execute{
+	main() {
+	return sizeof(char*) > sizeof(int) ? 0 : 1;
+	}
+}end
 
-stat blksize compile{
+more long_int note{ long is larger than int }end execute{
+	main() {
+	return sizeof(long) > sizeof(int) ? 0 : 1;
+	}
+}end
+
+################################################################
+# See if there is a preferred block size for a file system
+################################################################
+
+stat blksize note{ st_blksize is a field in struct stat }end compile{
 	#include	<sys/types.h>
 	#include	<sys/stat.h>
 	main () {
@@ -172,10 +214,10 @@ stat blksize compile{
 }end
 
 ##################################################
-# check to see if certain prototypes are required
+# See if certain prototypes are required
 ##################################################
 
-proto open compile{
+proto open note{ open() has a vararg prototype }end compile{
 	#include	<sys/types.h>
 	#include	<errno.h>
 	#include	<ctype.h>
@@ -190,18 +232,6 @@ proto open compile{
 		open("file",0,1);
 	}
 }end
-
-pragma weak link{
-	main() { return _xyz(); }
-	#pragma weak   _xyz =  __xyz
-	#define                _xyz    __xyz
-	_xyz() { return 0; }
-}end
-
-
-################################################
-## Revision note:  Return value has changed
-################################################
 
 lib     poll_fd_1 note{ fd is first arg to poll() }end execute{
         #include <poll.h>
@@ -219,10 +249,6 @@ lib     poll_fd_1 note{ fd is first arg to poll() }end execute{
         }
 }end
 
-################################################
-## Revision note:  Return value has changed
-################################################
-
 lib     poll_fd_2 note{ fd is second arg to poll() }end execute{
         #include <poll.h>
         _BEGIN_EXTERNS_
@@ -238,10 +264,6 @@ lib     poll_fd_2 note{ fd is second arg to poll() }end execute{
                 return poll(1, &fd, 0) < 0;
         }
 }end
-
-################################################
-## Revision note:  This has gone from 'compile' to 'link'
-################################################
 
 lib	select note{ select() has standard 5 arg interface }end link{
 	#include <sys/types.h>
@@ -313,30 +335,22 @@ vax asm note{ register layout ok for vax string operations }end execute{
         }
 }end
 
-################################################################
-## 386 native floating point conversions are better than what we can do in C
-################################################################
+lib strtod note{ native strtod exists }end
 
-################################################
-## Revision note:  This has gone from 'compile' to 'link'
-################################################
-
-i386 cvt note{ 386 native floating point conversions better than C }end link{
+lib cvt note{ native double conversions }end link{
+        _BEGIN_EXTERNS_
+        extern char*	ecvt _ARG_((double, int, int*, int*));
+        extern char*	fcvt _ARG_((double, int, int*, int*));
+        _END_EXTERNS_
         main()
-        {
-        #ifndef i386
-                return absurd = -1;
-        #else
-                ecvt();
-                fcvt();
-                strtod();
+        {	(void)ecvt(0., 0, (int*)0, (int*)0);
+                (void)fcvt(0., 0, (int*)0, (int*)0);
                 return 0;
-        #endif
         }
 }end
 
 ################################################################
-## Check to see if there is "locale" stuff for conditioning printf/scanf
+## See if there is "locale" stuff for conditioning printf/scanf
 ################################################################
 
 lib locale note{ Check for localeconv }end compile{
@@ -346,51 +360,3 @@ lib locale note{ Check for localeconv }end compile{
 		return 0;
 	}
 }end
-
-########################################
-## Note:  The following lines are also no longer needed
-########################################
-
-#:endgroup:sfio
-#:group:stdio:Configuration parameters for stdio-binary-compatible functions
-
-################################################################
-## for generating the stdio binary compatibility package
-################################################################
-
-FILE cnt note{ 1 if the field "_cnt" exists in the FILE structure }end compile{
-	#include	<stdio.h>
-	main() { return (stdin->_cnt == 0) ? 0 : -1; }
-}end
-
-FILE ptr note{ 1 if the field "_ptr" exists in the FILE structure }end compile{
-	#include	<stdio.h>
-	main() { return (stdin->_ptr == 0) ? 0 : -1; }
-}end
-
-FILE file note{ 1 if the field "_file" exists in the FILE structure }end compile{
-	#include	<stdio.h>
-	main() { return (stdin->_file == 0) ? 0 : -1; }
-}end
-
-FILE flag note{ 1 if the field "_flag" exists in the FILE structure }end compile{
-	#include	<stdio.h>
-	main() { return (stdin->_flag != 0) ? 0 : -1; }
-}end
-
-FILE base note{ 1 if the field "_base" exists in the FILE structure }end compile{
-	#include	<stdio.h>
-	main() { return sizeof(stdin->_base) == sizeof(char*) ? 0 : -1; }
-}end
-
-FILE bufsize note{ 1 if "_bufsize" exists and as large as a pointer }end excecute{
-	#include	<stdio.h>
-	main() { return sizeof(stdin->_bufsize) == sizeof(char*) ? 0 : -1; }
-}end
-
-FILE bufsiz note{ 1 if "_bufsiz" exists and as large as a pointer }end excecute{
-	#include	<stdio.h>
-	main() { return sizeof(stdin->_bufsiz) == sizeof(char*) ? 0 : -1; }
-}end
-
-#:endgroup:stdio

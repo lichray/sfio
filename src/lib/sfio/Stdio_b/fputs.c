@@ -6,15 +6,15 @@
 
 
 #if __STD_C
-int fputs(const char *s, FILE *fp)
+int fputs(const char* s, FILE* fp)
 #else
 int fputs(s, fp)
-reg char	*s;
-reg FILE	*fp;
+reg char*	s;
+reg FILE*	fp;
 #endif
 {
 	reg int		rv;
-	reg Sfio_t	*sp;
+	reg Sfio_t*	sp;
 
 	if(!(sp = _sfstream(fp)))
 		return -1;

@@ -2,12 +2,12 @@
 
 static char	Serial[128], *S = Serial;
 #if __STD_C
-writef(Sfio_t* f, const Void_t* buf, int n, Sfdisc_t* disc)
+ssize_t writef(Sfio_t* f, const Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
-writef(f, buf, n, disc)
+ssize_t writef(f, buf, n, disc)
 Sfio_t*		f;
 Void_t*		buf;
-int		n;
+size_t		n;
 Sfdisc_t*	disc;
 #endif
 {
@@ -17,11 +17,7 @@ Sfdisc_t*	disc;
 }
 Sfdisc_t	Serialdc = {NIL(Sfread_f), writef, NIL(Sfseek_f), NIL(Sfexcept_f) };
 
-#if __STD_C
-main(void)
-#else
 main()
-#endif
 {
 	int	i, n, on;
 	char	*s, *os;
@@ -39,7 +35,7 @@ main()
 	sfungetc(f4,'b');
 	sfpool(f1,f4,0);
 	sfungetc(f1,'a');
-	sfpool(f1,NIL(Sfile_t*),0);
+	sfpool(f1,NIL(Sfio_t*),0);
 
 	sfsetbuf(f2,poolbuf,sizeof(poolbuf));
 	sfsetbuf(f3,poolbuf,sizeof(poolbuf));
@@ -51,9 +47,9 @@ main()
 	for(i = 0; i < 100; ++i)
 		if(sfputr(f1,os,-1) < 0)
 			terror("Writing data\n");
-	sfseek(f1,0L,0);
+	sfseek(f1,(Sfoff_t)0,0);
 	for(i = 0; i < 100; ++i)
-	{	if(!(s = sfgetr(f1,'\n',1)) || (n = sfslen()) != on)
+	{	if(!(s = sfgetr(f1,'\n',1)) || (n = sfvalue(f1)) != on)
 			terror("Reading data\n");
 		if(sfwrite(f2,s,n) != n)
 			terror("Writing to yyy\n");
@@ -62,7 +58,6 @@ main()
 	}
 	if(sfclose(f1) < 0 || sfclose(f2) < 0 || sfclose(f3) < 0)
 		terror("Closing files\n");
-
 
 	sfdisc(sfstdout,&Serialdc);
 	sfdisc(sfstderr,&Serialdc);

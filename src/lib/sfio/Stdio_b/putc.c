@@ -6,11 +6,11 @@
 
 
 #if __STD_C
-int putc(int c, FILE *fp)
+int putc(int c, FILE* fp)
 #else
 int putc(c, fp)
 reg int		c;
-reg FILE	*fp;
+reg FILE*	fp;
 #endif
 {
 	return fputc(c,fp);

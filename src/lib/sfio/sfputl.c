@@ -6,16 +6,16 @@
 */
 
 #if __STD_C
-int _sfputl(reg Sfio_t* f, reg long v)
+int _sfputl(reg Sfio_t* f, reg Sflong_t v)
 #else
 int _sfputl(f,v)
-reg Sfio_t	*f;	/* write a portable long to this stream */
-reg long	v;	/* the value to be written */
+reg Sfio_t*	f;	/* write a portable long to this stream */
+reg Sflong_t	v;	/* the value to be written */
 #endif
 {
-#define N_ARRAY		(2*sizeof(long))
+#define N_ARRAY		(2*sizeof(Sflong_t))
 	reg uchar	*s, *ps;
-	reg int		n, p;
+	reg ssize_t	n, p;
 	uchar		c[N_ARRAY];
 
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
@@ -29,19 +29,23 @@ reg long	v;	/* the value to be written */
 		*s = (uchar)(SFSVALUE(v) | SF_SIGN);
 	}
 	else	*s = (uchar)(SFSVALUE(v));
-	v = (ulong)v >> SF_SBITS;
+	v = (Sfulong_t)v >> SF_SBITS;
 
 	while(v > 0)
 	{	*--s = (uchar)(SFUVALUE(v) | SF_MORE);
-		v = (ulong)v >> SF_UBITS;
+		v = (Sfulong_t)v >> SF_UBITS;
 	}
 	n = (ps-s)+1;
 
-	if(n > 4 || SFWPEEK(f,ps,p) < n)
+	if(n > 8 || SFWPEEK(f,ps,p) < n)
 		n = SFWRITE(f,(Void_t*)s,n); /* write the hard way */
 	else
 	{	switch(n)
 		{
+		case 8 : *ps++ = *s++;
+		case 7 : *ps++ = *s++;
+		case 6 : *ps++ = *s++;
+		case 5 : *ps++ = *s++;
 		case 4 : *ps++ = *s++;
 		case 3 : *ps++ = *s++;
 		case 2 : *ps++ = *s++;

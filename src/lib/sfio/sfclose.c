@@ -12,8 +12,7 @@ int sfclose(f)
 reg Sfio_t*	f;
 #endif
 {
-	reg int		local;
-	reg Sfdisc_t*	disc;
+	reg int		local, ex;
 
 	if(!f)
 		return -1;
@@ -39,7 +38,7 @@ reg Sfio_t*	f;
 	}
 
 	/* this is from popen */
-	if(f->flags&SF_PROCESS)
+	if(f->bits&SF_PROCESS)
 	{	if(local)
 			SETLOCAL(f);
 		return _sfpclose(f);
@@ -47,8 +46,8 @@ reg Sfio_t*	f;
 
 	if(f->disc == _Sfudisc)	/* closing the ungetc stream */
 		f->disc = NIL(Sfdisc_t*);
-	/* sync file pointer and announce SF_SYNC event */
-	else if((f->disc && f->disc->exceptf) || (f->flags&(SF_SHARE|SF_WRITE)) )
+	/* sync file pointer */
+	else if(f->flags&(SF_SHARE|SF_WRITE) )
 		(void)sfsync(f);
 
 	SFLOCK(f,0);
@@ -56,32 +55,9 @@ reg Sfio_t*	f;
 	/* zap any associated auxiliary buffer */
 	(void)_sfrsrv(f,-1);
 
-	/* terminate disciplines */
-	for(disc = f->disc; disc; )
-	{	reg Sfdisc_t*	next = disc->disc;
-		reg int		ex;
-
-		if(disc->exceptf)
-		{	SFOPEN(f,0);
-			ex = (*disc->exceptf)(f,local ? SF_NEW : SF_CLOSE,disc );
-			if(ex < 0)
-				return ex;
-			else if(ex > 0)
-				return 0;
-			SFLOCK(f,0);
-		}
-
-		if((disc = next) )
-		{	reg Sfdisc_t*	d;
-
-			/* make sure that the next discipline hasn't been popped */
-			for(d = f->disc; d; d = d->disc)
-				if(d == disc)
-					break;
-			if(!d)
-				disc = f->disc;
-		}
-	}
+	/* raise discipline exceptions */
+	if(f->disc && (ex = SFRAISE(f,local ? SF_NEW : SF_CLOSE,NIL(Void_t*))) != 0)
+		return ex;
 
 	if(!local && f->pool)
 	{	/* remove from pool */
@@ -105,42 +81,42 @@ reg Sfio_t*	f;
 			}
 			f->mode |= SF_LOCK;
 		}
-
-		f->disc = NIL(Sfdisc_t*);
 	}
 
-	/* tell the register function */
-	if(_Sfnotify)
-		(*_Sfnotify)(f,SF_CLOSE,f->file);
-
-	if(f->data && (!local || (f->flags&(SF_STRING|SF_MMAP))))
+	if(f->data && (!local || (f->flags&SF_STRING) || (f->bits&SF_MMAP) ) )
 	{	/* free buffer */
 #ifdef MAP_TYPE
-		if(f->flags&SF_MMAP)
-			munmap((caddr_t)f->data,f->endb-f->data);
+		if(f->bits&SF_MMAP)
+			SFMUNMAP(f,f->data,f->endb-f->data);
 		else
 #endif
 		if(f->flags&SF_MALLOC)
-			free((char*)f->data);
+			free(f->data);
 
 		f->data = NIL(uchar*);
 		f->size = -1;
 	}
 
 	/* zap the file descriptor */
+	if(_Sfnotify)
+		(*_Sfnotify)(f,SF_CLOSE,f->file);
 	if(f->file >= 0 && !(f->flags&SF_STRING))
 		CLOSE(f->file);
 	f->file = -1;
 
-	f->mode = SF_AVAIL|SF_LOCK;	/* prevent muttiple closings */
+	SFKILL(f);
+	f->flags &= SF_STATIC;
+	f->here = 0;
+	f->extent = -1;
+	f->endb = f->endr = f->endw = f->next = f->data;
 
-	if(!local && !(f->flags&SF_STATIC) )
-		SFFREE(f);
-	else
-	{	f->flags = (f->flags&SF_STATIC);
-		f->here = 0L;
-		f->extent = -1L;
-		f->endb = f->endr = f->endw = f->next = f->data;
+	if(!local)
+	{	if(f->disc && (ex = SFRAISE(f,SF_FINAL,NIL(Void_t*))) != 0 )
+			return ex;
+
+		f->disc = NIL(Sfdisc_t*);
+		if(!(f->flags&SF_STATIC) )
+			SFFREE(f);
 	}
 
 	return 0;

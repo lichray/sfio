@@ -15,7 +15,7 @@
  *	Modified uncompress code to work as a discipline under sfio.
  *	Didn't need compression code and deleted it.
  *
- * Mar, 1993, (Kiem-)Phong Vo
+ * Mar, 1993, Kiem-Phong Vo
  *	Small interface modifications to conform with other disciplines.
  */
 
@@ -103,7 +103,7 @@ typedef struct
 
 static char_type rmask[9] = {0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff};
 
-#ifdef __STD_C
+#if __STD_C
 static int peek(Sfio_t* f, char_type** bufp, int count, reg LZW_Disc* disc)
 #else
 static int peek(f, bufp, count, disc)
@@ -147,7 +147,7 @@ reg LZW_Disc*	disc;
  * 	code or -1 is returned.
  */
 
-#ifdef __STD_C
+#if __STD_C
 static code_int	getcode(Sfio_t* f, LZW_Disc* disc)
 #else
 static code_int getcode(f, disc)
@@ -211,12 +211,13 @@ LZW_Disc*	disc;
 }
 
 
-#ifdef __STD_C
-static int lzwExcept(Sfio_t* f, int type, Sfdisc_t* disc)
+#if __STD_C
+static int lzwExcept(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-static int lzwExcept(f, type, disc)
+static int lzwExcept(f, type, data, disc)
 Sfio_t*		f;
 int		type;
+Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
@@ -239,20 +240,20 @@ Sfdisc_t*	disc;
  * with those of the compress() routine.  See the definitions above.
  */
 
-#ifdef __STD_C
-lzwRead(Sfio_t* f, char* iobuf, int iocnt, Sfdisc_t* sfdisc)
+#if __STD_C
+ssize_t lzwRead(Sfio_t* f, Void_t* iobuf, size_t iocnt, Sfdisc_t* sfdisc)
 #else
-lzwRead(f, iobuf, iocnt, sfdisc)
+ssize_t lzwRead(f, iobuf, iocnt, sfdisc)
 Sfio_t*		f;
-char*		iobuf;
-int		iocnt;
+Void_t*		iobuf;
+size_t		iocnt;
 Sfdisc_t*	sfdisc;
 #endif
 {
 	LZW_Disc	*disc = (LZW_Disc *)sfdisc;
 	reg char_type	*stackp;
 	reg code_int	code;
-	char		*ioend = iobuf + iocnt;
+	char		*ioend = (char*)iobuf + iocnt;
 	register char	*ioptr = iobuf;
 #define END_REGS	{disc->code=code;disc->stackp=stackp;}
 #define BEGIN_REGS	{code=disc->code;stackp=disc->stackp;}
@@ -364,34 +365,34 @@ Sfdisc_t*	sfdisc;
 		disc->oldcode = disc->incode;
 	} while ((code = getcode(f, disc)) >= 0);
 	END_REGS
-	return ioptr - iobuf;
+	return ioptr - (char*)iobuf;
 }
 
-#ifdef __STD_C
-static long lzwSeek(Sfio_t* f, long offset, int whence, Sfdisc_t* disc)
+#if __STD_C
+static Sfoff_t lzwSeek(Sfio_t* f, Sfoff_t offset, int whence, Sfdisc_t* disc)
 #else
-static long lzwSeek(f, offset, whence, disc)
+static Sfoff_t lzwSeek(f, offset, whence, disc)
 Sfio_t*		f;
-long		offset;
+Sfoff_t		offset;
 int		whence;
 Sfdisc_t*	disc;
 #endif
 {
-	return -1L;
+	return (Sfoff_t)(-1);
 }
 
 
-#ifdef __STD_C
-static int lzwWrite(Sfio_t* f, const char* buf, int count, Sfdisc_t* disc)
+#if __STD_C
+static ssize_t lzwWrite(Sfio_t* f, const Void_t* buf, size_t count, Sfdisc_t* disc)
 #else
-static int lzwWrite(f, buf, count, disc)
+static ssize_t lzwWrite(f, buf, count, disc)
 Sfio_t*		f;
-char*		buf;
-int		count;
+Void_t*		buf;
+size_t		count;
 Sfdisc_t*	disc;
 #endif
 {
-	return -1;
+	return (ssize_t)(-1);
 }
 
 
@@ -415,14 +416,14 @@ Sfdisc_t* sfdcnewlzw()
 }
 
 
-#ifdef __STD_C
+#if __STD_C
 sfdcdellzw(Sfdisc_t* disc)
 #else
 sfdcdellzw(disc)
 Sfdisc_t*	disc;
 #endif
 {
-	free((char*)disc);
+	free(disc);
 	return 0;
 }
 

@@ -7,7 +7,7 @@
 */
 
 #if __STD_C
-int _stdscanf(const char *form, ...)
+int _stdscanf(const char* form, ...)
 #else
 int _stdscanf(va_alist)
 va_dcl

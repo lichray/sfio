@@ -15,12 +15,14 @@ Sfio_t*	f2;	/* top of stack	*/
 #endif
 {
 	reg int		n;
-	reg Sfio_t	*rf;
+	reg Sfio_t*	rf;
 
-	if((f1->mode&SF_RDWR) != f1->mode && _sfmode(f1,0,0) < 0)
+	if(f1 && (f1->mode&SF_RDWR) != f1->mode && _sfmode(f1,0,0) < 0)
 		return NIL(Sfio_t*);
 	if(f2 && (f2->mode&SF_RDWR) != f2->mode && _sfmode(f2,0,0) < 0)
 		return NIL(Sfio_t*);
+	if(!f1)
+		return f2;
 
 	/* give access to other internal functions */
 	_Sfstack = sfstack;
