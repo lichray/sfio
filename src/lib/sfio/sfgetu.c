@@ -12,7 +12,7 @@ Sfulong_t _sfgetu(f)
 reg Sfio_t*	f;
 #endif
 {
-	reg Sfulong_t	v;
+	Sfulong_t	v;
 	reg uchar	*s, *ends, c;
 	reg int		p;
 

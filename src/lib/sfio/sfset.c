@@ -29,7 +29,7 @@ reg int		set;
 
 	/* preserve at least one rd/wr flag */
 	oflags = f->flags;
-	if(!(f->bits&SF_BOTH))
+	if(!(f->bits&SF_BOTH) || (flags&SF_RDWR) == SF_RDWR )
 		flags &= ~SF_RDWR;
 
 	/* make sure that mapped area has the right mode */
@@ -56,11 +56,16 @@ reg int		set;
 		f->flags &= ~SF_APPENDWR;
 
 	/* turn to appropriate mode as necessary */
-	if(!(flags &= SF_RDWR) )
-		flags = f->flags&SF_RDWR;
-	if((flags == SF_WRITE && !(f->mode&SF_WRITE)) ||
-	   (flags == SF_READ && !(f->mode&(SF_READ|SF_SYNCED))) )
-		(void)_sfmode(f,flags,1);
+	if((flags &= SF_RDWR) )
+	{	if(!set)
+		{	if(flags == SF_READ)
+				flags = SF_WRITE;
+			else	flags = SF_READ;
+		}
+		if((flags == SF_WRITE && !(f->mode&SF_WRITE)) ||
+		   (flags == SF_READ && !(f->mode&(SF_READ|SF_SYNCED))) )
+			(void)_sfmode(f,flags,1);
+	}
 
 	/* if not shared or unseekable, public means nothing */
 	if(!(f->flags&SF_SHARE) || f->extent < 0)

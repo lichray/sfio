@@ -36,7 +36,7 @@ libstdio.a: FEATURE/stdio must $(OBJS)
 	-(ranlib libstdio.a; rm sfstdio.h; exit 0) >/dev/null 2>&1
 
 FEATURE/stdio: features/stdio
-	export CC; CC=$(CC); $(BINDIR)/iffe run features/stdio
+	$(BINDIR)/iffe set cc $(CC) $(CCMODE) $(CXFLAGS) : run features/stdio
 
 must:
 	./sfstdhdr.sh $(CC)
@@ -44,4 +44,4 @@ must:
 	./sfstdgen > sfstdio.h; rm sfstdgen sfstdhdr.h
 
 clean:
-	-(rm $(OBJS) sfstdgen sfstdhdr.h libstdio.a sfstdio.h; exit 0) >/dev/null 2>&1
+	-(rm $(OBJS) FEATURE/stdio sfstdgen sfstdhdr.h libstdio.a sfstdio.h; exit 0) >/dev/null 2>&1

@@ -126,7 +126,7 @@ int	options;
 		if(status)
 			*status = w->status;
 		pid = w->pid;
-		free((char*)w);
+		free(w);
 		return pid;
 	}
 

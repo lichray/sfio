@@ -6,15 +6,15 @@
 */
 
 #if __STD_C
-int _sfdlen(reg Sfdouble_t v)
+int _sfdlen(Sfdouble_t v)
 #else
 int _sfdlen(v)
-reg Sfdouble_t	v;
+Sfdouble_t	v;
 #endif
 {
 #define N_ARRAY		(16*sizeof(Sfdouble_t))
 	reg int		n, w;
-	reg Sfdouble_t	x;
+	Sfdouble_t	x;
 	int		exp;
 
 	if(v < 0)
@@ -28,7 +28,8 @@ reg Sfdouble_t	v;
 	for(w = 1; w <= N_ARRAY; ++w)
 	{	/* get 2^SF_PRECIS precision at a time */
 		n = (int)(x = ldexp(v,SF_PRECIS));
-		if((v = x-n) <= 0.)
+		v = x-n;
+		if(v <= 0.)
 			break;
 	}
 

@@ -8,93 +8,10 @@
 #define HIGHBITI	(~((~((uint)0)) >> 1))
 #define HIGHBITL	(~((~((Sfulong_t)0)) >> 1))
 
-#define F_FLOAT		0000010	/* %fFeEgG format			*/
-#define F_GFORMAT	0000020	/* %gG format				*/
-
-#define F_LEFT		0000100	/* left justification (-)		*/
-#define F_SIGN		0000200	/* must set a sign - or +		*/
-#define F_BLANK		0000400	/* if not - and +, then prepend a blank */
-#define F_ZERO		0001000	/* zero padding on the left side	*/
-#define F_ALTER		0002000	/* various alternative formats (#)	*/
-#define F_PAD		0004000	/* there will be some sort of padding	*/
-
-#define F_REPEAT	0010000	/* repeat pattern up to precision	*/
-#define F_MINUS		0020000	/* has a minus sign			*/
-#define F_PREFIX	(F_MINUS|F_SIGN|F_BLANK)
+#define SFFMT_PREFIX	(SFFMT_MINUS|SFFMT_SIGN|SFFMT_BLANK)
 
 #define FPRECIS		6	/* default precision for floats 	*/
 
-#define GETARG(f,t, elt,elt_t,arg_t, args,fe,rv, fmt, flg,n_flg, bs,pr, typ,n_typ) \
-	{ if(fe && fe->argf) \
-	  { FMTPARAM(fe, fmt, flg,n_flg, bs,pr, typ,n_typ); \
-	    if((t = (*fe->argf)(f,(Void_t*)(&rv),fe) ) <= 0 ) \
-	    { if(t == 0)	elt = (elt_t)va_arg(args,arg_t); \
-	      else		goto pop_fmt; \
-	    } else		elt = (elt_t)rv; \
-	  } else		elt = (elt_t)va_arg(args,arg_t); \
-	}
-
-#ifndef KPVDEL	/* emulation of %:, %& and %@ - to be removed on next release */
-typedef int(*Oldarg_f)_ARG_((int,char*,char*,int));
-typedef int(*Oldext_f)_ARG_((char*,int,int,char**,int,char*,int));
-typedef struct _oldfmt_s
-{	Sffmt_t		fe;	/* format environment	*/
-	Oldarg_f	argf;	/* old argf function	*/
-	Oldext_f	extf;	/* old extf function	*/
-	va_listarg	args;	/* old arg list		*/
-} Oldfmt_t;
-
-#if __STD_C
-static int oldarg(Sfio_t* f, Void_t* v, Sffmt_t* fe)
-#else
-static int oldarg(f, v, fe)
-Sfio_t* 	f;
-Void_t*		v;
-Sffmt_t*	fe;
-#endif
-{	Oldfmt_t*	ofe = (Oldfmt_t*)fe;
-	reg int		fmt;
-
-	fmt = fe->fmt;
-	if(fmt == 'd' || fmt == 'i')
-		fmt = fe->flag == 'l' ? 'D' : 'd';
-	else if(fmt == 'f' || fmt == 'e' || fmt == 'E' || fmt == 'g' || fmt == 'G')
-		fmt = fe->flag == 'l' ? 'F' : 'f';
-	else if(fmt == 'o' || fmt == 'x' || fmt == 'X' || fmt == 'u')
-		fmt = fe->flag == 'l' ? 'U' : 'u';
-	else if(fmt == 'n')
-		fmt = fe->flag == 'l' ? 'N' : 'n';
-	else if(fmt == 's')
-		fmt = fe->base >= 0 ? 'S' : 's';
-	else if(fmt == 'c')
-		fmt = fe->base >= 0 ? 's' : 'c';
-	else if(fmt == '*')
-		fmt = 'd';
-
-	return (*ofe->argf)(fmt,v,fe->t_str,fe->n_str) < 0 ? -1 : 1;
-}
-#if __STD_C
-static int oldext(Sfio_t* f, Void_t* v, int width, Sffmt_t* fe)
-#else
-static int oldext(f, v, width, fe)
-Sfio_t*		f;
-Void_t*		v;
-int		width;
-Sffmt_t*	fe;
-#endif
-{	Oldfmt_t*	ofe = (Oldfmt_t*)fe;
-	char*		str = NIL(char*);
-	int		rv;
-
-	rv = (*ofe->extf)(v, fe->fmt, fe->precis, &str, fe->base, fe->t_str,fe->n_str);
-	if(str)
-	{	fe->t_str = str;
-		fe->n_str = rv;
-		return 1;
-	}
-	else	return rv < 0 ? -1 : 0;
-}
-#endif/*KPVDEL*/
 
 #if __STD_C
 int sfvprintf(Sfio_t* f, const char* form, va_list args)
@@ -105,52 +22,62 @@ char*	form;		/* format to use	*/
 va_list	args;		/* arg list if !argf	*/
 #endif
 {
-	reg int		n, v, n_s, base, fmt, flags;
-	reg char	*sp, *ssp, *d;
-	reg Sflong_t	lv;
-	char		*ep, *endep, *endsp, *endd;
-	int		dot, width, precis, n_output;
-	int		sign, decpt, n_lhL, t;
-	Sfdouble_t	dval;		/* double or long double	*/
-	Argrv_t		argrv;		/* for argf to return value	*/
-	Sffmt_t		*ft, *ftenv;	/* format environment		*/
+	reg int		v, n_s, base, fmt, flags;
+	Sflong_t	lv;
+	reg char	*sp, *ssp, *endsp, *ep, *endep;
+	int		dot, width, precis, n, n_output;
+	int		sign, decpt;
+	ssize_t		size;
+	double		dval;
+#if !_ast_fltmax_double
+	Sfdouble_t	ldval;
+#endif
+	char		*tls[2], **ls;	/* for %..[separ]s		*/
+	char*		t_str;		/* stuff between ()		*/
+	ssize_t		n_str;		/* its length			*/
+
+	Argv_t		argv;		/* for extf to return value	*/
+	Sffmt_t		*ft;		/* format environment		*/
 	Fmt_t		*fm, *fmstk;	/* stack contexts		*/
-	char*		t_user;		/* stuff between ()		*/
-	int		n_user;		/* its length			*/
-	char		*tlist[2], **list;
-	char		buf[SF_MAXDIGITS], data[SF_GRAIN];
-#if _lib_locale
-	int		dc = 0;
-	struct lconv*	locv;
-#endif
-#ifndef KPVDEL
-	Oldfmt_t	ofe;
-	ofe.argf = NIL(Oldarg_f); ofe.extf = NIL(Oldext_f);
-	ofe.fe.argf = NIL(Sfarg_f); ofe.fe.extf = NIL(Sfext_f);
-	ofe.fe.form = NIL(char*);
-#endif
+
+	char*		oform;		/* original format string	*/
+	va_list		oargs;		/* original arg list		*/
+	Fmtpos_t*	fp;		/* arg position list		*/
+	int		argp, argn;	/* arg position and number	*/
+
+#define SLACK		1024
+	char		buf[SF_MAXDIGITS+SLACK], data[SF_GRAIN];
+	int		decimal = 0, thousand = 0;
 
 	/* fast io system */
-#define SFBUF(f)	(d = (char*)f->next, endd = (char*)f->endb)
+	reg uchar	*d, *endd;
+	reg int		w;
+#define SFBUF(f)	(d = f->next, endd = f->endb)
 #define SFINIT(f)	(SFBUF(f), n_output = 0)
-#define SFEND(f)	((n_output += (uchar*)d - f->next), (f->next = (uchar*)d))
+#define SFEND(f)	((n_output += d - f->next), (f->next = d))
 #define SFputc(f,c) \
-	{ if(d >= endd) \
-		{ SFEND(f); if(SFFLSBUF(f,c) <  0) goto done; n_output += 1; SFBUF(f); }\
-	  else	{ *d++ = (char)c; } \
+	{ if(d < endd) 	{ *d++ = (uchar)c; } \
+	  else \
+	  { SFEND(f); n_output += (w = SFFLSBUF(f,c)) >= 0 ? 1 : 0; SFBUF(f); \
+	    if(w < 0) goto done; \
+	  } \
 	}
 #define SFnputc(f,c,n) \
-	{ if((endd-d) < n) \
-		{ SFEND(f); if(SFNPUTC(f,c,n) != n) goto done; \
-		  n_output += n; SFBUF(f); } \
-	  else	{ while(n--) *d++ = (char)c; } \
+	{ if((endd-d) >= n) { while(n--) *d++ = (uchar)c; } \
+	  else \
+	  { SFEND(f); n_output += (w = SFNPUTC(f,c,n)) > 0 ? w : 0; SFBUF(f); \
+	    if(n != w) goto done; n = 0;\
+	  } \
 	}
 #define SFwrite(f,s,n) \
-	{ if((endd-d) < n) \
-		{ SFEND(f); if(SFWRITE(f,(Void_t*)s,n) != n) goto done; \
-		  n_output += n; SFBUF(f); } \
-	  else	MEMCPY(d,s,n); \
+	{ if((endd-d) >= n) { MEMCPY(d,s,n); } \
+	  else \
+	  { SFEND(f); n_output += (w = SFWRITE(f,(Void_t*)s,n)) > 0 ? w : 0; SFBUF(f); \
+	    if(n != w) goto done; \
+	  } \
 	}
+
+	SFCVINIT();	/* initialize conversion tables */
 
 	/* make sure stream is in write mode and buffer is not NULL */
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
@@ -164,44 +91,52 @@ va_list	args;		/* arg list if !argf	*/
 	}
 	SFINIT(f);
 
-	tlist[1] = NIL(char*);
-	fmstk = NIL(Fmt_t*);
-	ftenv = NIL(Sffmt_t*);
+	tls[1] = NIL(char*);
+
+	fmstk = NIL(Fmt_t*); ft = NIL(Sffmt_t*);
+
+	oform = (char*)form; va_copy(oargs,args);
+	fp = NIL(Fmtpos_t*); argn = -1;
 
 loop_fmt :
-	while((n = *form++) )
-	{
-		flags = base = v = 0;
-		width = precis = n_s = -1;
-		endep = ep = NIL(char*);
-
-		if(n != '%') /* collect the non-pattern chars */
-		{	sp = ssp = (char*)(form-1);
-			while((n = *++ssp) && n != '%')
-				;
-			form = endsp = ssp;
-			goto do_output;
+	while((n = *form) )
+	{	if(n != '%') /* collect the non-pattern chars */
+		{	sp = (char*)form++;
+			while(*form && *form != '%')
+				form += 1;
+			n = form-sp;
+			SFwrite(f,sp,n);
+			continue;
 		}
+		else	form += 1;
 
+		flags = 0;
+		size = width = precis = base = n_s = argp = -1;
 		ssp = _Sfdigits;
+		endep = ep = NIL(char*);
 		endsp = sp = buf+(sizeof(buf)-1);
-		t_user = NIL(char*);
-		n_user = dot = n_lhL = 0;
+		t_str = NIL(char*);
+		n_str = dot = 0;
 
-	loop_flags:	/* LOOP FOR FLAGS, WIDTH, PRECISION, BASE, TYPE */
-#define LEFTP	'('
-#define RIGHTP	')'
+	loop_flags:	/* LOOP FOR \0, %, FLAGS, WIDTH, PRECISION, BASE, TYPE */
 		switch((fmt = *form++) )
 		{
-		case LEFTP : /* get the type which is enclosed in balanced () */
-			t_user = (char*)form;
+		case '\0':
+			SFputc(f,'%');
+			goto pop_fmt;
+		case '%' :
+			SFputc(f,'%');
+			continue;
+
+		case LEFTP : /* get the type enclosed in balanced parens */
+			t_str = (char*)form;
 			for(v = 1;;)
 			{	switch(*form++)
 				{
 				case 0 :	/* not balancable, retract */
-					form = t_user;
-					t_user = NIL(char*);
-					n_user = 0;
+					form = t_str;
+					t_str = NIL(char*);
+					n_str = 0;
 					goto loop_flags;
 				case LEFTP :	/* increasing nested level */
 					v += 1;
@@ -209,222 +144,355 @@ loop_fmt :
 				case RIGHTP :	/* decreasing nested level */
 					if((v -= 1) != 0)
 						continue;
-					n_user = (form-1) - t_user;
+					if(*t_str != '*' )
+						n_str = (form-1)-t_str;
+					else
+					{	t_str = (*_Sffmtintf)(t_str+1,&n);
+						if(*t_str == '$')
+						{	if(!fp &&
+							   !(fp = (*_Sffmtposf)
+								  (f,oform,oargs,0)) )
+								goto pop_fmt;
+							n = FP_SET(n,argn);
+						}
+						else	n = FP_SET(-1,argn);
+
+						if(fp)
+						{	t_str = fp[n].argv.s;
+							n_str = fp[n].ft.size;
+						}
+						else if(ft && ft->extf )
+						{	FMTSET(ft, form,args,
+								LEFTP, 0, 0, 0,0,0,
+								NIL(char*),0);
+							n = (*ft->extf)
+							      (f,(Void_t*)&argv,ft);
+							if(n < 0)
+								goto pop_fmt;
+							if(!(ft->flags&SFFMT_VALUE) )
+								goto t_arg;
+							if((t_str = argv.s) &&
+							   (n_str = (int)ft->size) < 0)
+								n_str = strlen(t_str);
+						}
+						else
+						{ t_arg:
+							if((t_str = va_arg(args,char*)) )
+								n_str = strlen(t_str);
+						}
+					}
 					goto loop_flags;
 				}
 			}
 
 		case '-' :
-			flags |= F_LEFT;
+			flags = (flags & ~SFFMT_ZERO) | SFFMT_LEFT;
+			goto loop_flags;
+		case '0' :
+			if(!(flags&SFFMT_LEFT) )
+				flags |= SFFMT_ZERO;
 			goto loop_flags;
 		case ' ' :
-			flags |= F_BLANK;
+			if(!(flags&SFFMT_SIGN) )
+				flags |= SFFMT_BLANK;
 			goto loop_flags;
 		case '+' :
-			flags |= F_SIGN;
+			flags = (flags & ~SFFMT_BLANK) | SFFMT_SIGN;
 			goto loop_flags;
 		case '#' :
-			flags |= F_ALTER;
+			flags |= SFFMT_ALTER;
 			goto loop_flags;
-		case '.' :	/* argument count */
-			if((dot += 1) > 2)
-			{	form -= 1;
-				continue;
-			}
-			else if(dot == 2)
-				base = 0;
+		case QUOTE:
+			SFSETLOCALE(&decimal,&thousand);
+			if(thousand)
+				flags |= SFFMT_THOUSAND;
 			goto loop_flags;
-		case '*' :	/* variable width, precision, or base */
-			if((dot == 0 && width >= 0) || (dot == 1 && precis >= 0) )
-			{	form -= 1;	/* bad pattern specification */
-				continue;
+
+		case '.' :
+			if((dot += 1) == 2)
+				base = 0; /* for %s,%c */
+			if(isdigit(*form) )
+			{	fmt = *form++;
+				goto dot_size;
 			}
-			GETARG(f,t, v,int,int, args,ftenv,argrv.i,
-				'*', 0,dot, 0,0, NIL(char*),0 );
-			goto set_args;
-		case '0' :	/* defining width or precision */
-			if(dot == 0)
-			{	flags |= F_ZERO;
+			else if(*form != '*')
 				goto loop_flags;
+			else	form += 1; /* fall thru for '*' */
+
+		case '*' :
+			form = (*_Sffmtintf)(form,&n);
+			if(*form == '$')
+			{	form += 1;
+				if(!fp && !(fp = (*_Sffmtposf)(f,oform,oargs,0)) )
+					goto pop_fmt;
+				n = FP_SET(n,argn);
 			}
-			/* fall thru */
+			else	n = FP_SET(-1,argn);
+
+			if(fp)
+				v = fp[n].argv.i;
+			else if(ft && ft->extf)
+			{	FMTSET(ft, form,args, '.',dot, 0, 0,0,0, NIL(char*), 0);
+				if((*ft->extf)(f, (Void_t*)(&argv), ft) < 0)
+					goto pop_fmt;
+				if(ft->flags&SFFMT_VALUE)
+					v = argv.i;
+				else	v = (dot <= 2) ? va_arg(args,int) : 0;
+			}
+			else	v = dot <= 2 ? va_arg(args,int) : 0;
+			goto dot_set;
+
 		case '1' : case '2' : case '3' :
 		case '4' : case '5' : case '6' :
 		case '7' : case '8' : case '9' :
-			v = fmt - '0';
-			for(n = *form; isdigit(n); n = *++form)
-				v = (v<<3) + (v<<1) + (n - '0');
-		set_args:
+		dot_size :
+			for(v = fmt - '0'; isdigit(*form); ++form)
+				v = v*10 + (*form - '0');
+			if(*form == '$')
+			{	form += 1;
+				if(!fp && !(fp = (*_Sffmtposf)(f,oform,oargs,0)) )
+					goto pop_fmt;
+				argp = v-1;
+				goto loop_flags;
+			}
+		dot_set :
 			if(dot == 0)
 			{	if((width = v) < 0)
 				{	width = -width;
-					flags |= F_LEFT;
+					flags = (flags & ~SFFMT_ZERO) | SFFMT_LEFT;
 				}
-				flags |= F_PAD;
 			}
 			else if(dot == 1)
 				precis = v;
-			else	base = v;
+			else if(dot == 2)
+				base = v;
 			goto loop_flags;
 
-			/* modifiers for object's length */
+		case 'I' : /* object length */
+			size = 0;
+			flags = (flags & ~SFFMT_TYPES) | SFFMT_IFLAG;
+			if(isdigit(*form) )
+			{	for(n = *form; isdigit(n); n = *++form)
+					size = size*10 + (n - '0');
+			}
+			else if(*form == '*')
+			{	form = (*_Sffmtintf)(form+1,&n);
+				if(*form == '$')
+				{	form += 1;
+					if(!fp && !(fp = (*_Sffmtposf)(f,oform,oargs,0)))
+						goto pop_fmt;
+					n = FP_SET(n,argn);
+				}
+				else	n = FP_SET(-1,argn);
+
+				if(fp)	/* use position list */
+					size = fp[n].argv.i;
+				else if(ft && ft->extf)
+				{	FMTSET(ft, form,args, 'I',sizeof(int), 0, 0,0,0,
+						NIL(char*), 0);
+					if((*ft->extf)(f, (Void_t*)(&argv), ft) < 0)
+						goto pop_fmt;
+					if(ft->flags&SFFMT_VALUE)
+						size = argv.i;
+					else	size = va_arg(args,int);
+				}
+				else	size = va_arg(args,int);
+			}
+			goto loop_flags;
+
 		case 'l' :
-			flags = (flags&~(F_SHORT|F_LDOUBLE))|F_LONG;
-			n_lhL += 1;
+			size = -1;
+			flags &= ~SFFMT_TYPES;
+			if(*form == 'l')
+			{	form += 1;
+				flags |= SFFMT_LLONG;
+			}
+			else	flags |= SFFMT_LONG;
 			goto loop_flags;
 		case 'h' :
-			flags = (flags&~(F_LONG|F_LDOUBLE))|F_SHORT;
-			n_lhL += 1;
+			size = -1;
+			flags = (flags & ~SFFMT_TYPES) | SFFMT_SHORT;
 			goto loop_flags;
 		case 'L' :
-			flags = (flags&~(F_LONG|F_SHORT))|F_LDOUBLE;
-			n_lhL += 1;
+			size = -1;
+			flags = (flags & ~SFFMT_TYPES) | SFFMT_LDOUBLE;
 			goto loop_flags;
+		}
 
-			/* PRINTF DIRECTIVES */
-		default :	/* unknown directive */
-			if(ftenv && ftenv->extf)
-			{	va_list	savarg; va_copy(savarg, args);
-
-				GETARG(f,t, argrv.vp,Void_t*,Void_t*, args,ftenv,argrv.vp,
-					fmt, flags,n_lhL, base,precis, t_user,n_user );
-
-				FMTPARAM(ftenv,fmt,flags,n_lhL,base,precis,t_user,n_user);
-				if((t = (*ftenv->extf)(f, argrv.vp, width, ftenv)) > 0)
-				{	sp = ftenv->t_str;
-					n_s = ftenv->n_str;
-					goto s_format;
-				}
-				else if(t < 0)
-					goto pop_fmt;
-				else	va_copy(args, savarg);
+		/* set the correct size */
+		if(flags & (SFFMT_TYPES & ~SFFMT_IFLAG) )
+		{	if((_Sftype[fmt]&(SFFMT_INT|SFFMT_UINT)) || fmt == 'n')
+			{	size =	(flags&SFFMT_LLONG) ? sizeof(Sflong_t) :
+					(flags&SFFMT_LONG) ? sizeof(long) :
+					(flags&SFFMT_SHORT) ? sizeof(short) : -1;
 			}
+			else if(_Sftype[fmt]&SFFMT_FLOAT)
+			{	size = (flags&SFFMT_LDOUBLE) ? sizeof(Sfdouble_t) :
+				       (flags&(SFFMT_LONG|SFFMT_LLONG)) ?
+						sizeof(double) : -1;
+			}
+		}
 
+		argp = FP_SET(argp,argn);
+		if(fp)
+		{	if(ft && ft->extf && fp[argp].ft.fmt != fp[argp].fmt)
+				fmt = fp[argp].ft.fmt;
+			argv = fp[argp].argv;
+			size = fp[argp].ft.size;
+		}
+		else if(ft && ft->extf )	/* extended processing */
+		{	FMTSET(ft, form,args, fmt, size,flags, width,precis,base,
+				t_str,n_str);
+			SFEND(f); SFOPEN(f,0);
+			v = (*ft->extf)(f, (Void_t*)(&argv), ft);
+			SFLOCK(f,0); SFBUF(f);
+
+			if(v < 0)
+				goto pop_fmt;
+			else if(v == 0)	/* extf did not output */
+			{	FMTGET(ft, form,args, fmt, size,flags, width,precis,base);
+				if(!(ft->flags&SFFMT_VALUE) )
+					goto get_val;
+			}
+			else if(v > 0) /* extf output v bytes */
+			{	n_output += v;
+				continue;
+			}
+		}
+		else
+		{ get_val:
+			switch(_Sftype[fmt])
+			{ case SFFMT_INT:
+			  case SFFMT_UINT:
+#if !_ast_intmax_long
+				if(FMTCMP(size, Sflong_t, Sflong_t))
+					argv.ll = va_arg(args, Sflong_t);
+				else
+#endif
+				if(FMTCMP(size, long, Sflong_t) )
+					argv.l = va_arg(args, long);
+				else	argv.i = va_arg(args, int);
+				break;
+			 case SFFMT_FLOAT:
+#if !_ast_fltmax_double
+				if(FMTCMP(size, Sfdouble_t, Sfdouble_t))
+					argv.ld = va_arg(args,Sfdouble_t);
+				else
+#endif
+					argv.d  = va_arg(args,double);
+				break;
+			 case SFFMT_POINTER:
+					argv.vp = va_arg(args,Void_t*);
+				break;
+			 case SFFMT_BYTE:
+				if(base >= 0)
+					argv.s = va_arg(args,char*);
+				else	argv.c = (char)va_arg(args,int);
+				break;
+			 default: /* unknown pattern */
+				break;
+			}
+		}
+
+		switch(fmt)	/* PRINTF DIRECTIVES */
+		{
+		default :	/* unknown directive */
 			form -= 1;
+			argn -= 1;
 			continue;
-#ifndef KPVDEL
-		case '@' :
-			ofe.argf = va_arg(args,Oldarg_f);
-			ofe.fe.argf = oldarg;
-			goto set_stack;
-		case '&' :
-			ofe.extf = va_arg(args,Oldext_f);
-			ofe.fe.extf = oldext;
-			goto set_stack;
-		case ':' :
-			ofe.fe.form = va_arg(args,char*);
-			ofe.args = va_arg(args,va_listarg);
-			va_copy(ofe.fe.args,va_listval(ofe.args));
-		set_stack:
-			if(!(fm = fmstk) || ftenv != &ofe.fe )
+
+		case '!' :	/* stacking a new environment */
+			if(!fp)
+				fp = (*_Sffmtposf)(f,oform,oargs,0);
+			else	goto pop_fmt;
+
+			if(!argv.ft)
+				goto pop_fmt;
+			if(!argv.ft->form && ft ) /* change extension functions */
+			{	if(ft->eventf &&
+				   (*ft->eventf)(f,SF_DPOP,(Void_t*)form,ft) < 0)
+					continue;
+				fmstk->ft = ft = argv.ft;
+			}
+			else			/* stack a new environment */
 			{	if(!FMTALLOC(fm))
 					goto done;
-				fm->form = NIL(char*);
-			}
-			if(fmt == ':')
-			{	fm->form = (char*)form;
-				va_copy(fm->args,args);
-				form = ofe.fe.form;
-				va_copy(args,ofe.fe.args);
-			}
-			if(fm != fmstk)
-			{	fm->ftenv = ftenv;
-				fm->next = fmstk;
-				fmstk = fm;
-			}
-			ftenv = &ofe.fe;
-			continue;
-#endif/*KPVDEL*/
-		case '!' :	/* stacking a new environment */
-			GETARG(f,t, ft,Sffmt_t*,Sffmt_t*, args,ftenv,argrv.ft,
-				'!', flags,n_lhL, 0,0, t_user,n_user);
-			if(!ft)
-				goto pop_fmt;
-			if(ft->form || !(fm = fmstk) )
-			{	/* stack a new environment */
-				if(!FMTALLOC(fm))
-					goto done;
 
-				if(ft->form)
+				if(argv.ft->form)
 				{	fm->form = (char*)form;
 					va_copy(fm->args,args);
-					form = ft->form;	
-					va_copy(args,ft->args);
+
+					fm->oform = oform;
+					va_copy(fm->oargs,oargs);
+					fm->argn = argn;
+					fm->fp = fp;
+
+					form = argv.ft->form;	
+					va_copy(args,argv.ft->args);
+					argn = -1;
+					fp = NIL(Fmtpos_t*);
 				}
 				else	fm->form = NIL(char*);
 
-				fm->ftenv = ftenv;
+				fm->eventf = argv.ft->eventf;
+				fm->ft = ft;
 				fm->next = fmstk;
 				fmstk = fm;
+				ft = argv.ft;
 			}
-
-			ftenv = ft;
 			continue;
 
 		case 's':
-			if(dot == 2)	/* list of strings */
-			{	GETARG(f,t, list,char**,char**, args,ftenv,list,
-					's', flags,n_lhL, base,precis, t_user,n_user);
-				if(!list || !list[0])
+			if(base >= 0)	/* list of strings */
+			{	if(!(ls = argv.sp) || !ls[0])
 					continue;
 			}
 			else
-			{	GETARG(f,t, sp,char*,char*, args,ftenv,argrv.s,
-					's', flags,n_lhL, -1,precis, t_user,n_user);
-				if(!sp)
+			{	if(!(sp = argv.s))
 					sp = "(null)";
-			s_format:
-				list = tlist; tlist[0] = sp;
+				ls = tls; tls[0] = sp;
 			}
-			for(sp = *list; ; )
-			{	if((v = n_s) >= 0) /* extf says this is the length */
+			for(sp = *ls; ; )
+			{	if((v = size) >= 0)
 				{	if(precis >= 0 && v > precis)
 						v = precis;
 				}
+				else if(precis < 0)
+					v = strlen(sp);
 				else /* precis >= 0 means min(strlen,precis) */
-				{	endsp = sp;
-					if((n = precis) >= 0)
-						while(n-- > 0 && *endsp)
-							endsp++;
-					else	while(*endsp)
-							endsp++;
-					v = endsp - sp;
+				{	for(v = 0; v < precis; ++v)
+						if(sp[v] == 0)
+							break;
 				}
 				if((n = width - v) > 0)
-				{	if(flags&F_ZERO)
+				{	if(flags&SFFMT_ZERO)
 						{ SFnputc(f,'0',n); }
-					else if(!(flags&F_LEFT) )
+					else if(!(flags&SFFMT_LEFT) )
 						{ SFnputc(f,' ',n); }
 				}
 				SFwrite(f,sp,v);
 				if(n > 0)
 					{ SFnputc(f,' ',n); }
-				if(!(sp = *++list))
+				if(!(sp = *++ls))
 					break;
-				else if(dot == 2 && base)
+				else if(base > 0)
 					{ SFputc(f,base); }
 			}
 			continue;
 
-		case '%':
-			goto c_format;
 		case 'c':	/* an array of characters */
-			if(dot == 2)
-			{	GETARG(f,t, sp,char*,char*, args,ftenv,argrv.s,
-					'c', flags,n_lhL, base,precis, t_user,n_user);
-				if(!sp || !sp[0])
+			if(base >= 0)
+			{	if(!(sp = argv.s) || !sp[0])
 					continue;
 			}
 			else
-			{	GETARG(f,t, fmt,int,int, args,ftenv,argrv.c,
-					'c', flags,n_lhL, -1,precis, t_user,n_user);
-			c_format:
+			{	fmt = (int)argv.c;
 				sp = buf; buf[0] = fmt; buf[1] = 0;
 			}
 			if(precis <= 0)
 				precis = 1;
 			for(fmt = *sp;; )
-			{	if((n = width-precis) > 0 && !(flags&F_LEFT))
+			{	if((n = width-precis) > 0 && !(flags&SFFMT_LEFT))
 					{ SFnputc(f,' ',n) };
 				v = precis;
 				SFnputc(f,fmt,v);
@@ -432,153 +500,85 @@ loop_fmt :
 					{ SFnputc(f,' ',n) };
 				if(!(fmt = *++sp))
 					break;
-				else if(dot == 2 && base)
+				else if(base > 0)
 					{ SFputc(f,base); }
 			}
 			continue;
 
 		case 'n':	/* return current output length */
 			SFEND(f);
-			if(!(flags&(F_LONG|F_SHORT)) )
-			{	GETARG(f,t, argrv.ip,int*,int*, args,ftenv,argrv.ip,
-					'n', n_lhL,flags, 0,0, t_user,n_user );
-				*argrv.ip = (int)n_output;
-			}
-			else if(flags&F_SHORT)
-			{	GETARG(f,t, argrv.hp,short*,short*, args,ftenv,argrv.hp,
-					'n', n_lhL,flags, 0,0, t_user,n_user );
-				*argrv.hp = (short)n_output;
-			}
-#if _typ_long_long
-			else if(n_lhL >= 2)
-			{	GETARG(f,t, argrv.llp,Sflong_t*,Sflong_t*,
-					args,ftenv,argrv.llp,
-					'n', n_lhL,flags, 0,0, t_user,n_user );
-				*argrv.llp = (Sflong_t)n_output;
-			}
-#endif
+#if !_ast_intmax_long
+			if(FMTCMP(size, Sflong_t, Sflong_t))
+				*((Sflong_t*)argv.vp) = (Sflong_t)n_output;
 			else
-			{	GETARG(f,t, argrv.lp,long*,long*, args,ftenv,argrv.lp,
-					'n', n_lhL,flags, 0,0, t_user,n_user );
-				*argrv.lp = (long)n_output;
-			}
+#endif
+			if(FMTCMP(size, long, Sflong_t))
+				*((long*)argv.vp) = (long)n_output;
+			else if(sizeof(short) < sizeof(int) &&
+				FMTCMP(size,short,Sflong_t) )
+				*((short*)argv.vp) = (short)n_output;
+			else	*((int*)argv.vp) = (int)n_output;
+
 			continue;
 
 		case 'p':	/* pointer value */
-			GETARG(f,t, argrv.vp,Void_t*,Void_t*, args,ftenv,argrv.vp,
-				'p', flags,n_lhL, base,precis, t_user,n_user );
 			fmt = 'x';
 			base = 16; n_s = 15; n = 4;
-			flags = (flags&~(F_SIGN|F_BLANK|F_ZERO))|F_ALTER;
+			flags = (flags&~(SFFMT_SIGN|SFFMT_BLANK|SFFMT_ZERO))|SFFMT_ALTER;
 #if _more_void_int
-			lv = (Sflong_t)((Sfulong_t)argrv.vp);
+			lv = (Sflong_t)((Sfulong_t)argv.vp);
 			goto long_cvt;
 #else
-			v = (int)((uint)argrv.vp);
+			v = (int)((uint)argv.vp);
 			goto int_cvt;
 #endif
 		case 'o':
 			base = 8; n_s = 7; n = 3;
-			flags &= ~(F_SIGN|F_BLANK);
+			flags &= ~(SFFMT_SIGN|SFFMT_BLANK);
 			goto int_arg;
 		case 'X':
 			ssp = "0123456789ABCDEF";
 		case 'x':
 			base = 16; n_s = 15; n = 4;
-			flags &= ~(F_SIGN|F_BLANK);
+			flags &= ~(SFFMT_SIGN|SFFMT_BLANK);
 			goto int_arg;
 		case 'i':
 			fmt = 'd';
 			goto d_format;
 		case 'u':
-			flags &= ~(F_SIGN|F_BLANK);
+			flags &= ~(SFFMT_SIGN|SFFMT_BLANK);
 		case 'd':
 		d_format:
-			if(base && base >= 2 && base <= SF_RADIX)
-			{	if((base&(n_s = base-1)) == 0)
-				{	if(base < 8)
-						n = base <  4 ? 1 : 2;
-					else if(base < 32)
-						n = base < 16 ? 3 : 4;
-					else	n = base < 64 ? 5 : 6;
-				}
-				else	n_s = 0;
+			if(base < 2 || base > SF_RADIX)
+				base = 10;
+			if((base&(n_s = base-1)) == 0)
+			{	if(base < 8)
+					n = base <  4 ? 1 : 2;
+				else if(base < 32)
+					n = base < 16 ? 3 : 4;
+				else	n = base < 64 ? 5 : 6;
 			}
+			else	n_s = base == 10 ? -1 : 0;
 
 		int_arg:
-			if(!(flags&(F_SHORT|F_LONG)) )
-			{	GETARG(f,t, v,int,int, args,ftenv,argrv.i,
-					fmt, flags,n_lhL, base,precis, t_user,n_user );
-			int_cvt:
-				if(v == 0 && precis == 0)
-					break;
-				if(v < 0 && fmt == 'd' )
-				{	flags |= F_MINUS;
-					if(v == HIGHBITI) /* avoid overflow */
-					{	if(!base)
-							base = 10;
-						v = (int)(HIGHBITI/base);
-						*--sp = _Sfdigits[HIGHBITI -
-							  ((uint)v)*base];
-					}
-					else	v = -v;
-				}
-				if(n_s > 0)
-				{	do
-					{	*--sp = ssp[v&n_s];
-					} while((v = ((uint)v) >> n) );
-				}
-				else if(n_s != 0)
-				{	sfucvt(v,sp,n,ssp,int,uint);
-				}
-				else
-				{	do
-					{	*--sp = ssp[((uint)v)%base];
-					} while((v = ((uint)v)/base) );
-				}
+#if !_ast_intmax_long ||  _more_long_int || _more_void_int
+			if(FMTCMP(size, Sflong_t, Sflong_t))
+			{	lv = argv.ll;
+				goto long_cvt;
 			}
-			else if(flags&F_SHORT)
-			{	GETARG(f,t, argrv.h,short,int, args,ftenv,argrv.h,
-					fmt, flags,n_lhL, base,precis, t_user,n_user);
-				v = fmt == 'd' ? (int)argrv.h : (int)((ushort)argrv.h);
-				goto int_cvt;
-			}
-			else /*if(flags&F_LONG)*/
-			{
-#if _typ_long_long
-				if(n_lhL >= 2)
-				{	GETARG(f,t, lv,Sflong_t,Sflong_t,
-					       args,ftenv,argrv.ll,
-					       fmt,flags,n_lhL,base,precis,t_user,n_user);
-				} else
-#endif
-				{
-#if _more_long_int
-					GETARG(f,t, argrv.l,long,long,args,ftenv,argrv.l,
-					       fmt,flags,n_lhL,base,precis,t_user,n_user);
-					lv = (fmt == 'd') ? (Sflong_t)argrv.l :
-							    (Sflong_t)((ulong)argrv.l);
-#else
-					GETARG(f,t, v,int,int, args,ftenv,argrv.i,
-					       fmt,flags,n_lhL,base,precis,t_user,n_user);
-					goto int_cvt;
-#endif /*_more_long_int*/
-				}
-
-#if _typ_long_long || _more_long_int || _more_void_int
-#	if _more_void_int
+			else if(FMTCMP(size, long, Sflong_t))
+			{	if(fmt == 'd')
+					lv = (Sflong_t)argv.l;
+				else	lv = (Sflong_t)((ulong)argv.l);
 			long_cvt:
-#	endif
 				if(lv == 0 && precis == 0)
 					break;
 				if(lv < 0 && fmt == 'd' )
-				{	flags |= F_MINUS;
+				{	flags |= SFFMT_MINUS;
 					if(lv == HIGHBITL) /* avoid overflow */
-					{	if(!base)
-							base = 10;
-						lv = (Sflong_t)(HIGHBITL/base);
+					{	lv = (Sflong_t)(HIGHBITL/base);
 						*--sp = _Sfdigits[HIGHBITL -
-							  ((Sfulong_t)lv)*base];
+								  ((Sfulong_t)lv)*base];
 					}
 					else	lv = -lv;
 				}
@@ -596,29 +596,86 @@ loop_fmt :
 					{	*--sp = ssp[((Sfulong_t)lv)%base];
 					} while((lv = ((Sfulong_t)lv)/base) );
 				}
-#endif /* _typ_long_long || _more_long_int || _more_void_int */
+			} else
+#endif
+			if(sizeof(short) < sizeof(int) && FMTCMP(size,short,Sflong_t))
+			{	if(ft && ft->extf && (ft->flags&SFFMT_VALUE) )
+				{	if(fmt == 'd')
+						v = (int)argv.h;
+					else	v = (int)((ushort)argv.h);
+				}
+				else
+				{	if(fmt == 'd')
+						v = (int)argv.i;
+					else	v = (int)(ushort)argv.i;
+				}
+				goto int_cvt;
+			}
+			else
+			{	v = argv.i;
+			int_cvt:
+				if(v == 0 && precis == 0)
+					break;
+				if(v < 0 && fmt == 'd' )
+				{	flags |= SFFMT_MINUS;
+					if(v == HIGHBITI) /* avoid overflow */
+					{	v = (int)(HIGHBITI/base);
+						*--sp = _Sfdigits[HIGHBITI -
+								  ((uint)v)*base];
+					}
+					else	v = -v;
+				}
+				if(n_s < 0)	/* base 10 */
+				{	sfucvt(v,sp,n,ssp,int,uint);
+				}
+				else if(n_s > 0) /* base power-of-2 */
+				{	do
+					{	*--sp = ssp[v&n_s];
+					} while((v = ((uint)v) >> n) );
+				}
+				else /* n_s == 0, general base */
+				{	do
+					{	*--sp = ssp[((uint)v)%base];
+					} while((v = ((uint)v)/base) );
+				}
 			}
 
-			/* zero padding for precision */
-			for(precis -= (endsp-sp); precis > 0; --precis)
-				*--sp = '0';
+			if(n_s < 0 && (flags&SFFMT_THOUSAND) && (n = endsp-sp) > 3)
+			{	if((n %= 3) == 0)
+					n = 3;
+ 				for(ep = buf+SLACK, endep = ep + n; ; )
+				{	while(ep < endep)
+						*ep++ = *sp++;
+					if(sp == endsp)
+						break;
+					if(sp <= endsp-3)
+						*ep++ = thousand;
+					endep = ep+3;
+				}
+				sp = buf+SLACK;
+				endsp = ep;
+			}
 
-			if(flags&F_ALTER) /* prefix */
+			/* zero padding for precision if have room in buffer */
+			if(precis > 0 && (precis -= (endsp-sp)) < (sp-buf)-64)
+				while(precis-- > 0)
+					*--sp = '0';
+
+			if(flags&SFFMT_ALTER) /* prefix */
 			{	if(fmt == 'o')
 				{	if(*sp != '0')
 						*--sp = '0';
 				}
 				else
-				{	if(dot == 2 && n_s < 0)
-						base = 10;
-					if(width > 0 && (flags&F_ZERO))
+				{	if(width > 0 && (flags&SFFMT_ZERO))
 					{	/* do 0 padding first */
 						if(fmt == 'x' || fmt == 'X')
 							n = 0;
-						else if(dot != 2)
+						else if(dot < 2)
 							n = width;
 						else	n = base < 10 ? 2 : 3;
-						n += (flags&(F_MINUS|F_SIGN)) ? 1 : 0;
+						n += (flags&(SFFMT_MINUS|SFFMT_SIGN)) ?
+							1 : 0;
 						n = width - (n + (endsp-sp));
 						while(n-- > 0)
 							*--sp = '0';
@@ -627,7 +684,7 @@ loop_fmt :
 					{	*--sp = (char)fmt;
 						*--sp = '0';
 					}
-					else if(dot == 2)
+					else if(dot >= 2)
 					{	/* base#value notation */
 						*--sp = '#';
 						if(base < 10)
@@ -642,45 +699,68 @@ loop_fmt :
 
 			break;
 
-		case 'g': /* %g and %G ultimately become %e or %f */
-		case 'G':
-		case 'e':
-		case 'E':
+		case 'g': case 'G': /* these ultimately become %e or %f */
+		case 'e': case 'E':
 		case 'f':
-#if _typ_long_double
-			if(flags&F_LDOUBLE)
-			{	GETARG(f,t, dval,Sfdouble_t,Sfdouble_t, args,ftenv,dval,
-					fmt, flags,n_lhL, base,precis, t_user,n_user );
-			}
+#if !_ast_fltmax_double
+			if(FMTCMP(size,Sfdouble_t,Sfdouble_t))
+				ldval = argv.ld;
 			else
 #endif
-			{	GETARG(f,t, dval,Sfdouble_t,double, args,ftenv,argrv.d,
-					fmt, flags,n_lhL, base,precis, t_user,n_user );
-			}
+			if(!(ft && ft->extf && (ft->flags&SFFMT_VALUE)) ||
+			   FMTCMP(size,double,Sfdouble_t))
+				dval = argv.d;
+			else	dval = (double)argv.f;
 
 			if(fmt == 'e' || fmt == 'E')
 			{	n = (precis = precis < 0 ? FPRECIS : precis)+1;
-				ep = _sfcvt(dval,min(n,SF_FDIGITS),
-					    &decpt,&sign,F_EFORMAT|(flags&F_LDOUBLE));
+#if !_ast_fltmax_double
+				if(FMTCMP(size,Sfdouble_t,Sfdouble_t))
+				{	ep = _sfcvt(&ldval,min(n,SF_FDIGITS),
+					    	&decpt,&sign,
+						SFFMT_EFORMAT|SFFMT_LDOUBLE );
+				} else
+#endif
+				{	ep = _sfcvt(&dval,min(n,SF_FDIGITS),
+					    	&decpt,&sign,SFFMT_EFORMAT);
+				}
 				goto e_format;
 			}
 			else if(fmt == 'f' || fmt == 'F')
 			{	precis = precis < 0 ? FPRECIS : precis;
-				ep = _sfcvt(dval,min(precis,SF_FDIGITS),
-					    &decpt,&sign,(flags&F_LDOUBLE));
+#if !_ast_fltmax_double
+				if(FMTCMP(size,Sfdouble_t,Sfdouble_t))
+				{	ep = _sfcvt(&ldval,min(precis,SF_FDIGITS),
+					    	&decpt,&sign,SFFMT_LDOUBLE);
+				} else
+#endif
+				{	ep = _sfcvt(&dval,min(precis,SF_FDIGITS),
+					    	&decpt,&sign,0);
+				}
 				goto f_format;
 			}
 
 			/* 'g' or 'G' format */
 			precis = precis < 0 ? FPRECIS : precis == 0 ? 1 : precis;
-			ep = _sfcvt(dval,min(precis,SF_FDIGITS),
-				    &decpt,&sign,F_EFORMAT|(flags&F_LDOUBLE));
-			if(dval == 0.)
-				decpt = 1;
-			else if(*ep == 'I')
-				goto infinite;
+#if !_ast_fltmax_double
+			if(FMTCMP(size,Sfdouble_t,Sfdouble_t))
+			{	ep = _sfcvt(&ldval,min(precis,SF_FDIGITS),
+				    	&decpt,&sign,SFFMT_EFORMAT|SFFMT_LDOUBLE);
+				if(ldval == 0.)
+					decpt = 1;
+				else if(*ep == 'I')
+					goto infinite;
+			} else
+#endif
+			{	ep = _sfcvt(&dval,min(precis,SF_FDIGITS),
+				    	&decpt,&sign,SFFMT_EFORMAT);
+				if(dval == 0.)
+					decpt = 1;
+				else if(*ep == 'I')
+					goto infinite;
+			}
 
-			if(!(flags&F_ALTER))
+			if(!(flags&SFFMT_ALTER))
 			{	/* zap trailing 0s */
 				if((n = sfslen()) > precis)
 					n = precis;
@@ -690,7 +770,6 @@ loop_fmt :
 			}
 			else	n = precis;
 
-			flags = (flags & ~F_ZERO) | F_GFORMAT;
 			if(decpt < -3 || decpt > precis)
 			{	precis = n-1;
 				goto e_format;
@@ -706,8 +785,9 @@ loop_fmt :
 			sp = endsp = buf+1;	/* reserve space for sign */
 			*endsp++ = *ep ? *ep++ : '0';
 
-			if(precis > 0 || (flags&F_ALTER))
-				*endsp++ = GETDECIMAL(dc,locv);
+			SFSETLOCALE(&decimal,&thousand);
+			if(precis > 0 || (flags&SFFMT_ALTER))
+				*endsp++ = decimal;
 			ssp = endsp;
 			endep = ep+precis;
 			while((*endsp++ = *ep++) && ep <= endep)
@@ -716,6 +796,10 @@ loop_fmt :
 
 			/* build the exponent */
 			ep = endep = buf+(sizeof(buf)-1);
+#if !_ast_fltmax_double
+			if(FMTCMP(size,Sfdouble_t,Sfdouble_t))
+				dval = ldval ? 1. : 0.; /* so the below test works */
+#endif
 			if(dval != 0.)
 			{	if((n = decpt - 1) < 0)
 					n = -n;
@@ -733,7 +817,6 @@ loop_fmt :
 			*--ep = (decpt > 0 || dval == 0.) ? '+' : '-';
 			*--ep = isupper(fmt) ? 'E' : 'e';
 
-			flags = (flags&~F_ZERO)|F_FLOAT;
 			goto end_efg;
 
 		f_format: /* data before the decimal point */
@@ -746,15 +829,28 @@ loop_fmt :
 				goto end_efg;
 			}
 
+			SFSETLOCALE(&decimal,&thousand);
 			endsp = sp = buf+1;	/* save a space for sign */
 			endep = ep+decpt;
-			while(ep < endep && (*endsp++ = *ep++))
-				;
+			if(decpt > 3 && (flags&SFFMT_THOUSAND) )
+			{	if((n = decpt%3) == 0)
+					n = 3;
+				while(ep < endep && (*endsp++ = *ep++) )
+				{	if(--n == 0 && (ep <= endep-3) )
+					{	*endsp++ = thousand;
+						n = 3;
+					}
+				}
+			}
+			else
+			{	while(ep < endep && (*endsp++ = *ep++))
+					;
+			}
 			if(endsp == sp)
 				*endsp++ = '0';
 
-			if(precis > 0 || (flags&F_ALTER))
-				*endsp++ = GETDECIMAL(dc,locv);
+			if(precis > 0 || (flags&SFFMT_ALTER))
+				*endsp++ = decimal;
 
 			if((n = -decpt) > 0)
 			{	/* output zeros for negative exponent */
@@ -770,53 +866,46 @@ loop_fmt :
 				;
 			precis -= (endsp -= 1) - ssp;
 			ep = endep;
-			flags |= F_FLOAT;
 		end_efg:
+			flags |= SFFMT_FLOAT;
 			if(sign)
-			{	/* if a %gG, output the sign now */
-				if(flags&F_GFORMAT)
-				{	*--sp = '-';
-					flags &= ~(F_SIGN|F_BLANK);
-				}
-				else	flags |= F_MINUS;
-			}
+				flags |= SFFMT_MINUS;
 			break;
 		}
 
-		if(flags == 0)
+		if(flags == 0 && width <= 0)
 			goto do_output;
 
-		if(flags&(F_MINUS|F_SIGN|F_BLANK))
-			fmt = (flags&F_MINUS) ? '-' : (flags&F_SIGN) ? '+' : ' ';
+		if(flags&SFFMT_PREFIX)
+			fmt = (flags&SFFMT_MINUS) ? '-' : (flags&SFFMT_SIGN) ? '+' : ' ';
 
 		n = (endsp-sp) + (endep-ep) + (precis <= 0 ? 0 : precis) +
-		    ((flags&F_PREFIX) ? 1 : 0);
+		    ((flags&SFFMT_PREFIX) ? 1 : 0);
 		if((v = width-n) <= 0)
 			v = 0;
-		else if(!(flags&F_ZERO)) /* right padding */
-		{	if(flags&F_LEFT)
+		else if(!(flags&SFFMT_ZERO)) /* right padding */
+		{	if(flags&SFFMT_LEFT)
 				v = -v;
-			else if(flags&F_PREFIX) /* blank padding, output prefix now */
+			else if(flags&SFFMT_PREFIX) /* blank padding, output prefix now */
 			{	*--sp = fmt;
-				flags &= ~F_PREFIX;
+				flags &= ~SFFMT_PREFIX;
 			}
 		}
 
-		if(flags&F_PREFIX) /* put out the prefix */
+		if(flags&SFFMT_PREFIX) /* put out the prefix */
 		{	SFputc(f,fmt);
 			if(fmt != ' ')
-				flags |= F_ZERO;
+				flags |= SFFMT_ZERO;
 		}
 
 		if((n = v) > 0) /* left padding */
-		{	v = (flags&F_ZERO) ? '0' : ' ';
+		{	v = (flags&SFFMT_ZERO) ? '0' : ' ';
 			SFnputc(f,v,n);
 		}
 
-		if((n = precis) > 0 && ((flags&F_REPEAT) || !(flags&F_FLOAT)))
+		if((n = precis) > 0 && !(flags&SFFMT_FLOAT))
 		{	/* padding for integer precision */
-			v = (flags&F_REPEAT) ? fmt : '0';
-			SFnputc(f,v,n);
+			SFnputc(f,'0',n);
 			precis = 0;
 		}
 
@@ -824,47 +913,67 @@ loop_fmt :
 		if((n = endsp-sp) > 0)
 			SFwrite(f,sp,n);
 
-		if(flags&(F_FLOAT|F_LEFT))
-		{	/* F_FLOAT: right padding for float precision */
+		if(flags&(SFFMT_FLOAT|SFFMT_LEFT))
+		{	/* SFFMT_FLOAT: right padding for float precision */
 			if((n = precis) > 0)
 				SFnputc(f,'0',n);
 
-			/* F_FLOAT: the exponent of %eE */
+			/* SFFMT_FLOAT: the exponent of %eE */
 			if((n = endep-(sp=ep)) > 0)
 				SFwrite(f,sp,n);
 
-			/* F_LEFT: right padding */
+			/* SFFMT_LEFT: right padding */
 			if((n = -v) > 0)
 				SFnputc(f,' ',n);
 		}
 	}
 
 pop_fmt:
-	if((fm = fmstk) ) /* pop the format stack and continue */
-	{	fmstk = fm->next;
+	if(fp)
+	{	free(fp);
+		fp = NIL(Fmtpos_t*);
+	}
+	while((fm = fmstk) ) /* pop the format stack and continue */
+	{	if(fm->eventf)
+		{	if(!form || !form[0])
+				(*fm->eventf)(f,SF_FINAL,NIL(Void_t*),ft);
+			else if((*fm->eventf)(f,SF_DPOP,(Void_t*)form,ft) < 0)
+				goto loop_fmt;
+		}
+
+		fmstk = fm->next;
 		if((form = fm->form) )
-			va_copy(args, fm->args);
-		ftenv = fm->ftenv;
+		{	va_copy(args, fm->args);
+			oform = fm->oform;
+			va_copy(oargs,fm->oargs);
+			argn = fm->argn;
+			fp = fm->fp;
+		}
+		ft = fm->ft;
 		FMTFREE(fm);
-		if(form)
+		if(form && form[0])
 			goto loop_fmt;
 	}
 
 done:
+	if(fp)
+		free(fp);
 	while((fm = fmstk) )
-	{	fmstk = fm->next;
+	{	if(fm->eventf)
+			(*fm->eventf)(f,SF_FINAL,NIL(Void_t*),fm->ft);
+		fmstk = fm->next;
 		FMTFREE(fm);
 	}
 
 	SFEND(f);
 
 	n = f->next - f->data;
-	if((d = (char*)f->data) == data)
+	if((d = f->data) == (uchar*)data)
 		f->endw = f->endr = f->endb = f->data = NIL(uchar*);
 	f->next = f->data;
 
 	if((((flags = f->flags)&SF_SHARE) && !(flags&SF_PUBLIC) ) ||
-	   (n > 0 && (d == data || (flags&SF_LINE) ) ) )
+	   (n > 0 && (d == (uchar*)data || (flags&SF_LINE) ) ) )
 		(void)SFWRITE(f,(Void_t*)d,n);
 	else	f->next += n;
 

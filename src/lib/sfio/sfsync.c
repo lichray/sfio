@@ -101,8 +101,8 @@ reg Sfio_t*	f;	/* stream to be synchronized */
 				rv = -1;
 			if(!SFISNULL(f) && (f->bits&SF_HOLE) )
 			{	/* realize a previously created hole of 0's */
-				if(lseek(f->file,(off_t)(-1),1) >= 0)
-					(void)write(f->file,"",1);
+				if(SFSK(f,(Sfoff_t)(-1),1,f->disc) >= 0)
+					(void)SFWR(f,"",1,f->disc);
 				f->bits &= ~SF_HOLE;
 			}
 			f->mode |= pool;

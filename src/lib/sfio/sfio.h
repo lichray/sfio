@@ -1,16 +1,12 @@
 #ifndef _SFIO_H
 #define _SFIO_H	1
 
-#define SFIO_VERSION	19970101L
+#define SFIO_VERSION	19990805L
 
 /*	Public header file for the sfio library
 **
 **	Written by Kiem-Phong Vo (kpv@research.att.com)
 */
-
-#ifndef KPVDEL /* KPV-- to be removed on next release */
-#define sfdisc	_sfdisc
-#endif
 
 #if _PACKAGE_ast
 #include	<ast_std.h>
@@ -76,8 +72,6 @@
 #endif
 
 #if __STD_C
-#include	<stddef.h>
-#include	<stdlib.h>
 #include	<stdarg.h>
 #else
 #include	<varargs.h>
@@ -86,27 +80,10 @@
 #endif /* _PACKAGE_ast */
 
 /* Sfoff_t should be large enough for largest file address */
-#if _typ_long_long
-#define Sfoff_t		long long
-#define Sflong_t	long long
-#define Sfulong_t	unsigned long long
-#else
-#if _typ_int64_t && _typ_uint64_t
-#define Sfoff_t		int64_t
-#define Sflong_t	int64_t
-#define Sfulong_t	uint64_t
-#else
-#define Sfoff_t		long
-#define Sflong_t	long
-#define Sfulong_t	unsigned long
-#endif
-#endif
-
-#if _typ_long_double
-#define Sfdouble_t	long double
-#else
-#define Sfdouble_t	double
-#endif
+#define Sfoff_t		_ast_intmax_t
+#define Sflong_t	_ast_intmax_t
+#define Sfulong_t	unsigned _ast_intmax_t
+#define Sfdouble_t	_ast_fltmax_t
 
 typedef struct _sfio_s		Sfio_t;
 typedef struct _sfdisc_s	Sfdisc_t;
@@ -143,23 +120,46 @@ struct _sfio_s
 
 /* formatting environment */
 typedef struct _sffmt_s	Sffmt_t;
-typedef int		(*Sfarg_f)_ARG_((Sfio_t*, Void_t*, Sffmt_t*));
-typedef int		(*Sfext_f)_ARG_((Sfio_t*, Void_t*, int, Sffmt_t*));
+typedef int		(*Sffmtext_f)_ARG_((Sfio_t*, Void_t*, Sffmt_t*));
+typedef int		(*Sffmtevent_f)_ARG_((Sfio_t*, int, Void_t*, Sffmt_t*));
 struct _sffmt_s
-{	char*		form;	/* format string to stack		*/
+{	long		version;/* version of this structure		*/
+	Sffmtext_f	extf;	/* function to process arguments	*/
+	Sffmtevent_f	eventf;	/* process events			*/
+
+	char*		form;	/* format string to stack		*/
 	va_list		args;	/* corresponding arg list		*/
-	Sfarg_f		argf;	/* function to get/set arguments	*/
-	Sfext_f		extf;	/* function to do extended patterns	*/
 
-	char		fmt;	/* format character			*/
-	char		flag;	/* one of: l, h, L			*/
-	short		n_flag;	/* number of flag occurences		*/
-	int		base;	/* conversion base			*/
+	int		fmt;	/* format character			*/
+	ssize_t		size;	/* object size				*/
+	int		flags;	/* formatting flags			*/
+	int		width;	/* width of field			*/
 	int		precis;	/* precision required			*/
+	int		base;	/* conversion base			*/
 
-	char*		t_str;	/* type string or extf's return value	*/
-	int		n_str;	/* length of t_str or -1 for 0-termed	*/
+	char*		t_str;	/* type string 				*/
+	ssize_t		n_str;	/* length of t_str 			*/
+
+	Void_t*		noop;	/* as yet unused			*/
 };
+#define sffmtversion(fe,type) \
+		(type ? ((fe)->version = SFIO_VERSION) : (fe)->version)
+
+#define SFFMT_LEFT	00000100 /* left-justification			*/
+#define SFFMT_SIGN	00000200 /* must have a sign			*/
+#define SFFMT_BLANK	00000400 /* if not signed, prepend a blank	*/
+#define SFFMT_ZERO	00001000 /* zero-padding on the left		*/
+#define SFFMT_ALTER	00002000 /* alternate formatting		*/
+#define SFFMT_THOUSAND	00004000 /* thousand grouping			*/
+#define SFFMT_SKIP	00010000 /* skip assignment in scanf()		*/
+#define SFFMT_SHORT	00020000 /* 'h' flag				*/
+#define SFFMT_LONG	00040000 /* 'l' flag				*/
+#define SFFMT_LLONG	00100000 /* 'll' flag				*/
+#define SFFMT_LDOUBLE	00200000 /* 'L' flag				*/
+#define SFFMT_VALUE	00400000 /* value is returned			*/
+#define SFFMT_ARGPOS	01000000 /* getting arg during for $ patterns	*/
+#define SFFMT_IFLAG	02000000 /* 'I' flag				*/
+#define SFFMT_SET	03777700 /* flags settable on calling extf	*/
 
 /* various constants */
 #ifndef NULL
@@ -192,9 +192,14 @@ struct _sffmt_s
 #define SF_IOCHECK	0002000	/* call exceptf before doing IO		*/
 #define SF_PUBLIC	0004000	/* SF_SHARE and follow physical seek	*/
 #define SF_BUFCONST	0010000	/* buffer not modifiable 		*/
+#define SF_WHOLE	0020000	/* preserve wholeness of sfwrite/sfputr */
 
-#define SF_FLAGS	0015177	/* PUBLIC FLAGS PASSABLE TO SFNEW()	*/
-#define SF_SETS		0017163	/* flags passable to sfset()		*/
+#define SF_FLAGS	0037177	/* PUBLIC FLAGS PASSABLE TO SFNEW()	*/
+#define SF_SETS		0037163	/* flags passable to sfset()		*/
+
+/* for sfgetr() to hold a record */
+#define SF_LOCKR	0000010	/* lock record, stop access to stream	*/
+#define SF_LASTR	0000020	/* get the last incomplete record	*/
 
 /* exception events: SF_NEW(0), SF_READ(1), SF_WRITE(2) and the below 	*/
 #define SF_SEEK		3	/* seek error				*/
@@ -207,11 +212,13 @@ struct _sffmt_s
 #define SF_PURGE	10	/* a sfpurge() call was issued		*/
 #define SF_FINAL	11	/* closing is done except stream free	*/
 #define SF_READY	12	/* a polled stream is ready		*/
+#define SF_LOCKED	13	/* stream is in a locked state		*/
+#define SF_ATEXIT	14	/* process is exiting			*/
 #define SF_EVENT	100	/* start of user-defined events		*/
 
 /* for stack and disciplines */
-#define SF_POPSTACK	NIL(Sfio_t*)	/* pop the stream stack		*/
-#define SF_POPDISC	NIL(Sfdisc_t*)	/* pop the discipline stack	*/
+#define SF_POPSTACK	((Sfio_t*)0)	/* pop the stream stack		*/
+#define SF_POPDISC	((Sfdisc_t*)0)	/* pop the discipline stack	*/
 
 /* for the notify function and discipline exception */
 #define SF_NEW		0	/* new stream				*/
@@ -243,9 +250,6 @@ _END_EXTERNS_
 _BEGIN_EXTERNS_
 #if _BLD_sfio && defined(__EXPORT__)
 #define extern	__EXPORT__
-#endif
-#if !_BLD_sfio && defined(__IMPORT__) && defined(__EXPORT__)
-#define extern	__IMPORT__
 #endif
 
 extern Sfio_t*		sfnew _ARG_((Sfio_t*, Void_t*, size_t, int, int));
@@ -330,6 +334,17 @@ extern int		sfstacked _ARG_((Sfio_t*));
 extern ssize_t		sfvalue _ARG_((Sfio_t*));
 extern ssize_t		sfslen _ARG_((void));
 
+/* functions to create disciplines */
+extern int		sfdcdio _ARG_((Sfio_t*, size_t));
+extern int		sfdcdos _ARG_((Sfio_t*));
+extern int		sfdcfilter _ARG_((Sfio_t*, const char*));
+extern int		sfdclzw _ARG_((Sfio_t*));
+extern int		sfdcseekable _ARG_((Sfio_t*));
+extern int		sfdcslow _ARG_((Sfio_t*));
+extern int		sfdcsubstream _ARG_((Sfio_t*, Sfio_t*, Sfoff_t, Sfoff_t));
+extern int		sfdctee _ARG_((Sfio_t*, Sfio_t*));
+extern int		sfdcunion _ARG_((Sfio_t*, Sfio_t**, int));
+
 #undef extern
 _END_EXTERNS_
 
@@ -373,7 +388,7 @@ _END_EXTERNS_
 #define __sf_eof(f)	(_SF_(f)->flags&SF_EOF)
 #define __sf_error(f)	(_SF_(f)->flags&SF_ERROR)
 #define __sf_clrerr(f)	(_SF_(f)->flags &= ~(SF_ERROR|SF_EOF))
-#define __sf_stacked(f)	(_SF_(f)->push != NIL(Sfio_t*))
+#define __sf_stacked(f)	(_SF_(f)->push != (Sfio_t*)0)
 #define __sf_value(f)	(_SF_(f)->val)
 #define __sf_slen()	(_Sfi)
 

@@ -31,12 +31,9 @@ reg Sfio_t*	f;
 	if(f->bits&SF_MMAP)
 	{	f->here -= f->endb - f->next;
 		if(f->data)
-		{	(void)munmap((caddr_t)f->data,f->endb-f->data);
+		{	SFMUNMAP(f,f->data,f->endb-f->data);
 			SFSK(f,f->here,0,f->disc);
-			f->endb = f->endr = f->endw =
-			f->next = f->data = NIL(uchar*);
 		}
-
 		SFOPEN(f,0);
 		return 0;
 	}

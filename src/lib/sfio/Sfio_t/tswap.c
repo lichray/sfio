@@ -6,10 +6,10 @@ main()
 	Sfio_t* f2;
 	char*	s;
 
-	if(!(f1 = sfopen(NIL(Sfio_t*),"xxx","w+")) )
-		terror("Can't open xxx\n");
+	if(!(f1 = sfopen(NIL(Sfio_t*), Kpv[0],"w+")) )
+		terror("Can't open file\n");
 	if(sfwrite(f1,"0123456789\n",11) != 11)
-		terror("Can't write to xxx\n");
+		terror("Can't write to file\n");
 
 	sfclose(sfstdin);
 	if(sfswap(f1,sfstdin) != sfstdin)
@@ -25,12 +25,12 @@ main()
 	if(!sfstack(sfstdout,f1) )
 		terror("Failed stacking f1\n");
 
-	if(!(f2 = sfopen(NIL(Sfio_t*),"xxx", "r")) )
-		terror("Can't open xxx for read\n");
+	if(!(f2 = sfopen(NIL(Sfio_t*), Kpv[0], "r")) )
+		terror("Can't open for read\n");
 
 	if(sfswap(f1,f2) != NIL(Sfio_t*) )
 		terror("sfswap should have failed\n");
 
-	system("rm xxx >/dev/null 2>&1");
+	rmkpv();
 	return 0;
 }

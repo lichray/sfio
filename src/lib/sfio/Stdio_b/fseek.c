@@ -37,5 +37,9 @@ reg int		whence;
 	fp->std_writeptr = fp->std_writeend = NIL(uchar*);
 #endif
 
-	return sfseek(sp,(Sfoff_t)offset,whence) < 0L ? -1 : 0;
+#if _xopen_stdio
+	return sfseek(sp, (Sfoff_t)offset, whence|SF_SHARE) < (Sfoff_t)0 ? -1 : 0;
+#else
+	return sfseek(sp, (Sfoff_t)offset, whence) < (Sfoff_t)0 ? -1 : 0;
+#endif
 }

@@ -15,7 +15,7 @@ main()
 	if(!(fp = sftmp(0)))
 		terror("Opening temp file\n");
 
-	for(i = 0; i < 1024; ++i)
+	for(i = 0; i < 256; ++i)
 		if(sfwrite(fp,wbuf,sizeof(wbuf)) != sizeof(wbuf))
 			terror("Writing\n");
 
@@ -24,7 +24,7 @@ main()
 	sfsetbuf(fp,NIL(char*),0);
 	sfsetbuf(fp,NIL(char*),SF_UNBOUND);
 
-	for(i = 0; i < 1024; ++i)
+	for(i = 0; i < 256; ++i)
 	{	if(sfread(fp,rbuf,sizeof(rbuf)) != sizeof(rbuf))
 			terror("Reading\n");
 

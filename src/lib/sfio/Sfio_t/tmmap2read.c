@@ -1,7 +1,13 @@
-#define SFIO_H_ONLY	1
+#define _SFIO_H_ONLY	1
 #include	"sftest.h"
 
-/* This test causes mmap() to fail so that read() must be used. */
+/*	This test causes mmap() to fail so that read() must be used.
+	On a system such as BSDI, malloc uses mmap() so if mmap()
+	fails, not much else will work. In such a case, we make this
+	test automatically success.
+*/
+
+static	Success = 1;
 
 #if __STD_C
 void* mmap(void* addr, size_t size, int x, int y, int z, Sfoff_t offset)
@@ -9,17 +15,27 @@ void* mmap(void* addr, size_t size, int x, int y, int z, Sfoff_t offset)
 void* mmap()
 #endif
 {
+	if(Success)
+		exit(0);
+
 	return (void*)(-1);
 }
 
 main()
 {
 	Sfio_t*	f;
-	char	buf[1024], buf2[1024];
+	char	buf[1024], buf2[1024], *data;
 	int	n, r;
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w")) )
-		terror("Can't open xxx to write\n");
+	/* test to see if malloc() winds up calling mmap() */
+	if(!(data = (char*)malloc(8*1024)) )
+		terror("Malloc failed\n");
+	free(data);
+	Success = 0;
+
+	/* our real work */
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0],"w")) )
+		terror("Can't open to write\n");
 
 	for(n = 0; n < sizeof(buf); ++n)
 		buf[n] = '0' + (n%10);
@@ -27,8 +43,8 @@ main()
 	for(n = 0; n < 10; ++n)
 		sfwrite(f,buf,sizeof(buf));
 
-	if(!(f = sfopen(f,"xxx","r")) )
-		terror("Can't open xxx to read\n");
+	if(!(f = sfopen(f, Kpv[0],"r")) )
+		terror("Can't open to read\n");
 
 	for(n = 0; n < 10; ++n)
 	{	if((r = sfread(f,buf2,sizeof(buf))) != sizeof(buf))
@@ -37,5 +53,6 @@ main()
 			terror("Get wrong data\n");
 	}
 
+	rmkpv();
 	return 0;
 }

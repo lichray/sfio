@@ -6,11 +6,11 @@
 */
 
 #if __STD_C
-int _sfputl(reg Sfio_t* f, reg Sflong_t v)
+int _sfputl(reg Sfio_t* f, Sflong_t v)
 #else
 int _sfputl(f,v)
 reg Sfio_t*	f;	/* write a portable long to this stream */
-reg Sflong_t	v;	/* the value to be written */
+Sflong_t	v;	/* the value to be written */
 #endif
 {
 #define N_ARRAY		(2*sizeof(Sflong_t))

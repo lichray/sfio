@@ -4,13 +4,13 @@
 **	Written by Kiem-Phong Vo (8/18/90)
 */
 #if __STD_C
-int _sfexcept(reg Sfio_t* f, reg int type, ssize_t io, reg Sfdisc_t* disc)
+int _sfexcept(Sfio_t* f, int type, ssize_t io, Sfdisc_t* disc)
 #else
 int _sfexcept(f,type,io,disc)
-reg Sfio_t*	f;	/* stream where the exception happened */
-reg int		type;	/* io type that was performed */
+Sfio_t*		f;	/* stream where the exception happened */
+int		type;	/* io type that was performed */
 ssize_t		io;	/* the io return value that indicated exception */
-reg Sfdisc_t*	disc;	/* discipline in use */
+Sfdisc_t*	disc;	/* discipline in use */
 #endif
 {
 	reg int		ev, local, lock;
@@ -29,7 +29,7 @@ reg Sfdisc_t*	disc;	/* discipline in use */
 			SFOPEN(f,0);
 
 		/* so that exception handler knows what we are asking for */
-		_Sfi = io;
+		_Sfi = f->val = io;
 		ev = (*(disc->exceptf))(f,type,&io,disc);
 
 		/* relock if necessary */

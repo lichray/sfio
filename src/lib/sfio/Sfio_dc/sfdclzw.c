@@ -15,7 +15,7 @@
  *	Modified uncompress code to work as a discipline under sfio.
  *	Didn't need compression code and deleted it.
  *
- * Mar, 1993, Kiem-Phong Vo
+ * Kiem-Phong Vo (03/18/1998)
  *	Small interface modifications to conform with other disciplines.
  */
 
@@ -30,14 +30,9 @@
  * procedure needs no input table, but tracks the way the table was built.
  */
 
-/*
-/*static	char sccsid[] = "@(#)compress.c 1.1 90/10/29 SMI"; /* from UCB 5.9 5/11/86 */
-/*static char rcs_ident[] = "$Header: compress.c,v 4.0 85/07/30 12:50:00 joe Release $";
-/**/
 
-
-#ifndef BITS
-#	define BITS	16
+#ifndef LZWBITS
+#	define LZWBITS	16
 #endif
 #define INIT_BITS	9		/* initial number of bits/code */
 
@@ -62,10 +57,10 @@
 #define MAXCODE(n_bits)	((1 << (n_bits)) - 1)
 
 
-/*	A code_int must hold 2**BITS non-negative values, and also -1
+/*	A code_int must hold 2**LZWBITS non-negative values, and also -1
  */
 
-#if BITS > 15
+#if LZWBITS > 15
 typedef long int	code_int;
 #else
 typedef int		code_int;
@@ -94,10 +89,10 @@ typedef struct
 	char_type*	gc_buf;		/* getcode() */
 	char_type*	io_ptr;
 	char_type*	io_end;
-	char		io_buf[BITS + 8192];
+	char		io_buf[LZWBITS + 8192];
 	char_type	de_stack[8000];
-	char_type	tab_suffix [1 << BITS];
-	unsigned short	tab_prefix [1 << BITS];
+	char_type	tab_suffix [1 << LZWBITS];
+	unsigned short	tab_prefix [1 << LZWBITS];
 } LZW_Disc;
 
 
@@ -117,13 +112,13 @@ reg LZW_Disc*	disc;
 
 	if (count <= 0)
 		return count;
-	if (count > BITS)
+	if (count > LZWBITS)
 		return -1;
 	if ((io_sz = disc->io_end - disc->io_ptr) < count)
 	{
-		memcpy(disc->io_buf + BITS - io_sz, disc->io_ptr, io_sz);
-		disc->io_ptr = (char_type *)disc->io_buf + BITS - io_sz;
-		j = sfrd(f, disc->io_buf + BITS, sizeof disc->io_buf - BITS, (Sfdisc_t *)disc);
+		memcpy(disc->io_buf + LZWBITS - io_sz, disc->io_ptr, io_sz);
+		disc->io_ptr = (char_type *)disc->io_buf + LZWBITS - io_sz;
+		j = sfrd(f, disc->io_buf + LZWBITS, sizeof disc->io_buf - LZWBITS, (Sfdisc_t *)disc);
 		if (j < 0)
 			j = 0;
 		io_sz += j;
@@ -221,14 +216,8 @@ Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
-	reg Sfdisc_t*	pop;
-
-	if(type == SF_CLOSE)
-	{
-		if ((pop = sfdisc(f, SF_POPDISC)) != disc)
-			sfdisc(f, pop);	/* shouldn't happen */
-		else	sfdcdellzw(disc);
-	}
+	if(type == SF_FINAL || type == SF_DPOP)
+		free(disc);
 	return 0;
 }
 
@@ -276,7 +265,7 @@ Sfdisc_t*	sfdisc;
 		disc->block_compress = disc->maxbits & BLOCK_MASK;
 		disc->maxbits &= BIT_MASK;
 		disc->maxmaxcode = 1 << disc->maxbits;
-		if(disc->maxbits > BITS)
+		if(disc->maxbits > LZWBITS)
 			return disc->init = -1;
 		disc->init = 1;
 
@@ -396,51 +385,32 @@ Sfdisc_t*	disc;
 }
 
 
-Sfdisc_t* sfdcnewlzw()
-{
-	LZW_Disc*	disc;
-
-	if (!(disc = (LZW_Disc *)malloc(sizeof(LZW_Disc))) )
-		return NIL(Sfdisc_t*);
-	disc->disc.readf = lzwRead;
-	disc->disc.writef = lzwWrite;
-	disc->disc.seekf = lzwSeek;
-	disc->disc.exceptf = lzwExcept;
-	disc->init = 0;
-	disc->clear_flg = 0;
-	disc->gc_offset = 0;
-	disc->gc_size = 0;
-	disc->io_ptr = (char_type *)disc->io_buf + BITS;
-	disc->io_end = (char_type *)disc->io_buf + BITS;
-	return (Sfdisc_t *)disc;
-}
-
-
 #if __STD_C
-sfdcdellzw(Sfdisc_t* disc)
+int sfdclzw(Sfio_t* f)
 #else
-sfdcdellzw(disc)
-Sfdisc_t*	disc;
+int sfdclzw(f)
+Sfio_t*	f;
 #endif
 {
-	free(disc);
-	return 0;
-}
+	LZW_Disc*	lz;
 
-
-#ifdef PROGRAM
-/*	The following program is uncompress.
-*/
-main()
-{
-	Sfdisc_t*	disc;
-
-	if(!(disc = sfdcnewlzw()) )
+	if (!(lz = (LZW_Disc *)malloc(sizeof(LZW_Disc))) )
 		return -1;
+	lz->disc.readf = lzwRead;
+	lz->disc.writef = lzwWrite;
+	lz->disc.seekf = lzwSeek;
+	lz->disc.exceptf = lzwExcept;
+	lz->init = 0;
+	lz->clear_flg = 0;
+	lz->gc_offset = 0;
+	lz->gc_size = 0;
+	lz->io_ptr = (char_type *)lz->io_buf + LZWBITS;
+	lz->io_end = (char_type *)lz->io_buf + LZWBITS;
 
-	sfdisc(sfstdin,disc);
-	sfmove(sfstdin,sfstdout,-1,-1);
+	if(sfdisc(f, (Sfdisc_t*)lz) != (Sfdisc_t*)lz)
+	{	free(lz);
+		return -1;
+	}
 
 	return 0;
 }
-#endif /*PROGRAM*/

@@ -22,6 +22,7 @@ reg Sfpool_t*	p;
 {
 	if(p->s_sf && p->sf != p->array)
 		free((Void_t*)p->sf);
+	p->mode = SF_AVAIL;
 }
 
 #if __STD_C
@@ -31,31 +32,34 @@ static Sfpool_t* newpool(mode)
 reg int	mode;
 #endif
 {
-	reg Sfpool_t	*p, *last;
+	reg Sfpool_t	*p, *last = &_Sfpool;
+
+	if(last->mode&SF_LOCK)
+		return NIL(Sfpool_t*);
+	last->mode |= SF_LOCK;
 
 	/* look to see if there is a free pool */
-	for(last = &_Sfpool, p = _Sfpool.next; p; last = p, p = p->next)
-		if(p->n_sf == 0)
+	for(p = last->next; p; last = p, p = p->next)
+	{	if(p->mode == SF_AVAIL )
+		{	p->mode = 0;
 			break;
-	if(p)
-	{	last->next = p->next;
-		while(last->next)
-			last = last->next;
+		}
 	}
-	else if(!(p = (Sfpool_t*) malloc(sizeof(Sfpool_t))) )
-		return NIL(Sfpool_t*);
 
-	/* note that the new pool is added at the end of the pool list so that
-	   if this was done during a walk, we'll see this pool eventually.
-	*/
-	last->next = p;
+	if(!p)
+	{	if(!(p = (Sfpool_t*) malloc(sizeof(Sfpool_t))) )
+			goto done;
+		p->next = NIL(Sfpool_t*);
+		p->n_sf = 0;
+		last->next = p;
+	}
 
-	p->next = NIL(Sfpool_t*);
 	p->mode = mode&SF_SHARE;
-	p->n_sf = 0;
 	p->s_sf = sizeof(p->array)/sizeof(p->array[0]);
 	p->sf = p->array;
 
+done:
+	_Sfpool.mode &= ~SF_LOCK;
 	return p;
 }
 
@@ -71,17 +75,26 @@ int		n;	/* current position in pool	*/
 {
 	reg Sfio_t*	head;
 	reg ssize_t	k, w, v;
+	reg int		rv;
 
 	if(n == 0)
 		return 0;
 
 	head = p->sf[0];
-	if(SFFROZEN(head) )
+	if(SFFROZEN(head) || (p->mode&SF_LOCK) )
 		return -1;
 
-	if(p->mode&SF_SHARE)	/* shared streams */
-	{	if(head->mode != SF_WRITE && _sfmode(head,SF_WRITE,0) < 0)
-			return -1;
+	SFLOCK(head,0);
+	p->mode |= SF_LOCK;
+	rv = -1;
+
+	if(!(p->mode&SF_SHARE) )
+	{	if(SFSYNC(head) < 0)
+			goto done;
+	}
+	else	/* shared pool, data can be moved among streams */
+	{	if(SFMODE(head,1) != SF_WRITE && _sfmode(head,SF_WRITE,1) < 0)
+			goto done;
 		/**/ASSERT((f->mode&(SF_WRITE|SF_POOL)) == (SF_WRITE|SF_POOL) );
 		/**/ASSERT(f->next == f->data);
 
@@ -89,10 +102,7 @@ int		n;	/* current position in pool	*/
 		if((k = v - (f->endb-f->data)) <= 0)
 			k = 0;
 		else	/* try to write out amount exceeding f's capacity */
-		{	SFLOCK(head,0);
-			w = SFWR(head,head->data,k,head->disc);
-			SFOPEN(head,0);
-			if(w == k)
+		{	if((w = SFWR(head,head->data,k,head->disc)) == k)
 				v -= k;
 			else	/* write failed, recover buffer then quit */
 			{	if(w > 0)
@@ -100,50 +110,82 @@ int		n;	/* current position in pool	*/
 					memcpy(head->data,(head->data+w),v);
 				}
 				head->next = head->data+v;
-				return -1;
+				goto done;
 			}
 		}
 
 		/* move data from head to f */
-		memcpy(f->data,(head->data+k),v);
-		f->mode &= ~SF_POOL;
+		if((head->data+k) != f->data )
+			memcpy(f->data,(head->data+k),v);
 		f->next = f->data+v;
-		f->endw = f->endb;
-	}
-	else
-	{	SFLOCK(head,0); v = SFSYNC(head); SFOPEN(head,0);
-		if(v < 0)
-			return v;
-		f->mode &= ~SF_POOL;
-		_SFOPEN(f);
 	}
 
+	f->mode &= ~SF_POOL;
 	head->mode |= SF_POOL;
 	head->next = head->endr = head->endw = head->data;
 
 	p->sf[n] = head;
 	p->sf[0] = f;
-	return 0;
+	rv = 0;
+
+done:
+	head->mode &= ~SF_LOCK;	/* partially unlock because it's no longer head */
+	p->mode &= ~SF_LOCK;
+	return rv;
 }
 
 /* delete a stream from its pool */
 #if __STD_C
-static void _sfpdelete(Sfpool_t* p, Sfio_t* f, int n)
+static int _sfpdelete(Sfpool_t* p, Sfio_t* f, int n)
 #else
-static void _sfpdelete(p, f, n)
+static int _sfpdelete(p, f, n)
 Sfpool_t*	p;	/* the pool		*/
 Sfio_t*		f;	/* the stream		*/
 int		n;	/* position in pool	*/
 #endif
 {
+	if(p->mode&SF_LOCK)
+		return -1;
+	p->mode |= SF_LOCK;
+
 	p->n_sf -= 1;
 	for(; n < p->n_sf; ++n)
 		p->sf[n] = p->sf[n+1];
 
 	f->pool = NIL(Sfpool_t*);
 	f->mode &= ~SF_POOL;
+
+	if(p->n_sf == 0 || p == &_Sfpool)
+	{	if(p != &_Sfpool)
+			delpool(p);
+		goto done;
+	}
+
+	/* !_Sfpool, make sure head stream is an open stream */
+	for(n = 0; n < p->n_sf; ++n)
+		if(!SFFROZEN(p->sf[n]))
+			break;
+	if(n < p->n_sf && n > 0)
+	{	f = p->sf[n];
+		p->sf[n] = p->sf[0];
+		p->sf[0] = f;
+	}
+
+	/* head stream has SF_POOL off */
+	f = p->sf[0];
+	f->mode &= ~SF_POOL;
 	if(!SFFROZEN(f))
 		_SFOPEN(f);
+
+	/* if only one stream left, delete pool */
+	if(p->n_sf == 1 )
+	{	_sfpdelete(p,f,0);
+		_sfsetpool(f);
+	}
+
+done:
+	p->mode &= ~SF_LOCK;
+	return 0;
 }
 
 #if __STD_C
@@ -155,53 +197,21 @@ reg int		type;	/* <0 : deleting, 0: move-to-front, >0: inserting */
 #endif
 {
 	reg Sfpool_t*	p;
-	reg Sfio_t*	head;
 	reg int		n;
 
 	if(type > 0)
 		return _sfsetpool(f);
-
-	/* find f position in pool */
-	if(!(p = f->pool) )
-		return -1;
-	for(n = p->n_sf-1; n >= 0; --n)
-		if(p->sf[n] == f)
-			break;
-	/**/ASSERT(n >= 0);
-	if(n < 0)
-		return -1;
-
-	if(type == 0)	/* move to front */
-		return _sfphead(p,f,n);
-
-	head = p->sf[0];
-	_sfpdelete(p,f,n);
-	if(p->n_sf <= 1 && p != &_Sfpool)
-	{	/**/ASSERT(p->n_sf == 1);
-		_sfpdelete(p,p->sf[0],0);
-		delpool(p);
-	}
-
-	if(p->n_sf > 0 && p != &_Sfpool && p->sf[0] != head)
-	{	/* make sure that head of pool does not have SF_POOL */
-		for(n = 0; n < p->n_sf; ++n)
-			if(!SFFROZEN(p->sf[n]) )
+	else
+	{	if(!(p = f->pool) )
+			return -1;
+		for(n = p->n_sf-1; n >= 0; --n)
+			if(p->sf[n] == f)
 				break;
+		if(n < 0)
+			return -1;
 
-		if(n <= 0 || n >= p->n_sf)
-			f = p->sf[0];
-		else
-		{	f = p->sf[n];
-			p->sf[n] = p->sf[0];
-			p->sf[0] = f;
-		}
-
-		f->mode &= ~SF_POOL;
-		if(!SFFROZEN(f))
-			_SFOPEN(f);
+		return type == 0 ? _sfphead(p,f,n) : _sfpdelete(p,f,n);
 	}
-
-	return 0;
 }
 
 #if __STD_C
@@ -214,76 +224,91 @@ reg int		mode;
 #endif
 {
 	reg Sfpool_t*	p;
-	reg Sfio_t*	rf;
+	reg Sfio_t*	rv;
 
 	_Sfpmove = _sfpmove;
 
-	/* throw away ungetc data */
-	if(f && f->disc == _Sfudisc)
-		(void)sfclose((*_Sfstack)(f,NIL(Sfio_t*)));
-	if(pf && pf->disc == _Sfudisc)
-		(void)sfclose((*_Sfstack)(pf,NIL(Sfio_t*)));
+	if(!f)	/* return head of pool of pf regardless of lock states */
+	{	if(!pf)
+			return NIL(Sfio_t*);
+		else if(!pf->pool || pf->pool == &_Sfpool)
+			return pf;
+		else	return pf->pool->sf[0];
+	}
 
-	if(f == pf)	/* every stream is in a pool with itself */
-		return f;
+	if(f)	/* check for permissions */
+	{	if((f->mode&SF_RDWR) != f->mode && _sfmode(f,0,0) < 0)
+			return NIL(Sfio_t*);
+		if(f->disc == _Sfudisc)
+			(void)sfclose((*_Sfstack)(f,NIL(Sfio_t*)));
+	}
+	if(pf)
+	{	if((pf->mode&SF_RDWR) != pf->mode && _sfmode(pf,0,0) < 0)
+			return NIL(Sfio_t*);
+		if(pf->disc == _Sfudisc)
+			(void)sfclose((*_Sfstack)(pf,NIL(Sfio_t*)));
+	}
 
-	if(!f)	/* return the head of the pool that f is in */
-		return (!pf->pool || pf->pool == &_Sfpool) ? pf : pf->pool->sf[0];
+	/* f already in the same pool with pf */
+	if(f == pf || (pf && f->pool == pf->pool && f->pool != &_Sfpool) )
+		return pf;
 
-	/* already isolated */
-	if(!pf && (!f->pool || f->pool == &_Sfpool) )
-		return NIL(Sfio_t*);
+	/* lock streams before internal manipulations */
+	rv = NIL(Sfio_t*);
+	SFLOCK(f,0);
+	if(pf)
+		SFLOCK(pf,0);
 
-	/* always use current pool mode */
-	if(pf && pf->pool && pf->pool != &_Sfpool)
+	if(!pf)	/* deleting f from its current pool */
+	{	if(!(p = f->pool) || p == &_Sfpool ||
+		   _sfpmove(f,-1) < 0 || _sfsetpool(f) < 0)
+			goto done;
+
+		if(p->n_sf > 0 && !SFFROZEN(p->sf[0]) )
+			rv = p->sf[0];	/* return head of pool */
+		goto done;
+	}
+
+	if(pf->pool && pf->pool != &_Sfpool) /* always use current mode */
 		mode = pf->pool->mode;
 
-	/* a SF_SHARE pool can only have write streams */
-	if((mode&SF_SHARE) && pf && f)
-	{	if(!(f->mode&SF_WRITE) && _sfmode(f,SF_WRITE,0) < 0)
-			return NIL(Sfio_t*);
-		if(!(pf->mode&SF_WRITE) && _sfmode(pf,SF_WRITE,0) < 0)
-			return NIL(Sfio_t*);
+	if(mode&SF_SHARE) /* can only have write streams */
+	{	if(SFMODE(f,1) != SF_WRITE && _sfmode(f,SF_WRITE,1) < 0)
+			goto done;
+		if(SFMODE(pf,1) != SF_WRITE && _sfmode(pf,SF_WRITE,1) < 0)
+			goto done;
+		if(f->next > f->data && SFSYNC(f) < 0) /* start f clean */
+			goto done;
 	}
 
-	/* see if these can be manipulated */
-	if((f->mode&SF_RDWR) != f->mode && _sfmode(f,0,0) < 0)
-		return NIL(Sfio_t*);
-	if(pf && (pf->mode&SF_RDWR) != pf->mode && _sfmode(pf,0,0) < 0)
-		return NIL(Sfio_t*);
+	if(_sfpmove(f,-1) < 0)	/* isolate f from current pool */
+		goto done;
 
-	/* return either the new pool or the old pool for deletion */
-	p = f->pool;
-	if(!(rf = pf) && (rf = p->sf[0]) == f)
-		rf = p->sf[1];
-
-	_sfpmove(f,-1);	/* isolate f from current pool */
-
-	if(!pf)		/* add to the discrete pool */
-	{	f->pool = &_Sfpool;
-		_sfpmove(f,1);
-		return rf;
-	}
-
-	if((p = pf->pool) == &_Sfpool)	/* making a new pool */
-	{	_sfpmove(pf,-1);
-		p = newpool(mode);
+	if(!(p = pf->pool) || p == &_Sfpool) /* making a new pool */
+	{	if(!(p = newpool(mode)) )
+			goto done;
+		if(_sfpmove(pf,-1) < 0) /* isolate pf from its current pool */
+			goto done;
 		pf->pool = p;
-		_sfpmove(pf,1);
+		p->sf[0] = pf;
+		p->n_sf += 1;
 	}
 
-	if(f->pool != p)
-	{	/* insert f into the pool and make it the head */
-		if(mode&SF_SHARE)
-		{	/* empty the buffer to start clean */
-			if(f->next > f->data)
-				{ SFLOCK(f,0); SFSYNC(f); SFOPEN(f,0); }
-			f->next = f->endr = f->endw = f->data;
-		}
-		f->pool = p;
-		_sfpmove(f,1);
-		_sfpmove(f,0);
-	}
+	f->pool = p;	/* add f to pf's pool */
+	if(_sfsetpool(f) < 0)
+		goto done;
 
-	return rf;
+	/**/ASSERT(p->sf[0] == pf && p->sf[p->n_sf-1] == f);
+	SFOPEN(pf,0);
+	SFOPEN(f,0);
+	if(_sfpmove(f,0) < 0) /* make f head of pool */
+		goto done;
+	rv = pf;
+
+done:
+	if(f)
+		SFOPEN(f,0);
+	if(pf)
+		SFOPEN(pf,0);
+	return rv;
 }

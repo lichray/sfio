@@ -31,7 +31,7 @@ main()
 
 	sfnotify(notify);
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w")) && Type != SF_NEW)
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w")) && Type != SF_NEW)
 		terror("Notify did not announce SF_NEW event\n");
 	fd = sffileno(f);
 	close(fd+5);
@@ -46,5 +46,6 @@ main()
 	if(sfgetc(sfstdout) >= 0 || Type != SF_READ)
 		terror("Notify did not announce SF_READ event\n");
 
+	rmkpv();
 	return 0;
 }

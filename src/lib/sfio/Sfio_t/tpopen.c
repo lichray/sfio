@@ -1,4 +1,5 @@
 #include	"sftest.h"
+#include	<signal.h>
 
 main()
 {
@@ -6,12 +7,30 @@ main()
 	char	*s, *endos, *os = "one\ntwo\nthree\n";
 	int	n;
 
-	if(!(f = sfpopen((Sfio_t*)0,"cat > /tmp/kpv.x","w")))
+	if(!(f = sfpopen((Sfio_t*)0, sfprints("cat > %s",Kpv[0]), "w")))
 		terror("Opening for write\n");
-	if(sfwrite(f,os,strlen(os)) != strlen(os))
+	if(sfwrite(f,os,strlen(os)) != (ssize_t)strlen(os))
 		terror("Writing\n");
+
+#ifdef SIGPIPE
+	{	void(* handler)_ARG_((int));
+		if((handler = signal(SIGPIPE,SIG_DFL)) == SIG_DFL)
+			terror("Wrong signal handler\n");
+		signal(SIGPIPE,handler);
+	}
+#endif
+
 	sfclose(f);
-	if(!(f = sfpopen((Sfio_t*)0,"cat < /tmp/kpv.x","r")))
+
+#ifdef SIGPIPE
+	{	void(* handler)_ARG_((int));
+		if((handler = signal(SIGPIPE,SIG_DFL)) != SIG_DFL)
+			terror("Wrong signal handler2\n");
+		signal(SIGPIPE,handler);
+	}
+#endif
+
+	if(!(f = sfpopen((Sfio_t*)0, sfprints("cat < %s",Kpv[0]), "r")))
 		terror("Opening for read\n");
 	sleep(1);
 
@@ -28,7 +47,6 @@ main()
 	if(os != endos)
 		terror("Does not match all data, left=%s\n",os);
 
-	system("rm /tmp/kpv.x");
-
+	rmkpv();
 	return 0;
 }

@@ -21,11 +21,11 @@ main()
 	if(sfpurge(sfstdout) < 0)
 		terror("Purging sfstdout\n");
 
-	if((fd = creat("xxx",0666)) < 0)
-		terror("Creating xxx\n");
+	if((fd = creat(Kpv[0],0666)) < 0)
+		terror("Creating file\n");
 
 	if(write(fd,buf,sizeof(buf)) != sizeof(buf))
-		terror("Writing to xxx\n");
+		terror("Writing to file\n");
 	if(lseek(fd,0L,0) < 0)
 		terror("Seeking back to origin\n");
 
@@ -67,6 +67,6 @@ main()
 		terror("sfreserve3 returns the wrong value\n");
 	sfwrite(f,s,0);
 
-	system("rm xxx >/dev/null 2>&1");
+	rmkpv();
 	return 0;
 }

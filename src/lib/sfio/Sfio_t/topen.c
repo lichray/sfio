@@ -24,12 +24,12 @@ main()
 		terror("Did not close sf\n");
 
 	/* test for exclusive opens */
-	system("rm xxx");
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","wx") ) )
+	unlink(Kpv[0]);
+	if(!(f = sfopen(NIL(Sfio_t*),Kpv[0],"wx") ) )
 		terror("sfopen failed\n");
-	if((f = sfopen(f,"xxx","wx") ) )
+	if((f = sfopen(f,Kpv[0],"wx") ) )
 		terror("sfopen should not succeed here\n");
-	system("rm xxx");
 
+	rmkpv();
 	return 0;
 }

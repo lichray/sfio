@@ -58,28 +58,20 @@ int		lock;	/* >0 to lock stream and not advance pointer */
 		/* do a buffer refill or flush */
 		if(f->mode&SF_WRITE)
 			(void)SFFLSBUF(f, -1);
-		/* make sure no peek-read if there is data in buffer */
-		else if(n == 0 || f->extent >= 0 || !(f->flags&SF_SHARE))
-		{	/* this test prevents left shifting of data which causes
-			   read() calls not to be aligned on buffer boundary */
-			if(n == 0 || (f->bits&SF_MMAP) || f->extent < 0 || lock > 0)
-			{	if(lock > 0 && n == 0 && f->extent < 0 &&
-				   (f->flags&SF_SHARE) )
-					f->mode |= SF_RV;
+		else if(lock > 0 && f->extent < 0 && (f->flags&SF_SHARE) )
+		{	if(n == 0) /* peek-read only if there is no buffered data */
+			{	f->mode |= SF_RV;
 				(void)SFFILBUF(f, sz == 0 ? -1 : (sz-n) );
 			}
-
-			if((f->mode&SF_PKRD) && (n = f->endb-f->next) < sz)
-			{	/* fail to peek enough data */
-				f->endb = f->endr = f->next;
-				f->mode &= ~SF_PKRD;
-
-				/* there is incoming data but not enough */
-				if(n > 0 && lock > 0 && f->extent < 0 &&
-				   (f->flags&SF_SHARE))
-					goto done;
+			if((n = f->endb - f->next) < sz)
+			{	if(f->mode&SF_PKRD)
+				{	f->endb = f->endr = f->next;
+					f->mode &= ~SF_PKRD;
+				}
+				goto done;
 			}
 		}
+		else	(void)SFFILBUF(f, sz == 0 ? -1 : (sz-n) );
 
 		/* now have data */
 		if((n = f->endb - f->next) > 0)
@@ -87,12 +79,7 @@ int		lock;	/* >0 to lock stream and not advance pointer */
 		else if(n < 0)
 			n = 0;
 
-		/* this type of stream requires immediate return */
-		if(lock > 0 && f->extent < 0 && (f->flags&SF_SHARE) )
-			break;
-
-		/* this test fails only if unstacked to an opposite
-		   stream or if SF_PKRD was set during _sffilbuf() */
+		/* this test fails only if unstacked to an opposite stream */
 		if((f->mode&mode) != 0)
 			break;
 	}
@@ -116,9 +103,14 @@ int		lock;	/* >0 to lock stream and not advance pointer */
 			push = f->push; f->push = NIL(Sfio_t*);
 
 			if((n = SFREAD(f,(Void_t*)frs->data,sz)) < sz )
-			{	if(n > 0)
+			{	if(n <= 0)
+					n = f->endb - f->next;
+				else
 				{	if((f->bits&SF_MMAP) || n > f->size )
-						(void)SFSEEK(f,(Sfoff_t)(-n),1);
+					{	(void)SFSEEK(f,(Sfoff_t)(-n),1);
+						n = (size_t)(f->extent - f->here) +
+							(f->endb - f->next);
+					}
 					else
 					{	memcpy((Void_t*)f->data,
 							(Void_t*)frs->data,n);
@@ -126,7 +118,6 @@ int		lock;	/* >0 to lock stream and not advance pointer */
 					}
 				}
 				frs = NIL(Sfrsrv_t*);
-				n = f->endb - f->next;
 			}
 
 			f->push = push;

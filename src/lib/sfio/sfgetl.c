@@ -12,15 +12,21 @@ Sflong_t _sfgetl(f)
 reg Sfio_t*	f;
 #endif
 {
-	reg Sflong_t	v;
+	Sflong_t	v;
 	reg uchar	*s, *ends, c;
 	reg int		p;
 
-	v = (Sflong_t)f->val;
-	if(!(v&SF_MORE))	/* must be a small negative number */
-		return -SFSVALUE(v)-1;
-
+	if(f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0)
+		return (Sflong_t)(-1);
 	SFLOCK(f,0);
+
+	v = (Sflong_t)f->val;
+	if(!(v&SF_MORE))
+	{	/* must be a small negative number */
+		v = -SFSVALUE(v)-1;
+		goto done;
+	}
+
 	v = SFUVALUE(v);
 	for(;;)
 	{	if(SFRPEEK(f,s,p) <= 0)

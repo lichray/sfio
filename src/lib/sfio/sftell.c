@@ -27,7 +27,7 @@ reg Sfio_t	*f;
 
 	/* let sfseek() handle the hard case */
 	if(f->extent >= 0 && (f->flags&(SF_SHARE|SF_APPENDWR)) )
-		return sfseek(f,0,1);
+		return sfseek(f,(Sfoff_t)0,1);
 
 	return f->here + ((f->mode&SF_WRITE) ? f->next-f->data : f->next-f->endb);
 }

@@ -72,12 +72,10 @@ int		isgets;	/* gets(), not fgets() */
 			n -= p;
 	}
 
-	if((_Sfi = is - ((uchar*)us)) <= 0)
+	if((_Sfi = f->val = is - ((uchar*)us)) <= 0)
 		us = NIL(char*);
 	else if(isgets && is[-1] == '\n')
-	{	is[-1] = '\0';
-		_Sfi -= 1;
-	}
+		is[-1] = '\0';
 	else	*is = '\0';
 
 	SFOPEN(f,0);

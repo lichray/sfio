@@ -18,7 +18,9 @@ Void_t*	data;	/* associated data	*/
 
 	GETLOCAL(f,local);
 	if(!SFKILLED(f) &&
-	   !(local && (type == SF_NEW || type == SF_CLOSE || type == SF_FINAL)) &&
+	   !(local &&
+	     (type == SF_NEW || type == SF_CLOSE ||
+	      type == SF_FINAL || type == SF_ATEXIT)) &&
 	   SFMODE(f,local) != (f->mode&SF_RDWR) && _sfmode(f,0,local) < 0)
 		return -1;
 	SFLOCK(f,local);

@@ -25,7 +25,7 @@ char**	argv;
 		{	Sfio_t*	f = sfopen(NIL(Sfio_t*),NIL(char*),"swr");
 			if(!f)
 				terror("Can't open string stream\n");
-			if(sfmove(sfstdin,f,2,'\n') != 2)
+			if(sfmove(sfstdin,f,(Sfoff_t)2,'\n') != 2)
 				terror("Coprocess sfmove failed\n");
 			sfseek(f,(Sfoff_t)0,0);
 			if(!(s = sfgetr(f,'\n',1)) || strcmp(s,"Line2") != 0)
@@ -36,8 +36,8 @@ char**	argv;
 		exit(0);
 	}
 
-	if(sfopen(sfstdout,"xxx","w") != sfstdout )
-		terror("Opening xxx\n");
+	if(sfopen(sfstdout, Kpv[0], "w") != sfstdout )
+		terror("Opening file\n");
 	if(sfputr(sfstdout,"Line1",'\n') < 0 ||
 	   sfputr(sfstdout,"Line2",'\n') < 0 ||
 	   sfputr(sfstdout,"Line3",'\n') < 0 ||
@@ -46,8 +46,8 @@ char**	argv;
 	sfopen(sfstdout,"/dev/null","w");
 
 	/* testing coprocess calling sfgetr */
-	if(sfopen(sfstdin,"xxx","r") != sfstdin)
-		terror("Opening xxx to read\n");
+	if(sfopen(sfstdin, Kpv[0],"r") != sfstdin)
+		terror("Opening to read\n");
 	if(!(s = sfgetr(sfstdin,'\n',1)) || strcmp(s,"Line1") != 0)
 		terror("Did not get Line1 for sfgetr\n");
 	sfsync(sfstdin);
@@ -57,8 +57,8 @@ char**	argv;
 		terror("Did not get Line4 for sfgetr\n");
 
 	/* testing coprocess calling sfmove */
-	if(sfopen(sfstdin,"xxx","r") != sfstdin)
-		terror("Opening xxx to read\n");
+	if(sfopen(sfstdin, Kpv[0], "r") != sfstdin)
+		terror("Opening to read\n");
 	if(!(s = sfgetr(sfstdin,'\n',1)) || strcmp(s,"Line1") != 0)
 		terror("Did not get Line1 for sfmove\n");
 	sfsync(sfstdin);
@@ -69,8 +69,8 @@ char**	argv;
 
 	/* testing the head program */
 #ifdef HEAD
-	if(sfopen(sfstdin,"xxx","r") != sfstdin)
-		terror("Opening xxx to read\n");
+	if(sfopen(sfstdin, Kpv[0], "r") != sfstdin)
+		terror("Opening to read\n");
 	if(!(s = sfgetr(sfstdin,'\n',1)) || strcmp(s,"Line1") != 0)
 		terror("Did not get Line1 for head\n");
 	sfsync(sfstdin);
@@ -80,6 +80,6 @@ char**	argv;
 		terror("Did not get Line4 for head\n");
 #endif
 
-	system("rm xxx");
+	rmkpv();
 	return 0;
 }

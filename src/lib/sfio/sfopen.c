@@ -21,22 +21,48 @@ reg char*	mode;		/* mode of the stream */
 	if((sflags = _sftype(mode,&oflags)) == 0)
 		return NIL(Sfio_t*);
 
+	if(f && !file && (f->mode&SF_INIT) )
+	{	/* change appropriate file control flags */
+		if(f->file >= 0 && !(f->flags&SF_STRING) )
+		{	if((oflags &= (O_TEXT|O_BINARY|O_APPEND)) != 0)
+			{	int ctl = fcntl(f->file, F_GETFL, 0);
+				ctl = (ctl & ~(O_TEXT|O_BINARY|O_APPEND)) | oflags;
+				fcntl(f->file, F_SETFL, ctl);
+			}
+			f->flags |= (sflags&SF_APPENDWR);
+		}
+
+		/* reset read/write modes */
+		if((sflags &= SF_RDWR) != 0)
+		{	f->flags = (f->flags & ~SF_RDWR) | sflags;
+			if((f->flags&SF_RDWR) == SF_RDWR)
+				f->bits |= SF_BOTH;
+			else
+			{	f->bits &= ~SF_BOTH;
+				if(f->flags&SF_READ)
+					f->mode = (f->mode & ~SF_WRITE)|SF_READ;
+				else	f->mode = (f->mode & ~SF_READ)|SF_WRITE;
+			}
+		}
+
+		return f;
+	}
+
 	if(sflags&SF_STRING)
 		fd = -1;
 	else
-	{	/* open the file */
-		if(!file)
+	{	if(!file)
 			return NIL(Sfio_t*);
 
-#if _has_oflags
+#if _has_oflags /* open the file */
 		while((fd = open((char*)file,oflags,SF_CREATMODE)) < 0 && errno == EINTR)
 			errno = 0;
 #else
 		while((fd = open(file,oflags&(O_WRONLY|O_RDWR))) < 0 && errno == EINTR)
 			errno = 0;
 		if(fd >= 0)
-		{	if(oflags&(O_CREAT|O_EXCL) ) /* error: file already exists */
-			{	CLOSE(fd);
+		{	if((oflags&(O_CREAT|O_EXCL)) == (O_CREAT|O_EXCL) )
+			{	CLOSE(fd);	/* error: file already exists */
 				return NIL(Sfio_t*);
 			}
 			if(oflags&O_TRUNC )	/* truncate file */
@@ -66,7 +92,8 @@ reg char*	mode;		/* mode of the stream */
 	oldfd = (f && !(f->flags&SF_STRING)) ? f->file : -1;
 
 	if(sflags&SF_STRING)
-		f = sfnew(f,(char*)file,file ? (int)strlen((char*)file) : SF_UNBOUND,
+		f = sfnew(f,(char*)file,
+			  file ? (size_t)strlen((char*)file) : (size_t)SF_UNBOUND,
 			  fd,sflags);
 	else if((f = sfnew(f,NIL(char*),(size_t)SF_UNBOUND,
 			   fd,sflags|SF_OPEN)) && oldfd >= 0)
@@ -110,11 +137,9 @@ int*		oflagsp;
 		sflags |= SF_STRING;
 		continue;
 	case 'b' :
-		oflags &= ~O_TEXT;
 		oflags |= O_BINARY;
 		continue;
 	case 't' :
-		oflags &= ~O_BINARY;
 		oflags |= O_TEXT;
 		continue;
 	case 'x' :
@@ -129,8 +154,6 @@ int*		oflagsp;
 			oflags &= ~O_EXCL;
 		if((sflags&SF_RDWR) == SF_RDWR)
 			oflags = (oflags&~(O_RDONLY|O_WRONLY))|O_RDWR;
-		if(!(oflags&O_BINARY) && (sflags&SF_READ))
-			oflags |= O_TEXT;
 		if(oflagsp)
 			*oflagsp = oflags;
 		if((sflags&(SF_STRING|SF_RDWR)) == SF_STRING)

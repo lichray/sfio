@@ -17,7 +17,10 @@ reg Sfio_t	*f;
 	if(f->mode&SF_AVAIL)
 		return 0;
 
-	/* clear these bits */
+	if(f->pool) /* clear pool lock */
+		f->pool->mode &= ~SF_LOCK;
+
+	/* clear error bits */
 	f->flags &= ~(SF_ERROR|SF_EOF);
 
 	if(!(f->mode&(SF_LOCK|SF_PEEK)) )
@@ -32,6 +35,8 @@ reg Sfio_t	*f;
 	}
 
 	f->mode &= (SF_RDWR|SF_INIT|SF_POOL|SF_PUSH|SF_SYNCED|SF_STDIO);
+
+	SFCLRBITS(f);
 
 	return _sfmode(f,0,0) < 0 ? 0 : (f->flags&SF_FLAGS);
 }

@@ -15,10 +15,10 @@ main()
 		terror("Can't open pipe streams\n");
 	sfset(fr,SF_SHARE,1);
 
-	if(sfopen(sfstdout,"xxx","w") != sfstdout)
-		terror("Can't open xxx for write\n");
-	if(sfopen(sfstdin,"xxx","r") != sfstdin)
-		terror("Can't open xxx for read\n");
+	if(sfopen(sfstdout,Kpv[0],"w") != sfstdout)
+		terror("Can't open for write\n");
+	if(sfopen(sfstdin,Kpv[0],"r") != sfstdin)
+		terror("Can't open for read\n");
 
 	for(n = 0; n < 100; ++n)
 		if((w = sfwrite(fw,"123456789\n",10)) != 10)
@@ -30,11 +30,11 @@ main()
 
 	for(n = 0; n < 100; ++n)
 	{	if(!(s = sfgetr(sfstdin,'\n',1)) )
-			terror("Can`t read data from xxx\n");
+			terror("Can't read data\n");
 		if(strcmp(s,"123456789") != 0)
 			terror("Wrong data\n");
 	}
 
-	unlink("xxx");
+	rmkpv();
 	return 0;
 }

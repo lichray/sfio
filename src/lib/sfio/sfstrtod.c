@@ -18,7 +18,7 @@ static Sfdouble_t sfpow10(n)
 reg int	n;
 #endif
 {
-	reg Sfdouble_t	dval;
+	Sfdouble_t	dval;
 
 	switch(n)
 	{	case -3:	return .001;
@@ -56,9 +56,8 @@ char**		retp;	/* to return the remainder of string */
 	reg int		mode, fexp, sign, expsign;
 	Sfdouble_t	dval;
 #if _lib_locale
-	struct lconv*	lv;
 	int		decpoint = 0;
-	GETDECIMAL(decpoint,lv);
+	SFSETLOCALE(&decpoint,NIL(int*));
 #else
 #define decpoint	'.'
 #endif

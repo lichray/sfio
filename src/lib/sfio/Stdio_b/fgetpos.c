@@ -17,5 +17,5 @@ reg fpos_t*	pos;
 	if(!(sp = _sfstream(fp)))
 		return -1;
 	_stdclrerr(fp,sp);
-	return (*pos = (fpos_t)sftell(sp)) >= 0 ? 0 : -1;
+	return (*pos = (fpos_t)sfseek(sp, (Sfoff_t)0, SEEK_CUR|SF_SHARE)) >= 0 ? 0 : -1;
 }

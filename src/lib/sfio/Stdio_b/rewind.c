@@ -17,5 +17,10 @@ reg FILE*	fp;
 	if(!(sp = _sfstream(fp)))
 		return;
 	_stdclrerr(fp,sp);
-	(void)sfseek(sp,(Sfoff_t)0,0);
+
+#if _xopen_stdio
+	(void)sfseek(sp, (Sfoff_t)0, 0|SF_SHARE);
+#else
+	(void)sfseek(sp, (Sfoff_t)0, 0);
+#endif
 }

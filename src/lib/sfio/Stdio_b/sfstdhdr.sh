@@ -7,7 +7,7 @@
 #	_uflow: _filbuf on Linux
 #	_overflow: _flsbuf on Linux
 #
-#	_sF, _srget, _swbuf, _sgetc, _sputc: BSD stuffs
+#	_sF, _srget, _swbuf: BSD stuffs
 #
 # Written by Kiem-Phong Vo, 12/11/93
 
@@ -20,8 +20,11 @@ then	CC=cc
 else	CC="$*"
 fi
 
-# clear the generated header file
->sfstdhdr.h
+# initialize generated header file
+{ echo '#include "ast_common.h"'
+  echo '#include "FEATURE/sfio"'
+  echo '#include "FEATURE/stdio"'
+} >sfstdhdr.h
 
 # Get full path name for stdio.h
 # make sure that the right stdio.h file will be included
@@ -30,14 +33,15 @@ $CC -E kpv.xxx.c > kpv.xxx.cpp 2>/dev/null
 ed kpv.xxx.cpp >/dev/null 2>&1 <<!
 $
 /stdio.h"/p
-.w sfstdhdr.h
-E sfstdhdr.h
+.w kpv.xxx.h
+E kpv.xxx.h
 1
 s/stdio.h.*/stdio.h/
 s/.*"//
 s/.*/#include "&"/
 w
 !
+echo "`cat kpv.xxx.h`" >>sfstdhdr.h
 
 # determine the right names for the given objects
 for name in _iob _filbuf _flsbuf _uflow _overflow _sf _srget _swbuf _sgetc _sputc
@@ -53,8 +57,6 @@ do
 	  _sf)		echo "kpvxxx: stdin;" ;;
 	  _srget)	echo "kpvxxx: getc(stdin);" ;;
 	  _swbuf)	echo "kpvxxx: putc(0,stdout);" ;;
-	  _sgetc)	echo "kpvxxx: getc(stdin);" ;;
-	  _sputc)	echo "kpvxxx: putc(0,stdout);" ;;
 	  esac
 	} >kpv.xxx.c
 
@@ -67,8 +69,6 @@ do
 	_sf)		pat='__*s[fF][a-zA-Z0-9_]*' ;;
 	_srget)		pat='__*sr[a-zA-Z0-9_]*' ;;
 	_swbuf)		pat='__*sw[a-zA-Z0-9_]*' ;;
-	_sgetc)		pat='__*sg[a-zA-Z0-9_]*' ;;
-	_sputc)		pat='__*sp[a-zA-Z0-9_]*' ;;
 	esac
 
 	rm kpv.xxx.name >/dev/null 2>&1
@@ -98,15 +98,34 @@ w
 	} >>sfstdhdr.h
 done
 
-# hack for BSDI
-{ echo "#ifdef NAME_sgetc"
-  echo "#undef NAME_sgetc"
-  echo "#define NAME_srget	\"__srget\""
-  echo "#endif"
-  echo "#ifdef NAME_sputc"
-  echo "#undef NAME_sputc"
-  echo "#define NAME_swbuf	\"__swbuf\""
-  echo "#endif"
+{ echo '#if _lib___srget && !defined(NAME_srget)'
+  echo '#define NAME_srget	"__srget"'
+  echo '#undef _filbuf'
+  echo '#define _filbuf		 __srget'
+  echo '#endif'
+  echo ""
+  echo '#if _lib___swbuf && !defined(NAME_swbuf)'
+  echo '#define NAME_swbuf	"__swbuf"'
+  echo '#undef _flsbuf'
+  echo '#define _flsbuf		 __swbuf'
+  echo '#endif'
+
+  echo '#if _u_flow && !defined(NAME_uflow)'
+  echo '#define NAME_uflow	"__uflow"'
+  echo '#undef _filbuf'
+  echo '#define _filbuf		 __uflow'
+  echo '#endif'
+  echo '#if _under_flow && !_u_flow && !defined(NAME_uflow)'
+  echo '#define NAME_uflow	"__underflow"'
+  echo '#undef _filbuf'
+  echo '#define _filbuf		 __underflow'
+  echo '#endif'
+  echo ""
+  echo '#if _lib___overflow && !defined(NAME_overflow)'
+  echo '#define NAME_overflow	"__overflow"'
+  echo '#undef _flsbuf'
+  echo '#define _flsbuf		 __overflow'
+  echo '#endif'
 } >>sfstdhdr.h
 
 exit 0

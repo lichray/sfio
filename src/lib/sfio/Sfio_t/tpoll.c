@@ -9,7 +9,6 @@ char    **argv;
 #endif
 {
 	Sfio_t	*str, *fr, *fw, *sf[2];
-	char	*s;
 	int	c;
 	int	fd[2];
 

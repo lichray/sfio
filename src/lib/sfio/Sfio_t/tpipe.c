@@ -64,7 +64,7 @@ main()
 		terror("sfreserve failed\n");
 
 	sfputr(fw,"abc",'\n');
-	if(sfmove(fr,fw,1,'\n') != 1)
+	if(sfmove(fr,fw,(Sfoff_t)1,'\n') != 1)
 		terror("sfmove failed\n");
 	if(!(s = sfgetr(fr,'\n',1)) || strcmp(s,"abc") != 0)
 		terror("sfgetr failed\n");
@@ -77,12 +77,12 @@ main()
 	if(strcmp(s,"111") != 0)
 		terror("sfgetr got wrong string\n");
 
-	if(sfmove(fr,sfstdout,2,'\n') != 2)
+	if(sfmove(fr,sfstdout,(Sfoff_t)2,'\n') != 2)
 		terror("sfmove failed2\n");
 	sfputc(sfstdout,0);
 	if(strcmp("222\n333\n",buf) != 0)
 		terror("sfmove got wrong data\n");
-	if(sfmove(fr,NIL(Sfio_t*),1,'\n') != 1)
+	if(sfmove(fr,NIL(Sfio_t*),(Sfoff_t)1,'\n') != 1)
 		terror("sfmove failed\n");
 
 	if(sfwrite(fw,"0123456789",11) != 11)

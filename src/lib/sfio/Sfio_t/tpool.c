@@ -24,13 +24,13 @@ main()
 	char	poolbuf[1024];
 	Sfio_t	*f1, *f2, *f3, *f4;
 
-	if(!(f1 = sfopen((Sfio_t*)0,"xxx","w+")) ||
-	   !(f2 = sfopen((Sfio_t*)0,"yyy","w"))  ||
-	   !(f3 = sfopen((Sfio_t*)0,"zzz","w")))
+	if(!(f1 = sfopen((Sfio_t*)0,Kpv[0],"w+")) ||
+	   !(f2 = sfopen((Sfio_t*)0,Kpv[1],"w"))  ||
+	   !(f3 = sfopen((Sfio_t*)0,Kpv[2],"w")))
 		terror("Opening files\n");
 
-	if(!(f4 = sfopen((Sfio_t*)0,"xxx","r+")) )
-		terror("Opening xxx\n");
+	if(!(f4 = sfopen((Sfio_t*)0,Kpv[0],"r+")) )
+		terror("Opening file to read\n");
 	sfungetc(f1,'a');
 	sfungetc(f4,'b');
 	sfpool(f1,f4,0);
@@ -52,18 +52,23 @@ main()
 	{	if(!(s = sfgetr(f1,'\n',1)) || (n = sfvalue(f1)) != on)
 			terror("Reading data\n");
 		if(sfwrite(f2,s,n) != n)
-			terror("Writing to yyy\n");
+			terror("Writing1\n");
 		if(sfwrite(f3,s,n) != n)
-			terror("Writing to zzz\n");
+			terror("Writing2\n");
 	}
-	if(sfclose(f1) < 0 || sfclose(f2) < 0 || sfclose(f3) < 0)
-		terror("Closing files\n");
+	if(sfclose(f1) < 0)
+		terror("Closing file f1\n");
+	if(sfclose(f2) < 0)
+		terror("Closing file f2\n");
+	if(sfclose(f3) < 0)
+		terror("Closing file f3\n");
 
+	f1 = sfstdout; f2 = sfstderr;
 	sfdisc(sfstdout,&Serialdc);
 	sfdisc(sfstderr,&Serialdc);
 	sfset(sfstdout,SF_LINE,0);
 	sfset(sfstderr,SF_LINE,0);
-	if(!sfpool(sfstdout,sfstderr,0) )
+	if(sfpool(sfstdout,sfstderr,0) != sfstderr )
 		terror("sfpool1\n");
 	sfputc(sfstdout,'1');
 	sfputc(sfstderr,'2');
@@ -76,27 +81,63 @@ main()
 	sfdisc(sfstderr,NIL(Sfdisc_t*));
 
 	sfclose(sfstdout);
-	if(!(f1 = sfopen((Sfio_t*)0,"xxx","r")))
+	if(!(f1 = sfopen((Sfio_t*)0,Kpv[0],"r")))
 		terror("sfopen\n");
 	if(!sfpool(f1,sfstderr,0) )
 		terror("sfpool2\n");
 
-	system("cmp xxx yyy 2>&1; cmp yyy zzz 2>&1; rm xxx yyy zzz");
+	s = sfprints("cmp %s %s 2>&1; cmp %s %s 2>&1; rm %s %s %s 2>&1",
+		     Kpv[0],Kpv[1], Kpv[1],Kpv[2], Kpv[0],Kpv[1],Kpv[2]);
+	system(s);
 
-	if(!(f1 = sfopen(NIL(Sfio_t*),NIL(char*),"s+")) ||
-	   !(f2 = sfopen(NIL(Sfio_t*),NIL(char*),"s+")) ||
-	   !(f3 = sfopen(NIL(Sfio_t*),NIL(char*),"s+")) )
+	if(!(f1 = sfopen(NIL(Sfio_t*), Kpv[0], "w+")) ||
+	   !(f2 = sfopen(NIL(Sfio_t*), Kpv[1], "w+")) ||
+	   !(f3 = sfopen(NIL(Sfio_t*), Kpv[2], "w+")) )
 		terror("sfopen3\n");
-	if(!sfpool(f1,f2,SF_SHARE) || !sfpool(f3,f2,SF_SHARE) )
+	if(sfpool(f1,f2,SF_SHARE) != f2 || sfpool(f3,f2,SF_SHARE) != f2 )
 		terror("sfpool3\n");
-	if(sfputc(f3,'z') < 0)
+	if(sfputc(f3,'x') < 0)
 		terror("sfputc to f3\n");
+	if(sfputc(f2,'y') < 0)
+		terror("sfputc to f2\n");
+	if(sfputc(f1,'z') < 0)
+		terror("sfputc to f1\n");
+	if(sfseek(f1,(Sfoff_t)0,0) != 0)
+		terror("sfseek failed on f1\n");
+	if(!(s = sfreserve(f1,3,1)) || sfvalue(f1) != 3)
+		terror("sfreserve failed on f1\n");
+	if(memcmp(s,"xyz",3) != 0)
+		terror("Wrong data\n");
+
+	if((os = sfreserve(f2,-1,0)) )
+		terror("sfreserve should have failed on f2\n");
+
+	if(sfpool(NIL(Sfio_t*),f2,0) != f1)
+		terror("Didn't get right pool head for f2\n");
+
+	if(sfread(f1,s,3) != 3)
+		terror("Wrong read on f1\n");
+
 	if(!sfpool(f3,NIL(Sfio_t*),0) )
 		terror("sfpool to delete f3\n");
-	if(sfputc(f1,'x') < 0)
-		terror("sfputc from f1\n");
-	if(!sfpool(f1,NIL(Sfio_t*),0) )
+
+	if(sfpool(f1,NIL(Sfio_t*),0) != f2 )
 		terror("sfpool to delete f1\n");
 
+	if(!(f1 = sfopen(NIL(Sfio_t*), Kpv[0], "w+")) ||
+	   !(f2 = sfopen(NIL(Sfio_t*), Kpv[1], "w")) )
+		terror("sfopen4\n");
+	sfputc(f1,'a');
+	sfputc(f1,'b');
+	sfputc(f1,'c');
+	sfset(f1,SF_WRITE,0);	/* off write mode */
+	if(sfpool(f1,f2,SF_SHARE) )
+		terror("sfpool should fail pooling read+write streams\n");
+	if(sfseek(f1,(Sfoff_t)0,0) != (Sfoff_t)0)
+		terror("sfseek failed\n");
+	if(!(s = sfreserve(f1,3,1)) || memcmp(s,"abc",3) != 0)
+		terror("Can't get data from f1\n");
+
+	rmkpv();
 	return 0;
 }

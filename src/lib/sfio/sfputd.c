@@ -6,11 +6,11 @@
 */
 
 #if __STD_C
-int _sfputd(Sfio_t* f, reg Sfdouble_t v)
+int _sfputd(Sfio_t* f, Sfdouble_t v)
 #else
 int _sfputd(f,v)
 Sfio_t*		f;
-reg Sfdouble_t	v;
+Sfdouble_t	v;
 #endif
 {
 #define N_ARRAY		(16*sizeof(Sfdouble_t))
@@ -18,7 +18,7 @@ reg Sfdouble_t	v;
 	reg uchar	*s, *ends;
 	int		exp;
 	uchar		c[N_ARRAY];
-	reg double	x;
+	double		x;
 
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
 		return -1;
@@ -31,16 +31,17 @@ reg Sfdouble_t	v;
 	}
 	else	n = 0;
 
-#if _typ_long_double /* don't know how to do these yet */
-	if(v > MAXDOUBLE)
-	{	SFOPEN(f,0);
+#if !_ast_fltmax_double /* don't know how to do these yet */
+	if(v > MAXDOUBLE && !_has_expfuncs)
+	{
+		SFOPEN(f,0);
 		return -1;
 	}
 #endif
 
 	/* make the magnitude of v < 1 */
 	if(v != 0.)
-		v = frexp((double)v,&exp);
+		v = frexp(v,&exp);
 	else	exp = 0;
 
 	/* code the sign of v and exp */
@@ -59,9 +60,10 @@ reg Sfdouble_t	v;
 	s = (ends = &c[0])+sizeof(c);
 	while(s > ends)
 	{	/* get 2^SF_PRECIS precision at a time */
-		n = (int)(x = ldexp((double)v,SF_PRECIS));
+		n = (int)(x = ldexp(v,SF_PRECIS));
 		*--s = n|SF_MORE;
-		if((v = x-n) <= 0.)
+		v = x-n;
+		if(v <= 0.)
 			break;
 	}
 

@@ -1,15 +1,15 @@
 #include	"sfhdr.h"
 
-/*	External variables used by sfio
+/*	External variables and functions used only by Sfio
 **	Written by Kiem-Phong Vo (06/27/90)
 */
 
 /* global variables used internally to the package */
 Sfext_t _Sfextern =
-{	{ NIL(Sfpool_t*), 0, 0, 0, NIL(Sfio_t**) },	/* _Sfpool	*/
+{	0,						/* _Sfpage	*/
+	{ NIL(Sfpool_t*), 0, 0, 0, NIL(Sfio_t**) },	/* _Sfpool	*/
 	NIL(Sfio_t*),					/* _Sffree	*/
 	NIL(Fmt_t*),					/* _Fmtfree	*/
-	0,						/* _Sfpage	*/
 	NIL(int(*)_ARG_((Sfio_t*,int))),		/* _Sfpmove	*/
 	NIL(Sfio_t*(*)_ARG_((Sfio_t*, Sfio_t*))),	/* _Sfstack	*/
 	NIL(void(*)_ARG_((Sfio_t*, int, int))),		/* _Sfnotify	*/
@@ -21,7 +21,7 @@ Sfext_t _Sfextern =
 	  NIL(Sfdisc_t*)
 	},
 	NIL(void(*)_ARG_((void)) ),			/* _Sfcleanup	*/
-	0						/* _Sfexiting	*/
+	0,						/* _Sfexiting	*/
 };
 
 /* accessible to application code for a few fast macro functions */

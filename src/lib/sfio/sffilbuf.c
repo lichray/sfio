@@ -11,15 +11,15 @@
 */
 
 #if __STD_C
-int _sffilbuf(reg Sfio_t* f, reg int n)
+int _sffilbuf(Sfio_t* f, reg int n)
 #else
 int _sffilbuf(f,n)
-reg Sfio_t*	f;	/* fill the read buffer of this stream */
-reg int		n;	/* see above */
+Sfio_t*	f;	/* fill the read buffer of this stream */
+reg int	n;	/* see above */
 #endif
 {
-	reg ssize_t	r, first;
-	reg int		local, rcrv, rc;
+	reg ssize_t	r;
+	reg int		first, local, rcrv, rc;
 
 	GETLOCAL(f,local);
 
@@ -41,11 +41,24 @@ reg int		n;	/* see above */
 			   (f->flags&SF_STRING))
 				break;
 
-			/* shift left to make room for new data */
+			/* try shifting left to make room for new data */
 			if(!(f->bits&SF_MMAP) && f->next > f->data &&
 			   n > (f->size - (f->endb-f->data)) )
-			{	memcpy((char*)f->data,(char*)f->next,r);
-				f->endb = (f->next = f->data)+r;
+			{	uchar*	copy;
+
+				if(f->extent < 0 || f->size < SF_PAGE)
+					copy = f->next;
+				else	/* try keeping alignment */
+				{	Sfoff_t	a = ((f->here-r)/SF_PAGE)*SF_PAGE;
+					if(a < (f->here-r) &&
+					   a > (f->here - (f->endb-f->data)) )
+						copy = f->endb - (f->here-a);
+					else	break;
+				}
+
+				memcpy((char*)f->data, (char*)copy, f->endb-copy);
+				f->next = f->data + (f->next - copy);
+				f->endb = f->data + (f->endb - copy);
 			}
 		}
 		else if(!(f->flags&SF_STRING) && !(f->bits&SF_MMAP) )
@@ -56,7 +69,7 @@ reg int		n;	/* see above */
 		else if(!(f->flags&SF_STRING) )
 		{	/* make sure we read no more than required */
 			r = f->size - (f->endb - f->data);
-			if(n > 0 && r > n && f->extent < 0 && (f->flags&SF_SHARE))
+			if(n > 0 && r > n && f->extent < 0 && (f->flags&SF_SHARE) )
 				r = n;
 		}
 

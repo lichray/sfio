@@ -5,13 +5,15 @@ main()
 	Sfio_t	*f1, *f2;
 	char*	s;
 	Sfoff_t	p;
+	char	buf[1024];
+	int	r, w;
 
-	if(!(f1 = sfopen(NIL(Sfio_t*),"xxx","w")) )
+	if(!(f1 = sfopen(NIL(Sfio_t*), Kpv[0], "w")) )
 		terror("Can't open f1\n");
-	if(!(f1 = sfopen(f1,"xxx","a+")) )
+	if(!(f1 = sfopen(f1, Kpv[0], "a+")) )
 		terror("Can't open f1\n");
 
-	if(!(f2 = sfopen(NIL(Sfio_t*),"xxx","a+")) )
+	if(!(f2 = sfopen(NIL(Sfio_t*), Kpv[0], "a+")) )
 		terror("Can't open f2\n");
 
 	if(sfwrite(f1,"012345678\n",10) != 10 || sfsync(f1) < 0)
@@ -51,6 +53,21 @@ main()
 	if(strcmp(s,"012345678") != 0)
 		terror("Bad input3\n");
 
-	system("rm xxx >/dev/null 2>&1");
+	if(!(f1 = sfopen(f1, Kpv[0], "w")) )
+		terror("Can't open file to write\n");
+	for(r = 0; r < 1024; ++r)
+		buf[r] = 'a';
+	if((w = sfwrite(f1,buf,1024)) != 1024)
+		terror("writing w=%d\n", w);
+	if(!(f1 = sfopen(f1, Kpv[0], "a")) )
+		terror("Can't open file to append\n");
+	sfseek(f1,(Sfoff_t)0,0);
+	if((w = sfwrite(f1,buf,64)) != 64)
+		terror("writing w=%d\n", w);
+	if((r = (int)sftell(f1)) != (1024+64) )
+		terror("seek position wrong s=%d\n", r);
+
+	rmkpv();
+
 	return 0;
 }

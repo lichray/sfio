@@ -29,7 +29,7 @@ for i in $files
 do
 	echo " ---- $i ----"
 	status=""
-	if $CC -g -I.. -I$INCLUDE $i $LIB/libsfio.a -o t
+	if $CC -g -I.. -I$INCLUDE $i $LIB/libsfio.a -lm -o t
 	then
 		if ./t
 		then	rm t; status=passed

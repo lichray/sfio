@@ -2,20 +2,17 @@
 
 /*	Read a record delineated by a character.
 **	The record length can be accessed via sfvalue(f).
-**	Note that the reg declarations below must be kept in
-**	their relative order so that the code will configured
-**	correctly on Vaxes to use "asm()".
 **
 **	Written by Kiem-Phong Vo (06/27/90)
 */
 
 #if __STD_C
-char* sfgetr(reg Sfio_t *f, reg int rc, int string)
+char* sfgetr(reg Sfio_t *f, reg int rc, int type)
 #else
-char* sfgetr(f,rc,string)
+char* sfgetr(f,rc,type)
 reg Sfio_t*	f;	/* stream to read from. r11 on vax		*/
 reg int		rc;	/* record separator. r10 on Vax			*/
-int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
+int		type;
 #endif
 {
 	reg ssize_t	n;
@@ -24,33 +21,20 @@ int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
 	reg int		found;
 	reg Sfrsrv_t*	frs;
 
+	if(rc < 0 || (f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0) )
+		return NIL(char*);
+	SFLOCK(f,0);
+
 	/* buffer to be returned */
 	frs = NIL(Sfrsrv_t*);
 	us = NIL(uchar*);
 	un = 0;
 	found = 0;
 
-	/* restore the byte changed by the last getr */
-	if(f->mode&SF_GETR)
-	{	f->mode &= ~SF_GETR;
-#ifdef MAP_TYPE
-		if((f->bits&SF_MMAP) && (f->tiny[0] += 1) >= (4*SF_NMAP) )
-		{	/* turn off mmap to avoid page faulting */
-			sfsetbuf(f,(Void_t*)f->tiny,(size_t)SF_UNBOUND);
-			f->tiny[0] = 0;
-		}
-		else
-#endif
-		f->next[-1] = f->getr;
-	}
+	/* compatibility mode */
+	type = type < 0 ? SF_LASTR : type == 1 ? SF_STRING : type;
 
-	/* set the right mode */
-	if(rc < 0 || (f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0) )
-		goto done;
-
-	SFLOCK(f,0);
-
-	if(string < 0) /* return the previously read string only */
+	if(type&SF_LASTR) /* return the broken record */
 	{	if((frs = _sfrsrv(f,0)) && (un = -frs->slen) > 0)
 		{	us = frs->data;
 			found = 1;
@@ -83,12 +67,9 @@ int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
 		if(!(s = (uchar*)memchr((char*)s,rc,n)))
 			s = ends;
 #else
-		while(s < ends)
-		{	if(*s++ == rc)
-			{	s -= 1;
+		while(*s != rc)
+			if((s += 1) == ends)
 				break;
-			}
-		}
 #endif
 	do_copy:
 		if(s < ends)
@@ -96,7 +77,7 @@ int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
 			found = 1;
 
 			if(!us &&
-			   (string <= 0 ||
+			   (!(type&SF_STRING) ||
 			    ((f->flags&SF_STRING) && (f->bits&SF_BOTH) ) ||
 			    ((f->bits&SF_MMAP) && !(f->flags&SF_BUFCONST) ) ||
 			    (!(f->flags&SF_STRING) && !(f->bits&SF_MMAP) ) ) )
@@ -128,16 +109,13 @@ int		string; /* <0: get last, 0: rc as is, 1: rc to nul	*/
 		un += n;
 		ends = f->next;
 		f->next += n;
-#if vax_asm
-		asm( "movc3	r9,(r7),(r8)" );
-#else
 		MEMCPY(s,ends,n);
-#endif
 	}
 
 done:
 	_Sfi = f->val = un;
-	if(found && string > 0)
+	f->getr = 0;
+	if(found && rc != 0 && (type&SF_STRING) )
 	{	us[un-1] = '\0';
 		if(us >= f->data && us < f->endb)
 		{	f->getr = rc;
@@ -145,10 +123,19 @@ done:
 		}
 	}
 
-	/* prepare for a call with string < 0 */
+	/* prepare for a call to get the broken record */
 	if(frs)
 		frs->slen = found ? 0 : -un;
 
 	SFOPEN(f,0);
-	return (char*)us;
+
+	if(!us)
+		return NIL(char*);
+	else
+	{	if(type&SF_LOCKR)
+		{	f->mode |= SF_PEEK|SF_GETR;
+			f->endr = f->data;
+		}
+		return (char*)us;
+	}
 }

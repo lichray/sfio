@@ -94,11 +94,28 @@ Sfdisc_t*	disc;
 	}
 }
 
+static char	External[128], *Enext = External;
+#if __STD_C
+ssize_t external(Sfio_t* f, const Void_t* buf, size_t n, Sfdisc_t* disc)
+#else
+ssize_t external(f,buf,n,disc)
+Sfio_t*		f;
+Void_t*		buf;
+size_t		n;
+Sfdisc_t*	disc;
+#endif
+{
+	memcpy(Enext,buf,n);
+	Enext += n;
+	return n;
+}
 
-Sfdisc_t	Wdisc = {(Sfread_f)0, wupper, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
-Sfdisc_t	Udisc = {upper, wupper, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
-Sfdisc_t	Ldisc = {lower, (Sfwrite_f)0, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
-Sfdisc_t	Odisc = {once, (Sfwrite_f)0, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
+
+Sfdisc_t Wdisc = {(Sfread_f)0, wupper, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
+Sfdisc_t Udisc = {upper, wupper, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
+Sfdisc_t Ldisc = {lower, (Sfwrite_f)0, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
+Sfdisc_t Odisc = {once, (Sfwrite_f)0, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
+Sfdisc_t Edisc = {(Sfread_f)0, external, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
 
 main()
 {
@@ -120,7 +137,7 @@ main()
 	strcpy(u, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 	n = strlen(l);
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w+")))
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0],"w+")))
 		terror("Creating temp file\n");
 	if((r = sfwrite(f,l,n)) != n)
 		terror("Writing data %d\n",r);
@@ -144,7 +161,7 @@ main()
 		terror("Input2=%s, Expect=%s\n",s,l);
 	}
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w+")) )
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w+")) )
 		terror("Opening file\n");
 	sfdisc(f,&Wdisc);
 	if(sfputr(f,low,'\n') < 0)
@@ -157,7 +174,7 @@ main()
 		terror("Bad data\n");
 
 	/* read-once discipline */
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","r")) )
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0],"r")) )
 		terror("Opening file\n");
 	sfdisc(f,&Odisc);
 	if(!(s = sfreserve(f,SF_UNBOUND,1)) )
@@ -180,7 +197,17 @@ main()
 	if(sfvalue(f) != 3)
 		terror("Wrong reserved length3\n");
 
-	system("rm xxx >/dev/null 2>&1");
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0],"w")) )
+		terror("Opening file to write\n");
+	sfdisc(f,&Edisc);
+	if(sfwrite(f, "one", 3) != 3)
+		terror("Bad sfwrite\n");
+	if(sfwr(f, "two", 4, NIL(Sfdisc_t*)) != 4)
+		terror("Bad sfwr\n");
+	if(strcmp(External,"onetwo") != 0)
+		terror("Bad call of sfwr\n");
+
+	rmkpv();
 
 	return 0;
 }

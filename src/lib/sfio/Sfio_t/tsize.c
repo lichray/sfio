@@ -7,7 +7,7 @@ main()
 	int	i, n;
 	char	buf[16*1024];
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx", "w+") ) )
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w+") ) )
 		terror("Can't open file\n");
 
 	if(sfnputc(f,'a',1000) != 1000)
@@ -16,8 +16,8 @@ main()
 	if(sfseek(f,(Sfoff_t)0,0) != 0)
 		terror("Seeking\n");
 
-	if(sfsize(f) != 1000)
-		terror("Wrong size\n");
+	if((n = (int)sfsize(f)) != 1000)
+		terror("Wrong size %d\n", n);
 
 	if(!(f2 = sfnew(NIL(Sfio_t*),NIL(Void_t*),(size_t)SF_UNBOUND,
 			sffileno(f),SF_WRITE)) )
@@ -27,16 +27,16 @@ main()
 		terror("Seeking2\n");
 	sfputc(f2,'b');
 	sfsync(f2);
-	if(sfsize(f2) != 2000)
-		terror("Wrong size 2\n");
+	if((n = (int)sfsize(f2)) != 2000)
+		terror("Wrong size2 %d\n", n);
 
-	if(sfsize(f) != 1000)
-		terror("Wrong size 3\n");
+	if((n = (int)sfsize(f)) != 1000)
+		terror("Wrong size3 %d\n", n);
 
 	sfputc(f,'a');
 	sfset(f,SF_SHARE,1);
-	if(sfsize(f) != 2000)
-		terror("Wrong size 4\n");
+	if((n = (int)sfsize(f)) != 2000)
+		terror("Wrong size4 %d\n", n);
 
 	if(!(f = sfopen(f,NIL(char*),"srw")) )
 		terror("Can't open string stream\n");
@@ -71,21 +71,21 @@ main()
 	if(sfsize(f) != 10)
 		terror("String size is wrong8\n");
 	sfread(f,buf,5);
-	if(sfwrite(f,"0123456789",10) != 5)
-		terror("Write too much\n");
+	if((n = (int)sfwrite(f,"0123456789",10)) != 5)
+		terror("Write wrong amount %d\n", n);
 	if(sfsize(f) != 10)
 		terror("String size is wrong9\n");
 
-	if(!(f = sfopen(f,"xxx","w") ) )
-		terror("Reopening xxx1\n");
+	if(!(f = sfopen(f, Kpv[0],"w") ) )
+		terror("Reopening file1\n");
 	for(i = 0; i < 10000; ++i)
 		if(sfputc(f,'0'+(i%10)) != '0'+(i%10) )
 			terror("sfputc failed\n");
 
-	if(!(f = sfopen(f,"xxx","r+") ) )
-		terror("Reopening xxx2\n");
+	if(!(f = sfopen(f, Kpv[0],"r+") ) )
+		terror("Reopening file2\n");
 	if(sfsize(f) != 10000)
-		terror("Bad size of xxx 1\n");
+		terror("Bad size of file1\n");
 
 	sfsetbuf(f,buf,1024);
 	for(i = 0; i < 20; ++i)
@@ -99,7 +99,7 @@ main()
 	if(sfwrite(f,s,20) != 20)
 		terror("Write failed\n");
 	if(sfsize(f) != 10010)
-		terror("Bad size of xxx 2\n");
+		terror("Bad size of file2\n");
 	sfseek(f,(Sfoff_t)0,0);
 	for(i = 0; i < 10; ++i)
 	{	if(!(s = sfreserve(f,1001,0)) )
@@ -111,6 +111,24 @@ main()
 		if(s[n] != ((n+i-1)%10 + '0') )
 			terror("Bad data\n");
 
-	system("rm xxx >/dev/null 2>&1");
+	/* test to see if a string stream extends ok during writes */
+	s = malloc(5);
+	f = sfnew((Sfio_t*)0, (void*)s, 5, -1, SF_STRING|SF_READ|SF_WRITE|SF_MALLOC);
+	if(!f)
+		terror("Can't create string stream\n");
+	if(sfwrite(f,"01",2) != 2)
+		terror("Bad write to string stream\n");
+	if(sfwrite(f,"2345678",7) != 7)
+		terror("Bad write to string stream2\n");
+	if(sfputc(f,0) != 0)
+		terror("sfputc failed\n");
+	if(sfseek(f, (Sfoff_t)0, 0) != 0)
+		terror("sfseek failed\n");
+	if((n = (int)sfread(f, buf, 100)) != 10)
+		terror("sfread gets wrong amount of data %d\n", n);
+	if(strcmp(buf, "012345678") != 0)
+		terror("Get wrong data\n");
+
+	rmkpv();
 	return 0;
 }

@@ -42,7 +42,7 @@ int	flags;	/* type of file stream */
 			sflags = f->flags;
 			if(SFCLOSE(f) < 0)
 				return NIL(Sfio_t*);
-			if(f->data && ((flags&SF_STRING) || size != SF_UNBOUND) )
+			if(f->data && ((flags&SF_STRING) || size != (size_t)SF_UNBOUND) )
 			{	if(sflags&SF_MALLOC)
 					free((Void_t*)f->data);
 				f->data = NIL(uchar*);
@@ -77,7 +77,7 @@ int	flags;	/* type of file stream */
 	f->getr = f->tiny[0] = 0;
 
 	f->mode |= SF_INIT | (flags&SF_OPEN);
-	if(size != SF_UNBOUND)
+	if(size != (size_t)SF_UNBOUND)
 	{	f->size = size;
 		f->data = size <= 0 ? NIL(uchar*) : (uchar*)buf;
 	}

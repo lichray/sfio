@@ -16,7 +16,7 @@ char*	mode;
 	reg Sfio_t*	sp;
 	reg FILE*	fp;
 
-	if(!(sp = sfpopen(NIL(Sfio_t*), string, mode)))
+	if(!(sp = sfpopen((Sfio_t*)(-1), string, mode)))
 		return NIL(FILE*);
 	if(!(fp = _stdstream(sp)))
 	{	sfclose(sp);

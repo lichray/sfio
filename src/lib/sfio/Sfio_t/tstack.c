@@ -2,11 +2,11 @@
 
 static Sfio_t*	okclose;
 
-#ifdef __STC_C
-exceptf(Sfio_t*f, int type, Void_t* data, Sfdisc_t* disc)
+#if __STD_C
+int exceptf(Sfio_t*f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-exceptf(f, type, data, disc)
-Sfio_t*	f;
+int exceptf(f, type, data, disc)
+Sfio_t*		f;
 int		type;
 Void_t*		data;
 Sfdisc_t*	disc;
@@ -49,7 +49,7 @@ Sfdisc_t*	disc;
 	return 0;
 }
 
-Sfdisc_t	Disc = { readf, writef, NIL(Sfseek_f), exceptf };
+Sfdisc_t	Disc = { readf, writef, NIL(Sfseek_f), exceptf, 0 };
 
 main()
 {
@@ -57,10 +57,10 @@ main()
 	char	*s, *s1, *s2, *s3, *s4, str[1024], *ss;
 	int	n;
 
-	if(!(f1 = sfopen(NIL(Sfio_t*),"xxx","w+")) )
-		terror("Opening xxx1\n");
-	if(!(f2 = sfopen(NIL(Sfio_t*),"xxx","w+")) )
-		terror("Opening xxx2\n");
+	if(!(f1 = sfopen(NIL(Sfio_t*), Kpv[0],"w+")) )
+		terror("Opening file1\n");
+	if(!(f2 = sfopen(NIL(Sfio_t*), Kpv[0],"w+")) )
+		terror("Opening file2\n");
 	okclose = f2;
 	sfdisc(f1,&Disc);
 	sfdisc(f2,&Disc);
@@ -72,7 +72,7 @@ main()
 	okclose = f1;
 	if(sfclose(f1) < 0)
 		terror("Can't close f1\n");
-	system("rm xxx >/dev/null 2>&1");
+	rmkpv();
 
 
 	s1 = "1234567890";
@@ -90,22 +90,22 @@ main()
 	if(sffileno(sfstdin) != 0)
 		terror("Bad fd for stdin\n");
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w+")) )
-		terror("Opening xxx\n");
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0],"w+")) )
+		terror("Opening file\n");
 	if(sfwrite(f,"0123456789",10) != 10)
-		terror("Write xxx\n");
+		terror("Write file\n");
 	if(sfseek(f,(Sfoff_t)0,0) != 0)
-		terror("Seek xxx\n");
+		terror("Seek file\n");
 	
 	if(sfstack(sfstdin,f) != sfstdin)
 		terror("Stacking on stdin2\n");
 	if(sfopen(sfstdout,"/dev/null","w") != sfstdout)
 		terror("Opening sfstdout\n");
-	if(sfmove(sfstdin,sfstdout,SF_UNBOUND,-1) != 10 ||
+	if(sfmove(sfstdin,sfstdout,(Sfoff_t)SF_UNBOUND,-1) != 10 ||
 	   !sfeof(sfstdin) || sferror(sfstdout))
 		terror("Bad sfmove\n");
 
-	system("rm xxx >/dev/null 2>&1");
+	rmkpv();
 
 	if(!(f = sftmp(0)))
 		terror("Opening temp file\n");

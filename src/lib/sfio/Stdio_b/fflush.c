@@ -19,5 +19,14 @@ reg FILE*	fp;
 	if(!(sp = _sfstream(fp)))
 		return -1;
 	_stdclrerr(fp,sp);
-	return sfsync(sp);
+
+#if _xopen_stdio
+	(void)sfseek(sp, (Sfoff_t)0, SEEK_CUR|SF_PUBLIC);
+#else
+	(void)sfseek(sp, (Sfoff_t)0, SEEK_CUR);
+#endif
+
+	if(sfsync(sp) < 0 || sfpurge(sp) < 0)
+		return -1;
+	else	return 0;
 }

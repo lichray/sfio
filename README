@@ -1,21 +1,30 @@
-This directory contains the following subdirectories:
+This directory contains the following:
 
-	bin
-	src/lib/sfdisc
-	src/lib/sfio
+Standard directories:
+	./bin
+	./lib
+	./man
+	./include
 
-You should change your shell PATH variable to include the subdirectory "bin".
-This makes the program "iffe" available in your search path.
-IFFE (IF Features Exist) is a language interpreter that probes
-a local environment based on predefined specifications to determine various
-features needed for proper configuration of a software. Iffe is pretty neat
-and may be useful for you in writing self-configuring code. One or more example
-iffe programs are in subdirectories "features" in the above subdirectories.
-After changing PATH, you can go to the appropriate subdirectories and run "make".
+Package directories:
+	./src/lib/sfio
+
+Before building a package, you should change your shell PATH variable
+to include "./bin" so that the program "iffe" would be available
+in your search path. Iffe (IF Features Exist) is a language interpreter
+to execute specifications that define configuration parameters.
+In this way, a software package can automatically configure itself
+to take advantage of local features in implementing its operations.
+Each package keeps Iffe scripts in a subdirectory "features".
+
+After resetting PATH, you can change directory to a package directory
+and run "make" to build the package. There is a README file in each
+package directory that tells more about the local directory hierarchy.
 
 Let me know of any problems. Good luck and have fun.
 
 Phong Vo
 AT&T Labs - Research
-600 Mountain Ave, Murray Hill, NJ 07974
-kpv@research.att.com, 908-582-4869
+180 Park Avenue
+Florham Park, NJ07932
+kpv@research.att.com

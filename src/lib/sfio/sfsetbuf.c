@@ -14,7 +14,7 @@ __STDPP__directive pragma pp:nohide getpagesize
 
 #if _lib_getpagesize
 _BEGIN_EXTERNS_
-_astimport int	getpagesize _ARG_((void));
+extern int	getpagesize _ARG_((void));
 _END_EXTERNS_
 #endif
 
@@ -117,7 +117,8 @@ reg size_t	size;	/* buffer size, -1 for default size */
 	f->bits  &= ~SF_MMAP;
 
 	/* pure read/string streams must have a valid string */
-	if((f->flags&(SF_RDWR|SF_STRING)) == SF_RDSTR && (size == SF_UNBOUND || !buf))
+	if((f->flags&(SF_RDWR|SF_STRING)) == SF_RDSTR &&
+	   (size == (size_t)SF_UNBOUND || !buf))
 		size = 0;
 
 	/* set disc to the first discipline with a seekf */
@@ -157,6 +158,12 @@ reg size_t	size;	/* buffer size, -1 for default size */
 			if(S_ISREG(st.st_mode) || S_ISDIR(st.st_mode))
 				f->here = justopen ? 0 : SFSK(f,(Sfoff_t)0,1,f->disc);
 			else	f->here = -1;
+
+#if O_TEXT /* no memory mapping with O_TEXT because read()/write() alter data stream */
+			if(okmmap && f->here >= 0 &&
+			   (fcntl((int)f->file,F_GETFL,0) & O_TEXT) )
+				okmmap = 0;
+#endif
 		}
 
 		if(f->here >= 0)
@@ -174,7 +181,9 @@ reg size_t	size;	/* buffer size, -1 for default size */
 
 			if(init)
 			{	if(S_ISCHR(st.st_mode) )
-				{	blksize = SF_GRAIN;
+				{	int oerrno = errno;
+
+					blksize = SF_GRAIN;
 
 					/* set line mode for terminals */
 					if(!(f->flags&SF_LINE) && isatty(f->file))
@@ -190,6 +199,7 @@ reg size_t	size;	/* buffer size, -1 for default size */
 							SFSETNULL(f);
 					}
 #endif
+					errno = oerrno;
 				}
 
 				/* initialize save input buffer for r+w streams */
@@ -216,30 +226,27 @@ reg size_t	size;	/* buffer size, -1 for default size */
 					break;
 		if(!disc)
 		{	f->bits |= SF_MMAP;
-			if(size == SF_UNBOUND)
-			{	size = (blksize > 0 ? blksize : _Sfpage) * SF_NMAP;
-				size = ((size+_Sfpage-1)/_Sfpage)*_Sfpage;
-			}
+			if(size == (size_t)SF_UNBOUND)
+				size = _Sfpage * SF_NMAP;
 		}
 	}
 #endif
 
 	/* get buffer space */
 setbuf:
-	if(size == SF_UNBOUND)
+	if(size == (size_t)SF_UNBOUND)
 	{	/* define a default size suitable for block transfer */
-		if((init || local) && osize > 0)
+		if(init && osize > 0)
 			size = osize;
 		else if(f == sfstderr && (f->mode&SF_WRITE))
 			size = 0;
 		else if(f->flags&SF_STRING )
 			size = SF_GRAIN;
-		else if(blksize > 0)
-			size = blksize;
 		else if((f->flags&SF_READ) && !(f->bits&SF_BOTH) &&
-			f->extent > 0 && (size_t)f->extent < _Sfpage )
+			f->extent > 0 && f->extent < (Sfoff_t)_Sfpage )
 			size = (((size_t)f->extent + SF_GRAIN-1)/SF_GRAIN)*SF_GRAIN;
-		else	size = _Sfpage;
+		else if((ssize_t)(size = _Sfpage) < blksize)
+			size = blksize;
 
 		buf = NIL(Void_t*);
 	}
@@ -247,15 +254,22 @@ setbuf:
 	sf_malloc = 0;
 	if(size > 0 && !buf && !(f->bits&SF_MMAP))
 	{	/* try to allocate a buffer */
-		if(obuf && size == (size_t)osize && local)
+		if(obuf && size == (size_t)osize && init)
 		{	buf = (Void_t*)obuf;
 			obuf = NIL(uchar*);
 			sf_malloc = (oflags&SF_MALLOC);
 		}
 		if(!buf)
 		{	/* do allocation */
-			while(!(buf = (Void_t*) malloc(size)) && size > 0)
-				size /= 2;
+#if _lib_memalign
+			if(!(f->flags&SF_STRING) && _Sfpage && (size % _Sfpage) == 0)
+				buf = (Void_t*)memalign(_Sfpage,size);
+#endif
+			while(!buf && size > 0)
+			{	if((buf = (Void_t*)malloc(size)) )
+					break;
+				else	size /= 2;
+			}
 			if(size > 0)
 				sf_malloc = SF_MALLOC;
 		}

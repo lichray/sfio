@@ -26,12 +26,14 @@ size_t		size;
 	else if(flags == _IONBF)
 	{	sfsync(sp);
 		sfsetbuf(sp,NIL(Void_t*),0);
+		sfset(sp,SF_LINE,0);
 	}
 	else if(flags == _IOFBF)
 	{	if(size == 0)
 			size = BUFSIZ;
 		sfsync(sp);
 		sfsetbuf(sp,buf,size);
+		sfset(sp,SF_LINE,0);
 	}
-	return(0);
+	return 0;
 }

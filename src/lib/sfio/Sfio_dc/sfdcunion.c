@@ -1,21 +1,20 @@
 #include	"sfdchdr.h"
 
 
-/*	Concatenate a sequence of streams to a single stream.
+/*	Make a sequence of streams act like a single stream.
 **	This is for reading only.
 **
-**	Written by Kiem-Phong Vo, kpv@research.att.com, 08/27/92.
+**	Written by Kiem-Phong Vo, kpv@research.att.com, 03/18/1998.
 */
 
 #define	UNSEEKABLE	1
 
-typedef struct _f_
-{
-	Sfio_t*	f;	/* the stream		*/
+typedef struct _file_s
+{	Sfio_t*	f;	/* the stream		*/
 	Sfoff_t	lower;	/* its lowest end	*/
 } File_t;
 
-typedef struct _union_
+typedef struct _union_s
 {
 	Sfdisc_t	disc;	/* discipline structure */
 	short		type;	/* type of streams	*/
@@ -134,21 +133,18 @@ Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
-	if(type == SF_CLOSE)
-	{	reg Sfdisc_t*	pop;
-		if((pop = sfdisc(f,SF_POPDISC)) != disc)	/* hmm! */
-			sfdisc(f,pop);
-		else	sfdcdelunion(disc);
-	}
+	if(type == SF_FINAL || type == SF_DPOP)
+		free(disc);
 
 	return 0;
 }
 
 #if __STD_C
-Sfdisc_t* sfdcnewunion(Sfio_t** f, int n)
+int sfdcunion(Sfio_t* f, Sfio_t** array, int n)
 #else
-Sfdisc_t* sfdcnewunion(f, n)
-Sfio_t**	f;
+int sfdcunion(f, array, n)
+Sfio_t*		f;
+Sfio_t**	array;
 int		n;
 #endif
 {
@@ -156,10 +152,10 @@ int		n;
 	reg int		i;
 
 	if(n <= 0)
-		return NIL(Sfdisc_t*);
+		return -1;
 
 	if(!(un = (Union_t*)malloc(sizeof(Union_t)+(n-1)*sizeof(File_t))) )
-		return NIL(Sfdisc_t*);
+		return -1;
 
 	un->disc.readf = unread;
 	un->disc.writef = unwrite;
@@ -169,52 +165,20 @@ int		n;
 	un->c = 0;
 	un->n = n;
 	un->here = 0;
+
 	for(i = 0; i < n; ++i)
-	{
-		un->f[i].f = f[i];
+	{	un->f[i].f = array[i];
 		if(!(un->type&UNSEEKABLE))
-		{	un->f[i].lower = sfseek(f[i],0L,1);
+		{	un->f[i].lower = sfseek(array[i],(Sfoff_t)0,1);
 			if(un->f[i].lower < 0)
 				un->type |= UNSEEKABLE;
 		}
 	}
 
-	return (Sfdisc_t*)un;
-}
+	if(sfdisc(f,(Sfdisc_t*)un) != (Sfdisc_t*)un)
+	{	free(un);
+		return -1;
+	}
 
-#if __STD_C
-sfdcdelunion(Sfdisc_t* disc)
-#else
-sfdcdelunion(disc)
-Sfdisc_t*	disc;
-#endif
-{
-	free(disc);
 	return 0;
 }
-
-#ifdef PROGRAM
-main()
-{
-	Sfio_t	*s[2];
-	Sfdisc_t	*disc;
-
-	if(!(s[0] = sfopen(NIL(Sfio_t*),"abcdefghij", "s")) ||
-	   !(s[1] = sfopen(NIL(Sfio_t*),"0123456789", "s")) )
-		return -1;
-
-	sfseek(s[0],5,0);
-	sfseek(s[1],5,0);
-
-	if(!(disc = sfdcnewunion(s,2)) )
-		return -1;
-
-	sfdisc(sfstdin,disc);
-	sfmove(sfstdin,sfstdout,-1,-1);
-	sfputc(sfstdout,'\n');
-
-	sfseek(sfstdin,7,0);
-	sfmove(sfstdin,sfstdout,-1,-1);
-	sfputc(sfstdout,'\n');
-}
-#endif /*PROGRAM*/

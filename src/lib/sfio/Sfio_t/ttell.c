@@ -13,7 +13,7 @@ char    **argv;
 
 	if(argc > 1)
         {       /* coprocess only */
-                while(s = sfgetr(sfstdin,'\n',0))
+                while((s = sfgetr(sfstdin,'\n',0)) )
                         sfwrite(sfstdout,s,sfvalue(sfstdin));
 		exit(0);
         }
@@ -42,6 +42,8 @@ char    **argv;
 		terror("Read coprocess2\n");
 	if(sftell(f) != 16)
 		terror("sftell 4\n");
+
+	sfclose(f);
 
 	return 0;
 }

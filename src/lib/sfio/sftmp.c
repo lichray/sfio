@@ -15,7 +15,7 @@
 ** To ensure that temp files are properly removed, we need:
 ** 1. A discipline to remove a file when the corresponding stream is closed.
 **    Care must be taken to close the file descriptor before removing the
-**    file because systems such as NT does not allow file removal while
+**    file because systems such as NT do not allow file removal while
 **    there is an open file handle.
 ** 2. An atexit() function is set up to close temp files when process exits.
 ** 3. On systems with O_TEMPORARY (e.g., NT), this is used to further ensure
@@ -181,12 +181,8 @@ Sfio_t*	f;
 	int		t;
 
 #if !_PACKAGE_ast
-	if(Tmppath)
-	{	if(!Tmpcur[1])
-			Tmpcur = Tmppath;
-		else	Tmpcur += 1;
-	}
-	else if(!(Tmppath = _sfgetpath("TMPPATH")) )
+	/* set up path of dirs to create temp files */
+	if(!Tmppath && !(Tmppath = _sfgetpath("TMPPATH")) )
 	{	if(!(Tmppath = (char**)malloc(2*sizeof(char*))) )
 			return -1;
 		if(!(file = getenv("TMPDIR")) )
@@ -198,8 +194,13 @@ Sfio_t*	f;
 		}
 		strcpy(Tmppath[0],file);
 		Tmppath[1] = NIL(char*);
-		Tmpcur = Tmppath;
 	}
+
+	/* set current directory to create this temp file */
+	if(Tmpcur)
+		Tmpcur += 1;
+	if(!Tmpcur || !Tmpcur[0])
+		Tmpcur = Tmppath;
 #endif /*!_PACKAGE_ast*/
 
 	file = NIL(char*); fd = -1;
@@ -355,7 +356,7 @@ reg size_t	s;
 	if(!(f = sfnew(NIL(Sfio_t*),NIL(char*),s,-1,SF_STRING|SF_READ|SF_WRITE)) )
 		return NIL(Sfio_t*);
 
-	if(s != SF_UNBOUND)	/* set up a discipline for out-of-bound, etc. */
+	if(s != (size_t)SF_UNBOUND)	/* set up a discipline for out-of-bound, etc. */
 		f->disc = &Tmpdisc;
 
 	/* make the file now */

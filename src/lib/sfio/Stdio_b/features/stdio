@@ -18,6 +18,23 @@ tst - output{
 	main() { printf("#define _siz_fpos_t	%d\\n", sizeof(fpos_t)); exit(0); }
 }end
 
+FILE _cnt note{ field FILE.__cnt exists }end compile{
+	#include	<stdio.h>
+	main() { return (stdin->__cnt == 0) ? 0 : -1; }
+}end
+FILE _ptr note{ field FILE.__ptr exists }end compile{
+	#include	<stdio.h>
+	main() { return (stdin->__ptr == 0) ? 0 : -1; }
+}end
+FILE _file note{ field FILE.__file exists }end compile{
+	#include	<stdio.h>
+	main() { return (stdin->__file == 0) ? 0 : -1; }
+}end
+FILE _flag note{ field FILE.__flag exists }end compile{
+	#include	<stdio.h>
+	main() { return (stdin->__flag == 0) ? 0 : -1; }
+}end
+
 FILE cnt note{ field FILE._cnt exists }end compile{
 	#include	<stdio.h>
 	main() { return (stdin->_cnt == 0) ? 0 : -1; }
@@ -32,7 +49,26 @@ FILE file note{ field FILE._file exists }end compile{
 }end
 FILE flag note{ field FILE._flag exists }end compile{
 	#include	<stdio.h>
-	main() { return (stdin->_flag != 0) ? 0 : -1; }
+	main() { return (stdin->_flag == 0) ? 0 : -1; }
+}end
+
+cat{
+	#if _FILE__cnt && ! _FILE_cnt
+	#define _FILE_cnt	1
+	#define _cnt		__cnt
+	#endif
+	#if _FILE__ptr && ! _FILE_ptr
+	#define _FILE_ptr	1
+	#define _ptr		__ptr
+	#endif
+	#if _FILE__flag && ! _FILE_flag
+	#define _FILE_flag	1
+	#define _flag		__flag
+	#endif
+	#if _FILE__file && ! _FILE_file
+	#define _FILE_file	1
+	#define _file		__file
+	#endif
 }end
 
 ############################################################################
@@ -132,3 +168,13 @@ FILE w	note{ FILE._w field }end compile{
 	#include <stdio.h>
 	main() { return stdout->_w == 0 ? 0 : 1; }
 }end
+
+lib __swbuf
+lib __srget
+
+lib __uflow
+lib __underflow
+lib __overflow
+
+lib _IO_getc
+lib _IO_putc

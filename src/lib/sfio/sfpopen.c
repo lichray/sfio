@@ -4,8 +4,6 @@
 #include	<proc.h>
 #else
 
-#include	<signal.h>
-typedef void(*Handler_t)_ARG_((int));
 #define EXIT_NOTFOUND	127
 
 #define READ		0
@@ -28,12 +26,14 @@ char*	argcmd;
 	reg int		n;
 
 	/* define interpreter */
-	if((interp = getenv("SHELL")) &&
-	   strcmp(interp,"/bin/sh") != 0 && strcmp(interp,"/bin/ksh") != 0 &&
-	   access(interp,X_OK) == 0)
-		goto do_interp;
-	if(strcmp(interp,"/bin/sh") != 0 && strcmp(interp,"/bin/ksh") != 0)
+	if(!(interp = getenv("SHELL")) || !interp[0])
 		interp = "/bin/sh";
+
+	if(strcmp(interp,"/bin/sh") != 0 && strcmp(interp,"/bin/ksh") != 0 )
+	{	if(access(interp,X_OK) == 0)
+			goto do_interp;
+		else	interp = "/bin/sh";
+	}
 
 	/* if there is a meta character, let the shell do it */
 	for(s = (char*)argcmd; *s; ++s)
@@ -48,22 +48,23 @@ char*	argcmd;
 		goto do_interp;
 	for(n = 0, s = cmd;; )
 	{	while(isspace(s[0]))
-			++s;
-		if(!s[0])
+			s += 1;
+		if(s[0] == 0)
 			break;
-		argv[n] = s;
-		while(s[0] && !isspace(s[0]))
-			++s;
-		if(!s[0])
-			break;
-		s += 1;
-		n += 1;
+
+		/* new argument */
+		argv[n++] = s;
 		if((n%16) == 0 && !(argv = (char**)realloc(argv,(n+16)*sizeof(char*))) )
 			goto do_interp;
+
+		/* make this into a C string */
+		while(s[0] && !isspace(s[0]))
+			s += 1;
+		*s++ = 0;
 	}
 	if(n == 0)
 		goto do_interp;
-	else	argv[n] = NIL(char*);
+	argv[n] = NIL(char*);
 
 	/* get the command name */
 	cmd = argv[0];
@@ -72,9 +73,9 @@ char*	argcmd;
 			break;
 	argv[0] = s+1;
 
-	/* could be a non-standard pathname like 3dfs, let the shell worry about it */
-	for(s = cmd; *s; ++s)
-		if(s[0] == '.' && s[1] == '.' && s[2] == '.')
+	/* Non-standard pathnames as in nDFS should be handled by the shell */
+	for(s = cmd+strlen(cmd)-1; s >= cmd+2; --s)
+		if(s[0] == '.' && s[-1] == '.' && s[-2] == '.')
 			goto do_interp;
 
 	if(cmd[0] == '/' ||
@@ -84,17 +85,20 @@ char*	argcmd;
 			goto do_interp;
 		else	execv(cmd,argv);
 	}
-	else for(p = Path; *p; ++p)
-	{	s = sfprints("%s/%s",p,cmd);
-		if(access(s,X_OK) == 0)
-			execv(s,argv);
+	else
+	{	for(p = Path; *p; ++p)
+		{	s = sfprints("%s/%s", *p, cmd);
+			if(access(s,X_OK) == 0)
+				execv(s,argv);
+		}
 	}
 
+	/* if get here, let the interpreter do it */
 do_interp: 
 	for(s = interp+strlen(interp)-1; s >= interp; --s)
 		if(*s == '/')
 			break;
-	execl(interp, s, "-c", argcmd, NIL(char*));
+	execl(interp, s+1, "-c", argcmd, NIL(char*));
 	_exit(EXIT_NOTFOUND);
 }
 
@@ -112,11 +116,21 @@ char*	mode;		/* mode of the stream */
 #if _PACKAGE_ast
 	reg Proc_t*	proc;
 	reg int		sflags;
-	reg long	flags = PROC_IGNORE;
+	reg long	flags;
+	reg int		bits;
 	char*		av[4];
 
 	if (!command || !command[0] || !(sflags = _sftype(mode, NiL)))
 		return 0;
+
+	if(f == (Sfio_t*)(-1))
+	{	/* stdio compatibility mode */
+		f = NIL(Sfio_t*);
+		bits = SF_STDIO;
+	}
+	else	bits = 0;
+
+	flags = 0;
 	if (sflags & SF_READ)
 		flags |= PROC_READ;
 	if (sflags & SF_WRITE)
@@ -125,11 +139,12 @@ char*	mode;		/* mode of the stream */
 	av[1] = "-c";
 	av[2] = (char*)command;
 	av[3] = 0;
-	if (!(proc = procopen(NiL, av, NiL, NiL, flags)))
+	if (!(proc = procopen(0, av, 0, 0, flags)))
 		return 0;
-	if (!(f = sfnew(f, NiL, SF_UNBOUND,
+	if (!(f = sfnew(f, NIL(Void_t*), (size_t)SF_UNBOUND,
 	       		(sflags&SF_READ) ? proc->rfd : proc->wfd, sflags)) ||
-	    _sfpopen(f, (sflags&SF_READ) ? proc->wfd : -1, proc->pid) < 0)
+	    ((f->bits |= bits),
+	     _sfpopen(f, (sflags&SF_READ) ? proc->wfd : -1, proc->pid)) < 0)
 	{
 		if (f) sfclose(f);
 		procclose(proc);
@@ -139,9 +154,8 @@ char*	mode;		/* mode of the stream */
 	return f;
 #else
 	reg int		pid, pkeep, ckeep, sflags;
-	int		parent[2], child[2];
+	int		bits, parent[2], child[2];
 	Sfio_t		sf;
-	Handler_t	sig;
 
 	/* set shell meta characters */
 	if(Meta[0] == 0)
@@ -164,12 +178,18 @@ char*	mode;		/* mode of the stream */
 	if((sflags&SF_RDWR) == SF_RDWR && pipe(child) < 0)
 		goto error;
 
-	switch(pid = fork())
+	switch((pid = fork()) )
 	{
 	default :	/* in parent process */
 		if(sflags&SF_READ)
 			{ pkeep = READ; ckeep = WRITE; }
 		else	{ pkeep = WRITE; ckeep = READ; }
+
+		if(f == (Sfio_t*)(-1) )
+		{	bits = SF_STDIO;
+			f = NIL(Sfio_t*);
+		}
+		else	bits = 0;
 
 		/* make the streams */
 		if(!(f = sfnew(f,NIL(Void_t*),(size_t)SF_UNBOUND,parent[pkeep],sflags)))
@@ -180,16 +200,11 @@ char*	mode;		/* mode of the stream */
 			CLOSE(child[!ckeep]);
 
 		/* save process info */
+		f->bits |= bits;
 		if(_sfpopen(f,(sflags&SF_RDWR) == SF_RDWR ? child[ckeep] : -1,pid) < 0)
 		{	(void)sfclose(f);
 			goto error;
 		}
-
-#ifdef SIGPIPE	/* protect from broken pipe signal */
-		if((sflags&SF_WRITE) &&
-		   (sig = signal(SIGPIPE,SIG_IGN)) != SIG_DFL && sig != SIG_IGN)
-			signal(SIGPIPE,sig);
-#endif
 
 		return f;
 

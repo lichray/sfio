@@ -25,7 +25,7 @@ main()
 	if(sfeof(f))
 		terror("Shouldn't be eof any more\n");
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w+")) )
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w+")) )
 		terror("Can't open stream2\n");
 	if(sfeof(f) || sferror(f))
 		terror("Can't be eof or error yet2\n");
@@ -50,13 +50,13 @@ main()
 	if(sfeof(f))
 		terror("Shouldn't be eof any more2\n");
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w+")) )
-		terror("Reopening xxx\n");
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0],"w+")) )
+		terror("Reopening %s\n", Kpv[0]);
 	sfwrite(f,"1234567890",10);
 	sfseek(f,(Sfoff_t)0,0);
 
-	if(sfopen(sfstdout,"yyy","w") != sfstdout)
-		terror("Opening yyy\n");
+	if(sfopen(sfstdout, Kpv[1], "w") != sfstdout)
+		terror("Opening %s\n", Kpv[1]);
 
 	if(sfmove(f,sfstdout,(Sfoff_t)(-1),-1) != 10)
 		terror("sfmove failed\n");
@@ -65,6 +65,6 @@ main()
 	if(sferror(sfstdout))
 		terror("sfstdout should not be in error\n");
 
-	system("rm xxx yyy >/dev/null 2>&1");
+	rmkpv();
 	return 0;
 }

@@ -1,10 +1,18 @@
+#define creat	______creat
+#define open	______open
+
 #include	"sftest.h"
+
+#undef	creat
+#undef	open
 
 static int	Open = 0;
 
 #if __STD_C
+int
 open(const char* file, int mode, ...)
 #else
+int
 open(file, mode)
 char*	file;
 int	mode;
@@ -15,11 +23,13 @@ int	mode;
 }
 
 #if __STD_C
+int
 creat(const char* file, mode_t mode)
 #else
+int
 create(file, mode)
 char*	file;
-ushort	mode;
+int	mode;
 #endif
 {
 	Open = 1;

@@ -1,4 +1,4 @@
-#ifndef _SFSTDIO_H	/* protect against multiple #includes */
+#ifndef _SFSTDIO_H
 #define _SFSTDIO_H	1
 
 #define stdin		sfstdin
@@ -68,13 +68,13 @@ _END_EXTERNS_
 
 #define __sf_freopen(fl,m,f)	sfopen((f),(fl),(m))
 #define __sf_fopen(fl,m)	sfopen((Sfio_t*)0,(fl),(m))
-#define __sf_popen(cmd,m)	sfpopen((Sfio_t*)0,(cmd),(m))
+#define __sf_popen(cmd,m)	sfpopen((Sfio_t*)(-1),(cmd),(m))
 #define __sf_tmpfile()		sftmp(0)
 #define __sf_fclose(f)		sfclose(f)
 #define __sf_pclose(f)		sfclose(f)
 
 #define __sf_fwrite(p,s,n,f)	((_SF_(f)->val = sfwrite((f),(p),(s)*(n))) <= 0 ? \
-						 0 : _SF_(f)->val/(s) )
+						 	 0 : _SF_(f)->val/(s) )
 #define __sf_putw(w,f)		(_SF_(f)->val = (int)(w), \
 				 sfwrite((f),&_SF_(f)->val,sizeof(int)) <= 0 ? 1 : 0)
 #define __sf_fputc(c,f)		sfputc((f),(c))
@@ -86,9 +86,9 @@ _END_EXTERNS_
 #define __sf_vsprintf(s,fmt,a)	sfvsprintf((s),_SFSIZEOF(s),(fmt),(a) )
 
 #define __sf_fread(p,s,n,f)	((_SF_(f)->val = sfread((f),(p),(s)*(n))) <= 0 ? \
-						 0 : _SF_(f)->val/(s) )
+							0 : _SF_(f)->val/(s) )
 #define __sf_getw(f)		(sfread((f),&_SF_(f)->val,sizeof(int)) == sizeof(int) ?\
-				  _SF_(f)->val : -1 )
+					_SF_(f)->val : -1 )
 #define __sf_fgetc(f)		sfgetc(f)
 #define __sf_getchar()		sfgetc(sfstdin)
 #define __sf_ungetc(c,f)	sfungetc((f),(c))
@@ -96,13 +96,26 @@ _END_EXTERNS_
 #define __sf_gets(s)		_stdgets(sfstdin,(s),_SFSIZEOF(s),1)
 #define __sf_vscanf(fmt,a)	sfvscanf(sfstdin,(fmt),(a))
 
-#define __sf_fflush(f)		sfsync(f)
 #define __sf_fpurge(f)		sfpurge(f)
-#define __sf_fseek(f,o,t)	(sfseek((f),(Sfoff_t)(o),(t)) < 0 ? -1 : 0)
-#define __sf_rewind(f)		sfseek((f),(Sfoff_t)0,0)
-#define __sf_ftell(f)		(long)sftell(f)
-#define __sf_fgetpos(f,pos)	((*(pos) = (fpos_t)sftell(f)) >= 0 ? 0 : -1)
-#define __sf_fsetpos(f,pos)	((fpos_t)sfseek(f,(Sfoff_t)(*(pos)),0) != (*pos) ? -1 : 0)
+#define __sf_ftell(f)		(long)sfseek((f), (Sfoff_t)0, SEEK_CUR)
+#define __sf_fgetpos(f,p)	((*(p) = (fpos_t)__sf_ftell(f)) >= 0 ? 0 : -1)
+
+#if _xopen_stdio
+#define __sf_fflush(f)		(sfseek(f, (Sfoff_t)0, SEEK_CUR|SF_PUBLIC), \
+					((sfsync(f) < 0 || sfpurge(f) < 0) ? -1 : 0) )
+#define __sf_fseek(f,o,t)	(sfseek((f), (Sfoff_t)(o), (t)|SF_SHARE) < 0 ? -1 : 0)
+#define __sf_rewind(f)		(void)sfseek((f), (Sfoff_t)0, SEEK_SET|SF_SHARE)
+#define __sf_fsetpos(f,p)	((fpos_t)sfseek(f, (Sfoff_t)(*(p)), SEEK_SET|SF_SHARE) \
+					!= (*p) ? -1 : 0)
+#else
+#define __sf_fflush(f)		(sfseek(f, (Sfoff_t)0, SEEK_CUR), \
+					((sfsync(f) < 0 || sfpurge(f) < 0) ? -1 : 0) )
+#define __sf_fseek(f,o,t)	(sfseek((f), (Sfoff_t)(o), (t)) < 0 ? -1 : 0)
+#define __sf_rewind(f)		(void)sfseek((f), (Sfoff_t)0, SEEK_SET)
+#define __sf_fsetpos(f,p)	((fpos_t)sfseek(f, (Sfoff_t)(*(p)), SEEK_SET) \
+					!= (*p) ? -1 : 0)
+#endif
+
 #define __sf_setbuf(f,b)	(void)sfsetbuf((f),(b),(b) ? BUFSIZ : 0)
 #define __sf_setbuffer(f,b,n)	(sfsetbuf((f),(b),(n)) ? 0 : -1)
 #define __sf_setlinebuf(f)	sfset((f),SF_LINE,1)
@@ -111,7 +124,7 @@ _END_EXTERNS_
 #define __sf_ferror(f)		sferror(f)
 #define __sf_clearerr(f)	(void)(sfclrerr(f),sfclrlock(f))
 
-#if defined(__INLINE__) && !BLD_sfio
+#if defined(__INLINE__) && !_BLD_sfio
 __INLINE__ FILE* freopen(const char* fl, const char* m, FILE* f)
 							{ return __sf_freopen(fl,m,f);	}
 __INLINE__ FILE* fopen(const char* fl, const char* m)	{ return __sf_fopen(fl,m);	}

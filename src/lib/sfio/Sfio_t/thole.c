@@ -6,7 +6,8 @@ main()
 {
 	Sfio_t*	null;
 	Sfio_t*	f;
-	char	buf[16];
+	char	buf[256*1024], b[256*1024];
+	int	k, n;
 
 	if(!(null = sfopen(NIL(Sfio_t*),"/dev/null","w")) )
 		terror("Opening /dev/null");
@@ -16,8 +17,8 @@ main()
 	if(!SFISNULL(null) )
 		terror("Not /dev/null?");
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w+")) )
-		terror("Creating xxx");
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w+")) )
+		terror("Creating %s", Kpv[0]);
 	sfwrite(f,"1234",4);
 	sfseek(f,(Sfoff_t)1,0);
 	sfsync(f);
@@ -30,5 +31,23 @@ main()
 	if(sfread(f,buf,4) != 4 || strncmp(buf,"1234",4) != 0)
 		terror("Bad data");
 
+	for(k = 0; k < sizeof(buf); ++k)
+		buf[k] = 1;
+	for(k = sizeof(buf)/4; k < sizeof(buf)/2; ++k) /* make a big hole */
+		buf[k] = 0;
+
+	if(!(f = sfopen(f, Kpv[0], "w+")) )
+		terror("Creating %s", Kpv[0]);
+	n = sizeof(buf)-127;
+	if(sfwrite(f,buf,n) != n)
+		terror("Writing large buffer");
+	sfseek(f,(Sfoff_t)0,0);
+	if(sfread(f,b,n) != n)
+		terror("Reading large buffer");
+	for(k = 0; k < n; ++k)
+		if(b[k] != buf[k])
+			terror("Bad data");
+
+	rmkpv();
 	return 0;
 }

@@ -5,23 +5,34 @@
 **	Written by Kiem-Phong Vo (02/12/91)
 */
 #if __STD_C
-Sfoff_t sfsk(reg Sfio_t* f, reg Sfoff_t addr, reg int type, Sfdisc_t* disc)
+Sfoff_t sfsk(reg Sfio_t* f, Sfoff_t addr, reg int type, Sfdisc_t* disc)
 #else
 Sfoff_t sfsk(f,addr,type,disc)
 reg Sfio_t*	f;
-reg Sfoff_t	addr;
+Sfoff_t		addr;
 reg int		type;
 Sfdisc_t*	disc;
 #endif
 {
-	reg Sfoff_t	p;
+	Sfoff_t		p;
 	reg Sfdisc_t*	dc;
 	reg ssize_t	s;
-	reg int		local;
+	reg int		local, mode;
 
 	GETLOCAL(f,local);
-	if(!local && !(f->mode&SF_LOCK))
-		return -1;
+	if(!local && !(f->bits&SF_DCDOWN))
+	{	if((mode = f->mode&SF_RDWR) != (int)f->mode && _sfmode(f,mode,0) < 0)
+			return -1;
+		if(SFSYNC(f) < 0)
+			return -1;
+#if MAP_TYPE
+		if(f->mode == SF_READ && (f->bits&SF_MMAP) && f->data)
+		{	SFMUNMAP(f, f->data, f->endb-f->data);
+			f->data = NIL(uchar*);
+		}
+#endif
+		f->next = f->endb = f->endr = f->endw = f->data;
+	}
 
 	for(;;)
 	{	dc = disc;
@@ -34,9 +45,9 @@ Sfdisc_t*	disc;
 			else	s = (ssize_t)(addr + f->extent);
 		}
 		else
-		{	SFDISC(f,dc,seekf,local);
+		{	SFDISC(f,dc,seekf);
 			if(dc && dc->seekf)
-				p = (*(dc->seekf))(f,addr,type,dc);
+				p = SFDCSK(f,addr,type,dc,p);
 			else	p = lseek(f->file,(off_t)addr,type);
 			if(p >= 0)
 				return p;

@@ -40,7 +40,37 @@ Sfdisc_t*	disc;
 {	return 0;
 }
 
-static Sfdisc_t	Disc;
+#if __STD_C
+static int except3(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
+#else
+static int except3(f, type, data, disc)
+Sfio_t*		f;
+int		type;
+Void_t*		data;
+Sfdisc_t*	disc;
+#endif
+{	if(type == SF_LOCKED)
+	{	Type = type;
+		return -1;
+	}
+	return 0;
+}
+#if __STD_C
+static ssize_t readfunc(Sfio_t* f, Void_t* buf, size_t n, Sfdisc_t* disc)
+#else
+static ssize_t readfunc(f, buf, n, disc)
+Sfio_t*	f;
+Void_t* buf;
+size_t	n;
+Sfdisc_t* disc;
+#endif
+{
+	if(sfgetc(f) >= 0)
+		terror("Can't access stream here!");
+	return 0;
+}
+
+static Sfdisc_t	Disc, Disc2;
 
 main()
 {
@@ -49,7 +79,7 @@ main()
 	char	rbuf[4*1024];
 	int	i;
 
-	if(!(f = sfopen(NIL(Sfio_t*),"xxx","w")) )
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w")) )
 		terror("Can't open file\n");
 	sfset(f,SF_IOCHECK,1);
 
@@ -83,6 +113,16 @@ main()
 	if(Type != SF_FINAL)
 		terror("Did not get final event\n");
 
+	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "r")) )
+		terror("Can't open file\n");
+	Disc2.readf = readfunc;
+	Disc2.exceptf = except3;
+	sfdisc(f,&Disc2);
+	if(sfgetc(f) >= 0)
+		terror("There should be no data here\n");
+	if(Type != SF_LOCKED)
+		terror("Did not get lock event\n");
+
 	/* test to see if sfclose() preserves seek location */
 	if(!(f = sftmp(0)) )
 		terror("Can't create temp file\n");
@@ -108,6 +148,7 @@ main()
 	if(lseek(i,0,1) != 4)
 		terror("Wrong seek location\n");
 
-	system("rm xxx");
+	rmkpv();
+
 	return 0;
 }

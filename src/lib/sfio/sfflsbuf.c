@@ -68,13 +68,8 @@ reg int		c;	/* if c>=0, c is also written out */
 		if(n == 0 || (f->flags&SF_STRING))
 			break;
 
-		/* w's value ensures that future writes will be properly aligned */
-		if(!(isall = SFISALL(f,isall)) && data == f->data && n == f->size &&
-		   (w = (ssize_t)(f->here%f->size)) != 0)
-			w = f->size - w;
-		else	w = n;
-
-		if((w = SFWR(f,data,w,f->disc)) > 0)
+		isall = SFISALL(f,isall);
+		if((w = SFWR(f,data,n,f->disc)) > 0)
 		{	if((n -= w) > 0) /* save unwritten data, then resume */
 				memcpy((char*)f->data,(char*)data+w,n);
 			f->next = f->data+n;

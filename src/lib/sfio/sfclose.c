@@ -12,7 +12,7 @@ int sfclose(f)
 reg Sfio_t*	f;
 #endif
 {
-	reg int		local, ex;
+	reg int		local, ex, rv;
 
 	if(!f)
 		return -1;
@@ -44,11 +44,11 @@ reg Sfio_t*	f;
 		return _sfpclose(f);
 	}
 
+	rv = 0;
 	if(f->disc == _Sfudisc)	/* closing the ungetc stream */
 		f->disc = NIL(Sfdisc_t*);
-	/* sync file pointer */
-	else if(f->flags&(SF_SHARE|SF_WRITE) )
-		(void)sfsync(f);
+	else if(f->file >= 0)	/* sync file pointer */
+		rv = sfsync(f);
 
 	SFLOCK(f,0);
 
@@ -119,5 +119,5 @@ reg Sfio_t*	f;
 			SFFREE(f);
 	}
 
-	return 0;
+	return rv;
 }

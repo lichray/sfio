@@ -23,7 +23,7 @@ main()
 {
 	int	p1[2], p2[2];
 	int	n, dupf2;
-	long	s;
+	Sfoff_t	s;
 	char	buf[1024];
 	Sfio_t	*f1, *f2;
 
@@ -48,8 +48,8 @@ main()
 		terror("Premature eof\n");
 	if(sferror(sfstdout) )
 		terror("Weird error1\n");
-	if((n = sfmove(sfstdin,sfstdout,-1,-1)) != 4)
-		terror("Wrong # of bytes %d\n",n);
+	if((s = sfmove(sfstdin,sfstdout,(Sfoff_t)SF_UNBOUND,-1)) != 4)
+		terror("Wrong # of bytes %lld\n", s);
 	if(!sfeof(sfstdin) )
 		terror("Should be eof\n");
 	if(sferror(sfstdout) )
@@ -57,10 +57,10 @@ main()
 	if(sfpurge(sfstdout) < 0)
 		terror("Purging stdout\n");
 
-	if(!(f1 = sfopen(NIL(Sfio_t*),"xxx","w")) )
-		terror("Opening xxx to write\n");
-	if(!(f2 = sfopen(NIL(Sfio_t*),"xxx","r")) )
-		terror("Opening xxx to read\n");
+	if(!(f1 = sfopen(NIL(Sfio_t*), Kpv[0], "w")) )
+		terror("Opening file to write\n");
+	if(!(f2 = sfopen(NIL(Sfio_t*), Kpv[0],"r")) )
+		terror("Opening file to read\n");
 
 	sfset(f1,SF_IOCHECK,1);
 	sfdisc(f1,&Disc);
@@ -99,7 +99,7 @@ main()
 	sfseek(f2,(Sfoff_t)0,0);
 	sfgetc(f2);
 	if((s = sftell(f2)) != 1)
-		terror("Wrong sfseek location s=%ld\n",s);
+		terror("Wrong sfseek location s=%lld\n",s);
 	sfsync(0);
 	if(lseek(sffileno(f2),0L,1) != 1)
 		terror("Wrong lseek location\n");
@@ -109,7 +109,6 @@ main()
 	if(lseek(dupf2,0L,1) != 1)
 		terror("Wrong lseek location2\n");
 
-	unlink("xxx");
-
+	rmkpv();
 	return 0;
 }

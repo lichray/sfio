@@ -3,36 +3,16 @@
 **
 **	Written by Kiem-Phong Vo.
 */
-#if __STD_C
-#undef __STD_C
-#endif
-#if __STDC__
-#define	__STD_C		1
-#else
-#if __cplusplus
-#define __STD_C		1
-#endif
-#endif
-#if !defined(__STD_C)
-#define __STD_C		0
-#endif
+#include	"sfstdhdr.h"
 
 #if __STD_C
-#if __cplusplus
-extern "C" {
-#endif
+_BEGIN_EXTERNS_
 extern int	printf(const char*,...);
 extern int	strcmp(const char*,const char*);
-#if __cplusplus
-}
-#endif
+_END_EXTERNS_
 #endif
 
 /* standard names for fields of interest */
-#include	"sfstdhdr.h"
-#include	"FEATURE/sfio"
-#include	"FEATURE/stdio"
-
 #if _FILE_cnt
 #define	std_cnt		_cnt
 #endif
@@ -263,7 +243,8 @@ int main()
 #endif
 
 	/* output standard protection */
-	printf("#ifndef	_STDIO_INIT\n\n");
+	printf("#ifndef	_SFBINARY_H\n");
+	printf("#define	_SFBINARY_H\t1\n\n");
 
 	printf("extern int\t_Stdio_load;\n\n");
 
@@ -333,24 +314,6 @@ int main()
 	printf("#define _do_swbuf       1\n\n");
 #endif
 
-#ifdef NAME_sgetc
-	if(strcmp(NAME_sgetc,"_sgetc") != 0 )
-		printf("#define _sgetc	%s\n",NAME_sgetc);
-	if(__STD_C)
-		printf("#define FILBUF(f)	int _sgetc(FILE* f)\n");
-	else	printf("#define FILBUF(f)	int _sgetc(f) FILE* f;\n");
-	printf("#define _do_sgetc      1\n\n");
-#endif
-
-#ifdef NAME_sputc
-	if(strcmp(NAME_sputc,"_sputc") != 0)
-		printf("#define _sputc	%s\n",NAME_sputc);
-	if(__STD_C)
-		printf("#define FLSBUF(c,f)	int _sputc(int c, FILE* f)\n");
-	else	printf("#define FLSBUF(c,f)	int _sputc(c,f) int c; FILE* f;\n");
-	printf("#define _do_sputc       1\n\n");
-#endif
-
 #if _pragma_weak
 	printf("#if _in_doprnt\n");
 	printf("#pragma weak _doprnt =	__doprnt\n");
@@ -411,27 +374,18 @@ int main()
 	printf("#endif\n\n");
 #endif
 
-#ifdef NAME_sgetc
-	printf("#if _do_filbuf\n"); /* not a bug! */
-	printf("#pragma weak %s =	_%s\n",NAME_sgetc,NAME_sgetc);
-	printf("#define %s	_%s\n",NAME_sgetc,NAME_sgetc);
-	printf("#endif\n\n");
-#endif
-
-#ifdef NAME_sputc
-	printf("#if _do_flsbuf\n"); /* not a bug! */
-	printf("#pragma weak %s =	_%s\n",NAME_sputc,NAME_sputc);
-	printf("#define %s	_%s\n",NAME_sputc,NAME_sputc);
-	printf("#endif\n\n");
-#endif
-
 #endif/*_pragma_weak*/
 
 #ifdef _NFILE
-	printf("#define _NFILE	%d\n\n", _NFILE);
+#define N_FILE	_NFILE
 #else
-	printf("#define _NFILE	%d\n\n", 3);
+#ifdef FOPEN_MAX
+#define N_FILE	FOPEN_MAX
+#else
+#define N_FILE	3
 #endif
+#endif
+	printf("#define _NFILE	%d\n\n", N_FILE);
 
 	/* now get what we need from sfio */
 	printf("typedef struct _std_s\tFILE;\n");
@@ -616,26 +570,41 @@ int main()
 	printf("#define extern\t__EXPORT__\n");
 	printf("#endif\n");
 
-#if !defined(NAME_iob) && !defined(NAME_sf)
+
+#ifdef NAME_iob
+#define _have_streams	1
+	printf("\nextern FILE	_iob[];\n");
+	printf("#define stdfile(n)\t((FILE*)(((char*)(&_iob[0]))+(n)*%d))\n",
+		sizeof(FILE));
+	printf("#define stdin	stdfile(0)\n");
+	printf("#define stdout	stdfile(1)\n");
+	printf("#define stderr	stdfile(2)\n\n");
+#endif
+
+#ifdef NAME_sf
+#define _have_streams	1
+	printf("\nextern FILE	_sf[];\n");
+	printf("#define stdfile(n)\t((FILE*)(((char*)(&_sf[0]))+(n)*%d))\n",
+		sizeof(FILE));
+	printf("#define stdin	stdfile(0)\n");
+	printf("#define stdout	stdfile(1)\n");
+	printf("#define stderr	stdfile(2)\n\n");
+#endif
+
+#if defined(NAME_swbuf) && defined(NAME_srget) && !_have_streams
+#define _have_streams	1
+	printf("\nextern FILE	__sstdin, __sstdout, __sstderr;\n");
+	printf("#define stdin	(&__sstdin)\n");
+	printf("#define stdout	(&__sstdout)\n");
+	printf("#define stderr	(&__sstderr)\n\n");
+#endif
+
+#if !_have_streams /*Linux*/
 	printf("\nextern FILE	_IO_stdin_, _IO_stdout_, _IO_stderr_;\n");
 	printf("#define stdin	(&_IO_stdin_)\n");
 	printf("#define stdout	(&_IO_stdout_)\n");
 	printf("#define stderr	(&_IO_stderr_)\n\n");
-#else
-
-#ifdef NAME_iob
-	printf("\nextern FILE	_iob[];\n");
-	printf("#define stdfile(n)\t((FILE*)(((char*)(&_iob[0]))+(n)*%d))\n",
-		sizeof(FILE));
-#else
-	printf("\nextern FILE	_sf[];\n");
-	printf("#define stdfile(n)\t((FILE*)(((char*)(&_sf[0]))+(n)*%d))\n",
-		sizeof(FILE));
 #endif
-	printf("#define stdin	stdfile(0)\n");
-	printf("#define stdout	stdfile(1)\n");
-	printf("#define stderr	stdfile(2)\n\n");
-#endif /*!NAME_iob && !NAME_sf*/
 
 	printf("extern Sfio_t*\t\t_sfstream _ARG_((FILE*));\n");
 	printf("extern FILE*\t\t_stdstream _ARG_((Sfio_t*));\n");
@@ -706,7 +675,7 @@ int main()
 	printf("}\n");
 	printf("#endif\n\n");
 
-	printf("#endif /* _STDIO_INIT */\n");
+	printf("#endif /* _SFBINARY_H */\n");
 
 	return 0;
 }

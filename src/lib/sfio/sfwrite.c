@@ -14,13 +14,12 @@ Void_t*		buf;	/* buffer to be written.	*/
 reg size_t	n;	/* number of bytes. 		*/
 #endif
 {
-	reg char*	s;
-	reg uchar*	next;
+	reg uchar	*s, *begs, *next;
 	reg ssize_t	w;
-	reg char*	begs;
-	reg int		local;
+	reg int		local, justseek;
 
 	GETLOCAL(f,local);
+	justseek = f->bits&SF_JUSTSEEK; f->bits &= ~SF_JUSTSEEK;
 
 	/* release peek lock */
 	if(f->mode&SF_PEEK)
@@ -59,7 +58,7 @@ reg size_t	n;	/* number of bytes. 		*/
 			f->next += n;
 	}
 
-	s = begs = (char*)buf;
+	s = begs = (uchar*)buf;
 	for(;; f->mode &= ~SF_LOCK)
 	{	/* check stream mode */
 		if(SFMODE(f,local) != SF_WRITE && _sfmode(f,SF_WRITE,local) < 0 )
@@ -70,37 +69,39 @@ reg size_t	n;	/* number of bytes. 		*/
 
 		SFLOCK(f,local);
 
-		/* current available buffer space */
-		if((size_t)(w = f->endb - f->next) > n)
-			w = n;
-
-		if((uchar*)s == f->next)
-		{	/* fast write after sfreserve() */
-			f->next += w;
-			s += w;
-			n = 0;
+		w = f->endb - f->next;
+		if(f->next == s) /* fast write after sfreserve */	
+		{	if(w > (ssize_t)n )
+				w = (ssize_t)n;
+			f->next = (s += w);
+			n -= w;
 			break;
 		}
+		else if((w > 0 && w < (ssize_t)n && (f->flags&SF_WHOLE) ) ||
+			(w == 0 && (f->next > f->data || (f->flags&SF_STRING)) ) )
+		{	if(SFFLSBUF(f,-1) < 0)
+				break;
+			w = f->endb - f->next;
+		}
 
-		if(w > 0 && ((f->flags&SF_STRING) || w != (f->endb-f->data)) )
-		{	/* copy into buffer */
+		if(!(f->flags&SF_STRING) && f->next == f->data &&
+		   ((ssize_t)n >= f->size ||
+		    ((f->flags&SF_WHOLE) && (ssize_t)n > w) ||
+		    (justseek && SFUNBUFFER(f,n)) ) )
+		{	if((w = SFWR(f,s,n,f->disc)) <= 0)
+				break;
+			s += w;
+		}
+		else
+		{	if(w > (ssize_t)n)
+				w = (ssize_t)n;
 			next = f->next;
 			MEMCPY(next,s,w);
 			f->next = next;
-			if((n -= w) <= 0)
-				break;
 		}
-		else if(!(f->flags&SF_STRING) && f->next > f->data)
-		{	if(SFFLSBUF(f,-1) < 0)
-				break;
-		}
-		else if((w = SFWR(f,s,n,f->disc)) == 0)
+
+		if((n -= w) <= 0)
 			break;
-		else if(w > 0)
-		{	s += w;
-			if((n -= w) <= 0)
-				break;
-		}
 	}
 
 	/* always flush buffer for share streams */
@@ -109,11 +110,11 @@ reg size_t	n;	/* number of bytes. 		*/
 
 	/* check to see if buffer should be flushed */
 	else if(n == 0 && (f->flags&SF_LINE) && !(f->flags&SF_STRING))
-	{	if((n = f->next-f->data) > (size_t)(w = s-begs))
+	{	if((ssize_t)(n = f->next-f->data) > (w = s-begs))
 			n = w;
 		if(n > 0 && n < HIFORLINE)
-		{	for(next = f->next-n; next < f->next; )
-			{	if(*next++ == '\n')
+		{	for(next = f->next-1; n > 0; --n, --next)
+			{	if(*next == '\n')
 				{	n = HIFORLINE;
 					break;
 				}

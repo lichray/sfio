@@ -21,27 +21,25 @@ reg size_t	n;
 	wbuf = buf;
 	endbuf = buf+n;
 	while(n > 0)
-	{
-		if(n < _Sfpage)
-		{	/* no hole possible */
-			buf += n;
+	{	if((ssize_t)n < _Sfpage) /* no hole possible */
+		{	buf += n;
 			s = n = 0;
 		}
-		else while(n >= _Sfpage)
+		else while((ssize_t)n >= _Sfpage)
 		{	/* see if a hole of 0's starts here */
 			sp = buf+1;
 			if(buf[0] == 0 && buf[_Sfpage-1] == 0)
 			{	/* check byte at a time until int-aligned */
-				while(((int)sp)%sizeof(int))
+				while(((ulong)sp)%sizeof(int))
 				{	if(*sp != 0)
-						goto check_hole;
+						goto chk_hole;
 					sp += 1;
 				}
 
 				/* check using int to speed up */
 				while(sp < endbuf)
 				{	if(*((int*)sp) != 0)
-						goto check_hole;
+						goto chk_hole;
 					sp += sizeof(int);
 				}
 
@@ -50,14 +48,14 @@ reg size_t	n;
 				{	sp -= sizeof(int);
 					while(sp < endbuf)
 					{	if(*sp != 0)
-							goto check_hole;
+							goto chk_hole;
 						sp += 1;
 					}
 				}
 			}
 
-		check_hole: /* found a hole */
-			if((size_t)(s = sp-buf) >= _Sfpage)
+		chk_hole:
+			if((s = sp-buf) >= _Sfpage) /* found a hole */
 				break;
 
 			/* skip a dirty page */
@@ -67,7 +65,11 @@ reg size_t	n;
 
 		/* write out current dirty pages */
 		if(buf > wbuf)
-		{	if((wr = write(f->file,wbuf,buf-wbuf)) > 0)
+		{	if((ssize_t)n < _Sfpage)
+			{	buf = endbuf;
+				n = s = 0;
+			}
+			if((wr = write(f->file,wbuf,buf-wbuf)) > 0)
 			{	w += wr;
 				f->bits &= ~SF_HOLE;
 			}
@@ -77,7 +79,7 @@ reg size_t	n;
 		}
 
 		/* seek to a rounded boundary within the hole */
-		if((size_t)s >= _Sfpage)
+		if(s >= _Sfpage)
 		{	s = (s/_Sfpage)*_Sfpage;
 			if(SFSK(f,(Sfoff_t)s,1,NIL(Sfdisc_t*)) < 0)
 				break;
@@ -88,7 +90,7 @@ reg size_t	n;
 
 			if(n > 0)
 			{	/* next page must be dirty */
-				s = n <= _Sfpage ? 1 : _Sfpage;
+				s = (ssize_t)n <= _Sfpage ? 1 : _Sfpage;
 				buf += s;
 				n -= s;
 			}
@@ -110,11 +112,17 @@ reg Sfdisc_t*	disc;
 {
 	reg ssize_t	w;
 	reg Sfdisc_t*	dc;
-	reg int		local, oerrno;
+	reg int		local, oerrno, justseek;
 
 	GETLOCAL(f,local);
-	if(!local && !(f->mode&SF_LOCK))
-		return -1;
+	if(!local && !(f->bits&SF_DCDOWN)) /* an external user's call */
+	{	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0 )
+			return -1;
+		if(f->next > f->data && SFSYNC(f) < 0 )
+			return -1;
+	}
+
+	justseek = f->bits&SF_JUSTSEEK; f->bits &= ~SF_JUSTSEEK;
 
 	for(;;)
 	{	/* stream locked by sfsetfd() */
@@ -129,7 +137,7 @@ reg Sfdisc_t*	disc;
 			w = n + (f->next - f->data);
 		else
 		{	/* warn that a write is about to happen */
-			SFDISC(f,dc,writef,local);
+			SFDISC(f,dc,writef);
 			if(dc && dc->exceptf && (f->flags&SF_IOCHECK) )
 			{	reg int	rv;
 				if(local)
@@ -145,19 +153,18 @@ reg Sfdisc_t*	disc;
 			if(f->extent >= 0)
 			{	/* make sure we are at the right place to write */
 				if(f->flags&SF_APPENDWR)
-				{	/* must be at the end of stream */
+				{	/* writing at the end of stream */
 					if(f->here != f->extent || (f->flags&SF_SHARE))
-					{	Sfoff_t	e;
-						if((e = SFSK(f,(Sfoff_t)0,2,dc)) < 0)
-							e = SFSK(f,f->extent,0,dc);
-						if(e >= 0)
-							f->here = e;
+					{	f->here = SFSK(f,(Sfoff_t)0,2,dc);
+						f->extent = f->here;
 					}
 				}
-				else if(f->flags&SF_SHARE)
-				{	if(!(f->flags&SF_PUBLIC))
-						f->here = SFSK(f,f->here,0,dc);
-					else	f->here = SFSK(f,(Sfoff_t)0,1,dc);
+				else
+				{	if(f->flags&SF_SHARE)
+					{	if(!(f->flags&SF_PUBLIC))
+							f->here = SFSK(f,f->here,0,dc);
+						else	f->here = SFSK(f,(Sfoff_t)0,1,dc);
+					}
 				}
 			}
 
@@ -165,10 +172,13 @@ reg Sfdisc_t*	disc;
 			errno = 0;
 
 			if(dc && dc->writef)
-				w = (*(dc->writef))(f,buf,n,dc);
+				w = SFDCWR(f,buf,n,dc,w);
 			else if(SFISNULL(f))
 				w = n;
-			else if(n >= _Sfpage && !(f->flags&(SF_SHARE|SF_APPENDWR)) &&
+			else if(f->flags&SF_WHOLE)
+				goto do_write;
+			else if((ssize_t)n >= _Sfpage && !justseek &&
+				!(f->flags&(SF_SHARE|SF_APPENDWR)) &&
 				f->here == f->extent && (f->here%_Sfpage) == 0)
 			{	if((w = sfoutput(f,(char*)buf,n)) <= 0)
 					goto do_write;
@@ -184,12 +194,13 @@ reg Sfdisc_t*	disc;
 				errno = oerrno;
 
 			if(w > 0)
-			{	if(local)
+			{	if(!(f->bits&SF_DCDOWN))
 				{	f->here += w;
 					if(f->extent >= 0 && f->here > f->extent)
 						f->extent = f->here;
 				}
-				return w;
+
+				return (ssize_t)w;
 			}
 		}
 

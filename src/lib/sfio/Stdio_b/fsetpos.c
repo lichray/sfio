@@ -17,5 +17,10 @@ reg fpos_t*	pos;
 	if(!pos || *pos < 0 || !(sp = _sfstream(fp)))
 		return -1;
 	_stdclrerr(fp,sp);
-	return (fpos_t)sfseek(sp,(Sfoff_t)(*pos),0) == *pos ? 0 : -1;
+
+#if _xopen_stdio
+	return (fpos_t)sfseek(sp, (Sfoff_t)(*pos), SEEK_SET|SF_SHARE) == *pos ? 0 : -1;
+#else
+	return (fpos_t)sfseek(sp, (Sfoff_t)(*pos), SEEK_SET) == *pos ? 0 : -1;
+#endif
 }

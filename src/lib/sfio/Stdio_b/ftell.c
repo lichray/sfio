@@ -16,5 +16,5 @@ reg FILE*	fp;
 	if(!(sp = _sfstream(fp)))
 		return -1L;
 	_stdclrerr(fp,sp);
-	return (long)sftell(sp);
+	return (long)sfseek(sp, (Sfoff_t)0, SEEK_CUR|SF_SHARE);
 }

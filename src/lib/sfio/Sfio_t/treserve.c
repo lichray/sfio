@@ -20,8 +20,8 @@ main()
 		terror("Wrong reserved pointer\n");
 	sfpurge(sfstdout);
 
-	if(sfopen(sfstdout,"xxx","w") != sfstdout)
-		terror("Opening xxx\n");
+	if(sfopen(sfstdout, Kpv[0],"w") != sfstdout)
+		terror("Opening file\n");
 
 	sfsetbuf(sfstdout,NIL(char*),0);
 	if(!(s = sfreserve(sfstdout,0,1)) )
@@ -44,17 +44,17 @@ main()
 		memcpy(s,buf,sizeof(buf));
 
 		if(sfwrite(sfstdout,s,sizeof(buf)) != sizeof(buf) )
-			terror("Writing to xxx\n");
+			terror("Writing to file\n");
 		else	n += sizeof(buf);
 	}
 
 	sfsync(sfstdout);
 
-	if(sfopen(sfstdin,"xxx","r") != sfstdin)
-		terror("Opening xxx\n");
+	if(sfopen(sfstdin, Kpv[0],"r") != sfstdin)
+		terror("Opening file2\n");
 	sfsetbuf(sfstdin,NIL(char*),8*sizeof(buf));
 	if(sfsize(sfstdin) != n)
-		terror("Wrong size for xxx\n");
+		terror("Wrong size for file\n");
 
 	i = 0;
 	for(;;)
@@ -82,18 +82,18 @@ main()
 		terror("Did not read data2\n");
 	sfsetbuf(sfstdin,NIL(Void_t*),(size_t)SF_UNBOUND);
 
-	if(sfopen(sfstdout,"xxx","w") != sfstdout)
-		terror("Can't open xxx to write\n");
+	if(sfopen(sfstdout, Kpv[0], "w") != sfstdout)
+		terror("Can't open to write\n");
 	for(i = 0; i < 32; ++i)
 	{	for(k = 0; k < sizeof(bigbuf); ++k)
 			bigbuf[k] = '0' + (k+i)%10;
 		if(sfwrite(sfstdout,bigbuf,sizeof(bigbuf)) != sizeof(bigbuf))
-			terror("Writing to xxx\n");
+			terror("Writing to %s\n", Kpv[0]);
 	}
 	sfclose(sfstdout);
 
-	if(sfopen(sfstdin,"xxx","r") != sfstdin)
-		terror("Opening xxx to read\n");
+	if(sfopen(sfstdin, Kpv[0], "r") != sfstdin)
+		terror("Opening to read\n");
 	sfsetbuf(sfstdin,NIL(Void_t*),8*1024);
 	if(!(s = sfreserve(sfstdin,16*sizeof(bigbuf),0)) )
 		terror("sfreserve failed\n");
@@ -129,32 +129,32 @@ main()
 				terror("Wrong data3 i=%d k=%d\n",i,k);
 	}
 
-	if(sfopen(sfstdout,"xxx","w") != sfstdout)
-		terror("Opening xxx for write\n");
+	if(sfopen(sfstdout, Kpv[0],"w") != sfstdout)
+		terror("Opening for write\n");
 	for(i = 0; i < 100; ++i)
 		bigbuf[i] = 'a';
 	for(i = 0; i < 101; ++i)
 		if(sfwrite(sfstdout,bigbuf,100) != 100)
-			terror("Bad write to xxx\n");
+			terror("Bad write to file\n");
 	sfsync(sfstdout);
-	if(sfopen(sfstdin,"xxx","r") != sfstdin)
-		terror("Opening xxx for read\n");
+	if(sfopen(sfstdin, Kpv[0],"r") != sfstdin)
+		terror("Opening for read\n");
 	sfsetbuf(sfstdin,buf,1024);
 	sfset(sfstdin,SF_SHARE,0);
 	for(i = 0; i < 10; ++i)
 		if(!sfreserve(sfstdin,500,0) )
-			terror("Can't reserve from xxx\n");
+			terror("Can't reserve from file\n");
 	for(i = 0; i < 5; ++i)
 		if(sfwrite(sfstdout,bigbuf,100) != 100)
-			terror("Bad write to xxx2\n");
+			terror("Bad write to file2\n");
 	sfsync(sfstdout);
 	n = 5000;
 	while(sfreserve(sfstdin,500,0))
 		n += 500;
 	if(n+sfvalue(sfstdin) != sfsize(sfstdout))
-		terror("Wrong reserve size from xxx\n");
+		terror("Wrong reserve size from file\n");
 
-	unlink("xxx");
+	rmkpv();
 
 	fd[0] = fd[1] = -1;
 	if(pipe(fd) < 0 || fd[0] < 0 || fd[1] < 0)
@@ -243,12 +243,13 @@ main()
 	sfsetbuf(f,NIL(Void_t*),4096);
 	if(!(s = sfreserve(f,-1,1)) )
 		terror("sfreserve failed 11\n");
-	if(sfvalue(f) != 4096)
+	if((n = sfvalue(f)) < 4096)
 		terror("sfvalue is wrong\n");
-	sfread(f,s,4045);
-	if(!(s = sfreserve(f,-((4096-4045)+1),1)) )
+	if(sfread(f,s,n-16) != n-16)
+		terror("sfread failed\n");
+	if(!(s = sfreserve(f,-7,1)) )
 		terror("sfreserve failed 12\n");
-	if(sfvalue(f) <= ((4096-4045)+1) )
+	if(sfvalue(f) < 16 )
 		terror("hmm\n");
 
 	return 0;

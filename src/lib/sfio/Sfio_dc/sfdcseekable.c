@@ -2,12 +2,11 @@
 
 /*	Discipline to make an unseekable read stream seekable
 **
-**	Written by Kiem-Phong Vo, kpv@research.att.com, 08/18/92.
+**	Written by Kiem-Phong Vo, kpv@research.att.com, 03/18/1998.
 */
 
-typedef struct _skable_
-{
-	Sfdisc_t	disc;	/* sfio discipline */
+typedef struct _skable_s
+{	Sfdisc_t	disc;	/* sfio discipline */
 	Sfio_t*		shadow;	/* to shadow data */
 	int		eof;	/* if eof has been reached */
 } Seek_t;
@@ -45,7 +44,7 @@ Sfdisc_t*	disc;	/* discipline */
 	if(sk->eof)
 		return sfread(sf,buf,n);
 
-	addr = sfseek(sf,0L,1);
+	addr = sfseek(sf,(Sfoff_t)0,1);
 	extent = sfsize(sf);
 
 	if(addr+n <= extent)
@@ -136,79 +135,41 @@ Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
-	if(type == SF_CLOSE)
-	{	reg Sfdisc_t*	pop;
-		if((pop = sfdisc(f,SF_POPDISC)) != disc)	/* hmm! */
-			sfdisc(f,pop);
-		else	sfdcdelskable(disc);
+	if(type == SF_FINAL || type == SF_DPOP)
+	{	sfclose(((Seek_t*)disc)->shadow);
+		free(disc);
 	}
-
 	return 0;
 }
 
 #if __STD_C
-Sfdisc_t* sfdcnewskable(Sfio_t* f)
+int sfdcseekable(Sfio_t* f)
 #else
-Sfdisc_t* sfdcnewskable(f)
+int sfdcseekable(f)
 Sfio_t*	f;
 #endif
 {
-	reg Seek_t*	disc;
+	reg Seek_t*	sk;
 
-	if(!(disc = (Seek_t*)malloc(sizeof(Seek_t))) )
-		return NIL(Sfdisc_t*);
-
+	/* see if already seekable */
 	if(sfseek(f,(Sfoff_t)0,1) >= 0)
-	{	/* if already seekable, do nothing */
-		disc->disc.readf = NIL(Sfread_f);
-		disc->disc.writef = NIL(Sfwrite_f);
-		disc->disc.seekf = NIL(Sfseek_f);
-		disc->disc.exceptf = NIL(Sfexcept_f);
-		disc->eof = 0;
-	}
-	else
-	{	disc->disc.readf = skread;
-		disc->disc.writef = skwrite;
-		disc->disc.seekf = skseek;
-		disc->disc.exceptf = skexcept;
-		disc->shadow = sftmp(SF_BUFSIZE);
-		disc->eof = 0;
-	}
+		return 0;
 
-	return (Sfdisc_t*)disc;
-}
-
-#if __STD_C
-sfdcdelskable(Sfdisc_t* disc)
-#else
-sfdcdelskable(disc)
-Sfdisc_t*	disc;
-#endif
-{
-	sfclose(((Seek_t*)disc)->shadow);
-	free(disc);
-	return 0;
-}
-
-
-#ifdef PROGRAM
-/*	Seek forward some number of bytes, seek back, read and print
-*/
-
-main()
-{
-	Sfdisc_t*	disc;
-
-	sfprintf(sfstdout,"Type three lines of 1234, abcd, efgh then ctrl-D\n");
-	if(!(disc = sfdcnewskable(sfstdin)) )
+	if(!(sk = (Seek_t*)malloc(sizeof(Seek_t))) )
 		return -1;
-	sfdisc(sfstdin,disc);
-	sfseek(sfstdin,15,0);
-	sfseek(sfstdin,-10,1);
-	sfmove(sfstdin,sfstdout,5,-1);
-	sfprintf(sfstdout,"Last line should be: abcd\n");
+
+	sk->disc.readf = skread;
+	sk->disc.writef = skwrite;
+	sk->disc.seekf = skseek;
+	sk->disc.exceptf = skexcept;
+	sk->shadow = sftmp(SF_BUFSIZE);
+	sk->eof = 0;
+
+	if(sfdisc(f, (Sfdisc_t*)sk) != (Sfdisc_t*)sk)
+	{	sfclose(sk->shadow);
+		free(sk);
+		return -1;
+	}
 
 	return 0;
 }
-
-#endif /*PROGRAM*/

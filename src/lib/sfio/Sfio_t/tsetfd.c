@@ -5,7 +5,7 @@ main()
 	Sfio_t	*f;
 	int	fd;
 
-	if(!(f = sfopen((Sfio_t*)0,"xxx","w+")))
+	if(!(f = sfopen((Sfio_t*)0,Kpv[0],"w+")))
 		terror("Opening file\n");
 	fd = sffileno(f);
 
@@ -36,6 +36,6 @@ main()
 	if(sfgetc(f) != '2')
 		terror("sfgetc3\n");
 
-	system("rm xxx >/dev/null 2>&1");
+	rmkpv();
 	return 0;
 }

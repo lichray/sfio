@@ -18,7 +18,8 @@
 	unsigned short		bits;	/* private flags		*/ \
 	unsigned int		mode;	/* current io mode		*/ \
 	struct _sfdisc_s*	disc;	/* discipline			*/ \
-	struct _sfpool_s*	pool;	/* the pool containing this	*/
+	struct _sfpool_s*	pool;	/* the pool containing this	*/ \
+	Void_t*			noop;	/* unused for now		*/
 
 #include	"sfio.h"
 
@@ -51,6 +52,7 @@
 	  (unsigned int)(((type)&(SF_RDWR))|SF_INIT),	/* mode		*/ \
 	  (struct _sfdisc_s*)(disc),			/* disc		*/ \
 	  (struct _sfpool_s*)0,				/* pool		*/ \
+	  (Void_t*)0,					/* noop		*/ \
 	}
 
 #endif /* _SFIO_T_H */

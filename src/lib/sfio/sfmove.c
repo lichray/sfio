@@ -23,14 +23,12 @@ reg int		rc;	/* record separator */
 	reg ssize_t	r, w;
 	reg uchar	*endb;
 	reg int		direct;
-	reg Sfoff_t	n_move;
+	Sfoff_t		n_move;
 	uchar		*rbuf = NIL(uchar*);
 	ssize_t		rsize = 0;
-	reg ssize_t	frsize;
 
 	if(!fr)
 		return 0;
-	frsize = fr->size;
 
 	for(n_move = 0; n != 0; )
 	{	/* get the streams into the right mode */
@@ -52,10 +50,11 @@ reg int		rc;	/* record separator */
 		}
 
 		/* about to move all, set map to a large amount */
-		if(n < 0 && (fr->bits&SF_MMAP))
-		{	if(rc < 0) /* data will be accessed sequentially */
+		if(n < 0 && (fr->bits&SF_MMAP) && !(fr->bits&SF_MVSIZE) )
+		{	SFMVSET(fr);
+
+			if(rc < 0) /* data will be accessed sequentially */
 				fr->bits |= SF_SEQUENTIAL;
-			fr->size = fr->size*SF_NMAP;
 		}
 
 		/* try reading a block of data */
@@ -107,8 +106,9 @@ reg int		rc;	/* record separator */
 							goto done_filbuf;
 						else if(n > 1 && !fr->disc)
 						{	r = sfpkrd(fr->file,
-								(Void_t*)fr->data,
-								fr->size, rc, -1, -n);
+								   (Void_t*)fr->data,
+								   fr->size, rc, -1,
+								   (int)(-n) );
 							if(r <= 0)
 								goto one_r;
 							fr->next = fr->data;
@@ -229,13 +229,12 @@ reg int		rc;	/* record separator */
 	}
 
 done:
-	if(n < 0 && (fr->bits&SF_MMAP) )
-	{	if(fr->bits&SF_SEQUENTIAL) /* back to normal access mode */
-		{	if(fr->data)
-				SFMMSEQOFF(fr,fr->data,fr->endb-fr->data);
-			fr->bits &= ~SF_SEQUENTIAL;
-		}
-		fr->size = frsize;
+	if(n < 0 && (fr->bits&SF_MMAP) && (fr->bits&SF_MVSIZE))
+	{	/* back to normal access mode */
+		SFMVUNSET(fr);
+		if((fr->bits&SF_SEQUENTIAL) && (fr->data))
+			SFMMSEQOFF(fr,fr->data,fr->endb-fr->data);
+		fr->bits &= ~SF_SEQUENTIAL;
 	}
 
 	if(rbuf)

@@ -2,8 +2,15 @@
 
 #undef fork	/* make sure fork() is used, not vfork() */
 
+_BEGIN_EXTERNS_
+extern int	fork();
+extern int	wait _ARG_((int*));
+_END_EXTERNS_
+
 static int	Count = 0;
 static Sfdisc_t	Disc;
+
+static char	Rec[] = "0";
 
 #if __STD_C
 void count(Sfio_t* f, int type, int fd)
@@ -20,11 +27,33 @@ int fd;
 
 main()
 {
-	Sfio_t	*f;
-	char	*s;
+	Sfio_t*	f;
+	char*	s;
+	ssize_t	siz;
+	Sfoff_t	pos;
+	Sfoff_t	nxt;
+	int	pid;
+
+	/* ast ed does this */
+	if (!(f = sftmp(SF_BUFSIZE)))
+		terror("sftmp\n");
+	if (pos = sfseek(f, (Sfoff_t)0, SEEK_CUR))
+		terror("top offset %I*d expected 0\n", sizeof(pos), pos);
+	if ((siz = sfputr(f, Rec, 0)) != sizeof(Rec))
+		terror("put record size %I*d expected %d\n",
+			sizeof(siz), siz, sizeof(Rec));
+	if ((nxt = sfseek(f, (Sfoff_t)0, SEEK_CUR)) != (pos + siz))
+		terror("put record size %I*d offset %I*d expected %I*d\n",
+			sizeof(siz), siz, sizeof(nxt), nxt,
+			sizeof(nxt), nxt + sizeof(Rec));
+	if ((pos = sfseek(f, (Sfoff_t)SF_BUFSIZE, SEEK_CUR)) != (nxt + SF_BUFSIZE))
+		terror("skip block size %d offset %I*d expected %I*d\n",
+			SF_BUFSIZE, sizeof(nxt), nxt, sizeof(nxt), nxt + SF_BUFSIZE);
+	sfclose(f);
 
 	/* let two run concurrently */
-	fork();
+	if((pid = fork()) < 0)
+		return 0;
 
 	f = sftmp((size_t)SF_UNBOUND);
 
@@ -55,7 +84,7 @@ main()
 
 	sfnotify(count);
 	if(!(f = sftmp(0)) )
-		terror("sftmp failed 1\n");
+		terror("sftmp\n");
 	if(Count != 1)
 		terror("wrong count 1, count=%d\n", Count);
 	sfclose(f);
@@ -63,7 +92,7 @@ main()
 		terror("wrong count 2 count=%d\n", Count);
 
 	if(!(f = sftmp(8)) )
-		terror("sftmp failed 2\n");
+		terror("sftmp\n");
 	if(Count != 2)
 		terror("wrong count 2.2 count=%d\n", Count);
 	sfdisc(f,&Disc);
@@ -74,7 +103,7 @@ main()
 		terror("wrong count 4 count=%d\n", Count);
 
 	if(!(f = sftmp(8)) )
-		terror("sftmp failed 3\n");
+		terror("sftmp\n");
 	if(Count != 4)
 		terror("wrong count 4.2 count=%d\n", Count);
 	sfwrite(f,"0123456789",10);
@@ -85,17 +114,20 @@ main()
 		terror("wrong count 6 count=%d\n", Count);
 
 	if(!(f = sftmp(1024)) )
-		terror("sftmp failed 4\n");
+		terror("sftmp\n");
 	sfwrite(f,"1234567890",10);
 	sfseek(f,(Sfoff_t)0,0);
 	if(sfsize(f) != 10)
-		terror("Wrong size1\n");
+		terror("Wrong size\n");
 	sfdisc(f,SF_POPDISC);
 	if(sfsize(f) != 10)
-		terror("Wrong size2\n");
+		terror("Wrong size\n");
 	s = sfreserve(f,-1,0);
 	if(sfvalue(f) != 10 || strncmp(s,"1234567890",10) != 0)
 		terror("did not create correct real file\n");
+
+	if(pid != 0)
+		wait(&pid);
 
 	return 0;
 }

@@ -10,13 +10,43 @@ main()
 	char*	s;
 	Sfio_t*	sf;
 
+	str[0] = 'x'; str[1] = 0;
+	n = sfsscanf("123","%[a-z]%d",str,&i);
+	if(n != 0)
+		terror("Bad %%[ scanning1");
+	n = sfsscanf("123","%#[a-z]%d",str,&i);
+	if(n != 2 || str[0] != 0 || i != 123)
+		terror("Bad %%[ scanning2");
+
 	str[0] = str[1] = str[2] = str[3] =
 	str[4] = str[5] = str[6] = str[7] = 'x';
 	c[0] = c[1] = c[2] = c[3] = 'x';
 	cl[0] = cl[1] = cl[2] = cl[3] =
 	cl[4] = cl[5] = cl[6] = cl[7] = 'x';
 
-	sfsscanf("1234567890","%4#s%2#c%4#[0-9]",str,4,c,2,cl,6);
+	i = -1;
+	if(sfsscanf("123456789","%.*.*d",4,10,&i) != 1)
+		terror("Bad %%d scanning\n");
+	if(i != 1234)
+		terror("Got wrong value\n");
+
+	i = -1;
+	if(sfsscanf("0","%i",&i) != 1 || i != 0)
+		terror("Bad %%i scanning1\n");
+	i = -1;
+	if(sfsscanf("0x","%1i%c",&i,c) != 2 || i != 0 || c[0] != 'x')
+		terror("Bad %%i scanning2\n");
+	i = -1;
+	if(sfsscanf("0x1","%i",&i) != 1 || i != 1)
+		terror("Bad %%i scanning3\n");
+	i = -1;
+	if(sfsscanf("07","%i",&i) != 1 || i != 7)
+		terror("Bad %%i scanning4\n");
+	i = -1;
+	if(sfsscanf("08","%i%i",&i,&j) != 2 || i != 0 || j != 8)
+		terror("Bad %%i scanning5\n");
+
+	sfsscanf("1234567890","%4I*s%2I*c%4I*[0-9]",4,str,2,c,6,cl);
 
 	if(strcmp(str,"123") != 0)
 		terror("Bad s\n");
@@ -63,17 +93,9 @@ main()
 	if(sfsscanf("4 6","%f %lf",&f, &d) != 2)
 		terror("Bad scanning5\n");
 	if(f != 4 || d != 6)
-		terror("Bad return values 5\n");
+		terror("Bad return values f=%f d=%f\n", f, d);
 
-#if _lib_locale
-	{	int		decpoint = 0;
-		struct lconv*	lv;
-		GETDECIMAL(decpoint,lv);
-		s = sfprints("%c1234 %c1234",decpoint,decpoint);
-	}
-#else
-		s = ".1234 .1234";
-#endif
+	s = ".1234 .1234";
 	if(sfsscanf(s,"%f %lf",&f, &d) != 2)
 		terror("Bad scanning6\n");
 

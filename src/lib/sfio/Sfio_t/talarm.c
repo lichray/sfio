@@ -26,11 +26,15 @@ Void_t*		data;
 Sfdisc_t*	disc;
 #endif
 {
+	if(type == SF_ATEXIT)
+		return 0;
+
 	if(type != SF_READ)
 		terror("Bad Io type\n");
 	if(errno != EINTR)
 		terror("Bad exception\n");
 	Except = 1;
+
 	return -1;
 }
 

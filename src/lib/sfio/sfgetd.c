@@ -14,9 +14,12 @@ Sfio_t*	f;
 {
 	reg uchar	*s, *ends, c;
 	reg int		p, sign, exp;
-	reg double	v;
+	Sfdouble_t	v;
 
 	if((sign = sfgetc(f)) < 0 || (exp = (int)sfgetu(f)) < 0)
+		return -1.;
+
+	if(f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0)
 		return -1.;
 
 	SFLOCK(f,0);
@@ -48,5 +51,5 @@ done:
 		v = -v;
 
 	SFOPEN(f,0);
-	return (Sfdouble_t)v;
+	return v;
 }

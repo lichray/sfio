@@ -1,9 +1,6 @@
 #include	"sfhdr.h"
 
-/*	Put out a nul-terminated string
-**	Note that the reg declarations below must be kept in
-**	their relative order so that the code will configured
-**	correctly on Vaxes to use "asm()".
+/*	Put out a null-terminated string
 **
 **	Written by Kiem-Phong Vo
 */
@@ -16,49 +13,72 @@ char*		s;	/* string to write	*/
 reg int		rc;	/* record separator.	*/
 #endif
 {
-	reg ssize_t	p, n;
-	reg uchar	*os, *ps;
+	reg ssize_t	p, n, w;
+	reg uchar*	ps;
 
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
 		return -1;
 
 	SFLOCK(f,0);
-	os = (uchar*)s;
-	if(f->size <= 0)
-	{	/* unbuffered stream */
-		n = strlen((char*)os);
-		if((p = SFWRITE(f,(Void_t*)os,n)) > 0)
-			os += p;
-		goto done;
-	}
 
-	while(*os)
-	{	/* peek buffer for space */
-		if(SFWPEEK(f,ps,p) <= 0)
+	for(w = 0; (*s || rc >= 0); )
+	{	SFWPEEK(f,ps,p);
+
+		if(p == 0 || (f->flags&SF_WHOLE) )
+		{	n = strlen(s);
+			if(p >= (n + (rc < 0 ? 0 : 1)) )
+			{	/* buffer can hold everything */
+				if(n > 0)
+				{	memcpy(ps, s, n);
+					ps += n;
+					w += n;
+				}
+				if(rc >= 0)
+				{	*ps++ = rc;
+					w += 1;
+				}
+				f->next = ps;
+			}
+			else
+			{	/* create a reserve buffer to hold data */
+				Sfrsrv_t*	frs;
+
+				p = n + (rc >= 0 ? 1 : 0);
+				if(!(frs = _sfrsrv(f, p)) )
+					n = 0;
+				else
+				{	if(n > 0)
+						memcpy(frs->data, s, n);
+					if(rc >= 0)
+						frs->data[n] = rc;
+					if((n = SFWRITE(f,frs->data,p)) < 0 )
+						n = 0;
+				}
+
+				w += n;
+			}
 			break;
+		}
+
+		if(*s == 0)
+		{	*ps++ = rc;
+			f->next = ps;
+			w += 1;
+			break;
+		}
+
 #if _lib_memccpy
-		if((ps = (uchar*)memccpy(ps,os,'\0',p)) != NIL(uchar*))
+		if((ps = (uchar*)memccpy(ps,s,'\0',p)) != NIL(uchar*))
 			ps -= 1;
 		else	ps  = f->next+p;
-		os += ps - f->next;
+		s += ps - f->next;
 #else
-		/* fast copy loop */
-		while((*ps++ = *os++) != '\0' && --p > 0)
-			;
-		if(*--ps != 0)
-			ps += 1;
-		else	os -= 1;
+		for(; p > 0; --p, ++ps, ++s)
+			if((*ps = *s) == 0)
+				break;
 #endif
+		w += ps - f->next;
 		f->next = ps;
-	}
-
-done:
-	p = (char*)os - (char*)s;
-	if(rc >= 0)
-	{	if(f->next >= f->endb)
-			(void)SFFLSBUF(f,(int)((uchar)rc));
-		else	*f->next++ = (uchar)rc;
-		p += 1;
 	}
 
 	/* sync unseekable shared streams */
@@ -67,13 +87,12 @@ done:
 
 	/* check for line buffering */
 	else if((f->flags&SF_LINE) && !(f->flags&SF_STRING) && (n = f->next-f->data) > 0)
-	{	if(n > p)
-			n = p;
+	{	if(n > w)
+			n = w;
 		f->next -= n;
 		(void)SFWRITE(f,(Void_t*)f->next,n);
 	}
 
 	SFOPEN(f,0);
-
-	return p;
+	return w;
 }

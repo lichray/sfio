@@ -45,16 +45,33 @@ reg size_t	n;
 Sfdisc_t*	disc;
 #endif
 {
-	reg Sfoff_t	r;
+	Sfoff_t		r;
 	reg Sfdisc_t*	dc;
 	reg int		local, rcrv, dosync, oerrno;
 
 	GETLOCAL(f,local);
 	if((rcrv = f->mode & (SF_RC|SF_RV)) )
 		f->mode &= ~(SF_RC|SF_RV);
+	f->bits &= ~SF_JUSTSEEK;
 
-	if((f->mode&SF_PKRD) || (!local && !(f->mode&SF_LOCK)) )
+	if(f->mode&SF_PKRD)
 		return -1;
+
+	if(!local && !(f->bits&SF_DCDOWN)) /* an external user's call */
+	{	if(f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0)
+			return -1;
+		if(f->next < f->endb)
+		{	if(SFSYNC(f) < 0)
+				return -1;
+#ifdef MAP_TYPE
+			if((f->bits&SF_MMAP) && f->data)
+			{	SFMUNMAP(f, f->data, f->endb-f->data);
+				f->data = NIL(uchar*);
+			}
+#endif
+			f->next = f->endb = f->endr = f->endw = f->data;
+		}
+	}
 
 	for(dosync = 0;;)
 	{	/* stream locked by sfsetfd() */
@@ -73,7 +90,7 @@ Sfdisc_t*	disc;
 		}
 
 		/* warn that a read is about to happen */
-		SFDISC(f,dc,readf,local);
+		SFDISC(f,dc,readf);
 		if(dc && dc->exceptf && (f->flags&SF_IOCHECK) )
 		{	reg int	rv;
 			if(local)
@@ -88,8 +105,7 @@ Sfdisc_t*	disc;
 
 #ifdef MAP_TYPE
 		if(f->bits&SF_MMAP)
-		{	reg ssize_t	a, mmsz, round;
-			reg uchar*	data;
+		{	reg ssize_t	a, round;
 			reg int		prot, flags;
 			Stat_t		st;
 
@@ -125,44 +141,34 @@ Sfdisc_t*	disc;
 			if(r > (round = (1 + (n+a)/f->size)*f->size) )
 				r = round;
 
-			mmsz = 0;
-			if((data = f->data) && r != (mmsz = f->endb-data))
-			{	f->endb = f->endr = f->endw =
-				f->next = f->data = NIL(uchar*);
-				SFMUNMAP(f,data,mmsz);
-				data = NIL(uchar*);
-			}
+			if(f->data)
+				SFMUNMAP(f, f->data, f->endb-f->data);
 
 			prot = PROT_READ | ((f->flags&SF_BUFCONST) ? 0 : PROT_WRITE);
 			flags = (f->flags&SF_BUFCONST) ? MAP_SHARED : MAP_PRIVATE;
 			for(;;)
-			{	f->data = (uchar*) mmap((caddr_t)data, (size_t)r, prot,
-							(flags|(data ? MAP_FIXED : 0)),
-							f->file, (off_t)f->here);
-				if((caddr_t)f->data != (caddr_t)(-1))
+			{	f->data = (uchar*) mmap((caddr_t)0, (size_t)r, prot,
+						flags, f->file, (off_t)f->here);
+				if(f->data && (caddr_t)f->data != (caddr_t)(-1))
 					break;
-				if(data)
-				{	(void)munmap((caddr_t)data,mmsz);
-					f->endb = f->endr = f->endw =
-					f->next = f->data = data = NIL(uchar*);
+				else
+				{	f->data = NIL(uchar*);
+					if((r >>= 1) < (_Sfpage*SF_NMAP) ||
+					   (errno != EAGAIN && errno != ENOMEM) )
+						break;
 				}
-				if((size_t)(r >>= 1) < (_Sfpage*SF_NMAP) ||
-				   (errno != EAGAIN && errno != ENOMEM) )
-					break;
 			}
 
-			if((caddr_t)f->data != (caddr_t)(-1) )
+			if(f->data)
 			{	if(f->bits&SF_SEQUENTIAL)
-					SFMMSEQON(f,data,r);
+					SFMMSEQON(f,f->data,r);
 				f->next = f->data+a;
 				f->endr = f->endb = f->data+r;
 				f->endw = f->data;
 				f->here += r;
 
-				/* if share-public, make known our seek location */
-				if((f->flags&(SF_SHARE|SF_PUBLIC)) ==
-				   (SF_SHARE|SF_PUBLIC))
-					(void)SFSK(f,f->here,0,dc);
+				/* make known our seek location */
+				(void)SFSK(f,f->here,0,dc);
 
 				if(buf)
 				{	if(n > (size_t)(r-a))
@@ -176,7 +182,6 @@ Sfdisc_t*	disc;
 			else
 			{	r = -1;
 				f->here += a;
-				f->data = NIL(uchar*);
 
 				/* reset seek pointer to its physical location */
 				(void)SFSK(f,f->here,0,dc);
@@ -216,7 +221,7 @@ Sfdisc_t*	disc;
 				/* tell readf that no peeking necessary */
 			else	f->flags &= ~SF_SHARE;
 
-			r = (*(dc->readf))(f,buf,n,dc);
+			r = SFDCRD(f,buf,n,dc,r);
 
 			/* reset flags */
 			if(rcrv)
@@ -241,18 +246,20 @@ Sfdisc_t*	disc;
 		if(errno == 0 )
 			errno = oerrno;
 
-		if(local && r > 0)
-		{	if(!(f->mode&SF_PKRD))
-			{	f->here += r;
-				if(f->extent >= 0 && f->extent < f->here)
-					f->extent = f->here;
+		if(r > 0 )
+		{	if(!(f->bits&SF_DCDOWN) )	/* not a continuation call */
+			{	if(!(f->mode&SF_PKRD) )
+				{	f->here += r;
+					if(f->extent >= 0 && f->extent < f->here)
+						f->extent = f->here;
+				}
+				if((uchar*)buf >= f->data &&
+				   (uchar*)buf < f->data+f->size)
+					f->endb = f->endr = ((uchar*)buf) + r;
 			}
-			if((uchar*)buf >= f->data && (uchar*)buf < f->data+f->size)
-				f->endb = f->endr = ((uchar*)buf) + r;
-		}
 
-		if(r > 0)
 			return (ssize_t)r;
+		}
 
 	do_except:
 		if(local)
