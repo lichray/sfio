@@ -1,0 +1,23 @@
+This directory contains the following subdirectories:
+
+	bin
+	src/lib/sfio
+	src/lib/sfdisc
+	man/man3
+
+You should set your PATH variable to contain the "bin" subdirectory.
+This makes the program "iffe" available in your shell program path.
+iffe (IF Features Exist) is a small language interpreter to
+probe your local environment for various features required by the
+being installed software. You may want to use it yourself to make
+your code portable. The "features" subdirectories of some of the
+above directories contain iffe probes for the respective packages.
+After changing the PATH variable, you can move to the appropriate
+subdirectory and run "make" to build the respective software.
+If you run into any problems, give me a call.
+Good luck and have fun.
+
+Phong Vo
+AT&T Bell Laboratories
+600 Mountain Ave, Murray Hill, NJ 07974
+kpv@research.att.com, 908-582-4869

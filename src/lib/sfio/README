@@ -1,0 +1,238 @@
+This directory hierarchy contains the source code for the <sfio> library.
+The library is written so that it will compile with K&R-C, ANSI-C or C++.
+It is also highly portable, having been ported to most known UNIX systems.
+
+<sfio> is a better interface than <stdio> and should be used by default.
+However, to ease the transition from <stdio> to <sfio>, two separate
+compatibility packages are provided. The source level compatibility package
+consists of a header file <stdio.h> that translates <stdio> calls to
+<sfio> calls. If you have source written based on <stdio>, you can recompile
+using this header file. The binary compatibility package lets you link code
+that has been compiled with <stdio> with the <sfio> library. By necessity,
+much code is pulled in so in this case, the resulting executable may get
+a little large. On the other hand, many <stdio> implementations are so bloated
+that even pulling all of <sfio> is still more effcicient.
+
+If you get the package and use it, We'd like feedbacks on how it works out
+for you. Let us know of any problems you run into and of any ideas that
+you may have on how to improve the library.
+
+Below is the address to contact:
+	Phong Vo
+	AT&T Bell Labs, MH-3C-536A
+	600 Mountain Ave.
+	Murray Hill, NJ07974
+	e-mail: kpv@research.att.com
+	Phone: (908) 582-4869
+
+Good luck.
+David Korn and Phong Vo.
+
+----DIRECTORY STRUCTURE---------------------------------------------------------
+The sfio directory structure is as follows:
+
+./*.[ch]			sfio source files
+	./Doc			a sfio paper
+	./FEATURE/*		header files to describe the features
+				required for the local system (more below).
+	./Sfio_f/*.c		function versions of sfio macros
+	./Stdio_s/*.[ch]	code for the source level <stdio>
+				compatibility package
+	./Stdio_b/*.[ch]	code for the binary level <stdio>
+				compatibility package
+	./Sfio_t/*.[ch]		a set of test programs to check the sanity
+				of sfio. You can run the shell script
+				"runtest" to test all of them.
+
+See also ../lib/sfdisc/* for examples of io disciplines
+
+----MAKING THE LIBRARIES--------------------------------------------------------
+Before making the libraries, you should check the FEATURE requirements below.
+After the libraries are made, you will have:
+
+	sfio.h:	the header file to be included by application code that wants
+		to use sfio.
+	libsfio.a: the sfio library.
+	stdio.h: the header file to be used by applications that were written
+		based on <stdio> but want to be recompiled for <sfio>.
+		This file will be in ./Stdio_s/stdio.h.
+	libstdio.a: the <stdio> binary compatibility package. This allows code
+		already compiled with <stdio> to link with <sfio>.
+
+You should move these files to wherever is appropriate.
+
+----FEATURE DEFINITIONS FOR LOCAL SYSTEMS---------------------------------------
+For efficiency and portability, <sfio> is configured based on what your local
+system supports. Configuration information is defined in the two files
+FEATURE/sfio and FEATURE/stdio. The configuration data required ranges from
+defining what system calls are available on a system to the best local methods for
+accessing memory. Normally, the FEATURE files are automatically generated using
+a feature probing language. This mechanism is available with nmake2.3.
+However, nmake2.3 is proprietary so we cannot release the feature probing tool
+outside of AT&T. This, of course, does not pertain to people inside AT&T who
+can obtain this tool by contacting us directly. For people outside AT&T,
+we include here a set of example FEATURE files that were generated on a
+SPARCstation 1+ running SUN4.0 UNIX system. You should modify these files as
+necessary. Details for how to do that are given next.
+
+Each FEATURE parameter is defined to be either 1 or 0 to indicate whether or not
+the respected feature exists in the local system. For example, if your local
+system supports memory mapping in the form of the system call mmap() and you
+believe that this system call is superior to read() for reading data, then
+in the file FEATURE/sfio, you should include the following line:
+	#define _lib_mmap	1
+On the other hand, if your system does not have this mmap() or if it
+does not conform to the System V Release 4.x specification (e.g., certain MIPS
+implementations), you should include this line:
+	#define _lib_mmap	0
+
+Below are brief descriptions of the parameters required from the FEATURE/sfio file:
+
+_lib_atexit:	
+_lib_onexit:
+_lib_on_exit:
+	These corresponds to the functions atexit(), onexit(), and
+	on_exit(). These functions are used to install actions that
+	will be performed when the program exits. The given file
+	indicates that on SUN4.0, there is an on_exit() function but
+	not the other two.
+
+_lib_bcopy:
+	This is set to 1 if the function bcopy() should be used to copy
+	memory from one area to another. Otherwise, memcpy() is used.
+_lib_bzero:
+	This is set to 1 if bzero() should be used to clear memory.
+	Otherwise, memset() is used.
+_lib_memccpy:
+	This is set to 1 if the function memccpy() exists.
+_lib_memchr:
+	This is set to 1 if the function memchr() exists.
+
+_type_size_t:
+	This is set to 1 if the type "size_t" is defined in <sys/types.h>.
+
+_sys_mman:
+	This is similar to _hdr_mman but pertain to <sys/mman.h>.
+_lib_mmap:
+	This is set to 1 if the system call mmap() exists, works as advertised
+	in the SysVr4 manuals and is believed to be better than read() for doing
+	IO. If you have a good mmap() but don't feel that it is a big gain on
+	your system, you should set this to 0. To find out if you mmap() is good,
+	try snarfing the test code from the file "Iffile". If that code compiles
+	and runs correctly, then you have a good mmap().
+
+_hdr_vfork:
+_sys_vfork:
+	A misfeature (design bug?) on SUN systems is that either <vfork.h> or
+	<sys/vfork.h> must be included if the system call vfork() is used.
+	Check to see if either of these header file exists and set the appropriate
+	parameter to 1.
+_lib_vfork:
+	This is set to 1 if the system call vfork() exists.
+
+_hdr_filio:
+_sys_filio:
+	One of these should be defined to 1 if your local system
+	required either of the header files <filio.h> or <sys/filio.h>
+	to be included for doing file control, fnctl(). This is common
+	to Bell Labs Research UNIX systems.
+
+_sys_ioctl:
+	This should be defined to 1, if the header file <sys/ioctl.h>
+	exists.
+
+_lib_mktemp:
+_lib_remove:
+_lib_unlink:
+	The appropriate parameter is set to 1 if the corresponding
+	function mktemp(), remove() or unlink() exists. These functions
+	are used to remove files.
+
+_lib_waitpid:
+	This is set to 1 if your system has a call waitpid() to wait for
+	the death of a child process with a given process id.
+
+_lib_getpagesize:
+	This is set to 1 if the function getpagesize() exists. This is
+	common to systems with paging.
+
+_long_double:
+	This is set to 1 if your compilation system allows the use
+	of "long double". This is supported by ANSI-C.
+
+_stat_blksize:
+	This is set to 1 if the "struct stat" structure contains
+	the field "blksize" that defines the optimal block size to use
+	when doing io to a file descriptor. This feature is common to
+	BSD-derived UNIX systems.
+
+_proto_open:
+	The open() system call in ANSI-systems is a vararg function.
+	This is set to 1 if a prototype of open() is already defined in
+	the header file <fcntl.h>.
+
+_pragma_weak:
+	SYSV Release 4.0 systems provides ANSI-compatible libraries.
+	#pragma weak is a way to hide certain local names in the library
+	from the application. This affects a few of the functions in the
+	<stdio> binary compatibility package such as _flsbuf or _filbuf.
+
+_lib_poll_fd_1:
+_lib_poll_fd_2:
+	_lib_poll_fd_1 is set to 1 if you have the poll() system call
+	(System V) and if it is called as poll(struct pollfd*, int, int).
+	Similarly, _lib_poll_fd_2 is set to 1 if poll() is called as
+	poll(int, struct pollfd*, int).
+
+_lib_select:
+	This is set to 1 if your system has the select() system call (BSD).
+
+_stream_peek:
+	This is set to 1 if your system supports streams (typically, a
+	System V derivative). This and _socket_peek below is used to 
+	ensure that block operations on shared unseekable streams
+	will not consume more data than necessary.
+
+_socket_peek:
+	This is set to 1 if your system supports sockets (typically, a
+	BSD derivative) and peeking on them via recv(). Note that certain
+	OS such as SUN OS4.0 will support both stream and socket. It is ok
+	to define both _stream_peek and _socket_peek to 1.
+
+_vax_asm:
+	This is set to 1 if your system is a VAX with appropriate
+	assembly instructions to search/copy characters. As this is
+	highly dependent on the compiler in use, if you are not sure,
+	don't set it to 1. You can look at one of the files sfread.c
+	or sfgetr.c to get an idea of whether or not it should be set.
+_i386_cvt:
+	Sfio has its own algorithms for floating point conversions,
+	specifically, fcvt(), ecvt() and strtod(). These algorithms
+	are very good on many architectures. In fact, they can outrun
+	their system-provided counterparts by two to four times.
+	However, the 386 (and probably 486) SYSV UNIX systems seems to
+	have implemented better conversion functions. Set this to 1 as
+	you see fit.
+
+_lib_locale:
+	This is set to 1 if the "locale" package exists to give hint
+	on how to tailor sfprintf() decimal points, etc.
+
+In addition to FEATURE/sfio, the file FEATURE/stdio is required for
+the binary simulation of stdio functions. It should contain information
+on whether or not certain fields are defined in the FILE structure.
+
+_FILE_cnt:
+_FILE_ptr:
+_FILE_flag:
+_FILE_file:
+_FILE_base:
+_FILE_bufsiz:
+_FILE_bufsize:
+	These correspond to the fields:
+		_cnt, _ptr, _flag, _file, _base, and _bufsiz/_bufsize
+	Set the respective parameter to 1 if its corresponding field
+	exists in the FILE structure. In addition, _FILE_bufsiz/_FILE_bufsize
+	should be set to 1 only the respective field is large enough to
+	store a pointer. These parameters can be determined by
+	reading the file /usr/include/stdio.h.

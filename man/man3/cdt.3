@@ -1,0 +1,411 @@
+.TH LIBCDT 3
+.SH NAME
+\fBlibcdt\fR \- container data types
+.SH SYNOPSIS
+.de Tp
+.fl
+.ne 2
+.TP
+..
+.de Ss
+.fl
+.ne 2
+.SS "\\$1"
+..
+.de Cs
+.nf
+.ft 5
+..
+.de Ce
+.ft 1
+.fi
+..
+.ta 1.0i 2.0i 3.0i 4.0i 5.0i
+.Cs
+#include <cdt.h>
+.Ce
+.Ss "DICTIONARY TYPES"
+.Cs
+Void_t;
+Dt_t, Dict_t;
+Dtlink_t;
+Dtstat_t;
+.Ce
+.Ss "DICTIONARY CONTROL"
+.Cs
+Dt_t*	dtopen(Dtdisc_t* disc, Dtmethod_t* meth);
+int	dtclose(Dt_t* dt);
+void	dtclear(dt);
+Dtmethod_t*	dtmethod(Dt_t* dt, Dtmethod_t* meth);
+Dtdisc_t*	dtdisc(Dt_t* dt, Dtdisc_t* disc);
+Dt_t*	dtview(Dt_t* dt, Dt_t* view);
+.Ce
+.Ss "STORAGE METHODS"
+.Cs
+Dtmethod_t;
+Dtmethod_t*	Dthash;
+Dtmethod_t*	Dttree;
+Dtmethod_t*	Dtlist;
+Dtmethod_t*	Dtstack;
+Dtmethod_t*	Dtqueue;
+.Ce
+.Ss "OBJECT DESCRIPTION DISCIPLINE STRUCTURE"
+.Cs
+Dtdisc_t;
+typedef Void_t*	(*Dtmake_f)(Dt_t*, Void_t*, Dtdisc_t*);
+typedef void	(*Dtfree_f)(Dt_t*, Void_t*, Dtdisc_t*);
+typedef int		(*Dtcompar_f)(Dt_t*, char*, char*, Dtdisc_t*);
+typedef unsigned long	(*Dthash_f)(Dt_t*, char*, Dtdisc_t*);
+typedef Void_t*	(*Dtmemory_f)(Dt_t*, Void_t*, size_t, Dtdisc_t*);
+typedef int		(*Dtevent_f)(Dt_t*, int, Void_t*, Dtdisc_t*);
+.Ce
+.Ss "OBJECT OPERATIONS"
+.Cs
+Void_t*	dtinsert(Dt_t* dt, Void_t* obj);
+Void_t*	dtdelete(Dt_t* dt, Void_t* obj);
+Void_t*	dtsearch(Dt_t* dt, Void_t* obj);
+Void_t*	dtfirst(Dt_t* dt);
+Void_t*	dtnext(Dt_t* dt, Void_t* obj);
+Void_t*	dtlast(Dt_t* dt);
+Void_t*	dtprev(Dt_t* dt, Void_t* obj);
+Void_t*	dtfinger(Dt_t* dt);
+Void_t* dtrenew(Dt_t* dt, Void_t* obj);
+int	dtwalk(Dt_t* dt, int (*userf)(Void_t*));
+Dtlink_t*	dtflatten(Dt_t* dt);
+Dtlink_t*	dtlink(Dt_t*, Dtlink_t* link);
+Void_t*	dtobj(Dt_t* dt, Dtlink_t* link);
+Dtlink_t*	dtextract(Dt_t* dt);
+int	dtrestore(Dt_t* dt, Dtlink_t* link);
+.Ce
+.Ss "DICTIONARY STATUS"
+.Cs
+int	dtsize(Dt_t* dt);
+int	dtstat(Dt_t* dt, Dtstat_t*, int all);
+.Ce
+.Ss "HASH FUNCTIONS"
+.Cs
+#define	dtcharhash(unsigned long h, unsigned char c);
+#define	dtstrhash(unsigned long h, unsigned char* str, int n);
+.Ce
+.SH DESCRIPTION
+.PP
+\fIlibcdt\fP provides a uniform set of functions to manage
+run-time dictionaries using various container data types as storage methods.
+With suitable application programming, dictionaries can be created
+in shared or persistent memory.
+.PP
+The type \f5Void_t*\fP defines a suitable type to pass objects between \fIlibadt\fP
+and the application code. \f5Void_t\fP is defined as \f5void\fP for ANSI-C and C++
+and \f5char\fP for other compilation environments.
+.PP
+.Ss "DICTIONARY CONTROL"
+.PP
+.Ss "  Dt_t* dtopen(Dtdisc_t* disc, Dtmethod_t* meth)"
+This function creates a new dictionary handle of type \f5Dt_t*\fP which
+is used in subsequent calls for dictionary manipulations.
+The argument \f5disc\fP specifies a discipline structure
+defining the format of objects and their manipulation.
+The argument \f5meth\fP specifies a storage method.
+\f5dtopen()\fP returns the new handle or \f5NULL\fP.
+.Ss "  int dtclose(Dt_t* dt)"
+This function deletes all objects in \f5dt\fP,
+then frees all space associated with it.
+Note that \f5dt\fP cannot be closed if it is being viewed by
+some other dictionaries (see \f5dtview()\fP).
+\f5dtclose()\fP returns \f50\fP on success and \f5-1\fP on failure.
+.Ss "  void dtclear(Dt_t* dt)"
+This function deletes all objects in \f5dt\fP without closing \f5dt\fP.
+.Ss "  Dtmethod_t dtmethod(Dt_t* dt, Dtmethod_t* meth)"
+This function changes the storage method of \f5dt\fP to \f5meth\fP.
+Note that the methods \f5Dtstack\fP and \f5Dtqueue\fP must be
+set at dictionary opening and cannot be changed.
+\f5dtmethod()\fP returns the previous method or \f5NULL\fP.
+.Ss "  Dtdisc_t* dtdisc(Dt_t* dt, Dtdisc_t* disc)"
+This function changes the discipline of \f5dt\fP to \f5disc\fP.
+For the methods \f5Dthash\fP and \f5Dttree\fP,
+objects considered duplicated by the new comparison function
+will be deleted as necessary to make them unique.
+\f5dtdisc()\fP returns the previous discipline on success
+and \f5NULL\fP on error.
+.Ss "  Dt_t* dtview(Dt_t* dt, Dt_t* view)"
+A viewpath allows a search or walk starting from a dictionary to
+continue to others.
+\f5dtview()\fP first terminates any current viewpath from \f5dt\fP.
+Then, if \f5view\fP is \f5NULL\fP, \f5dtview\fP returns the terminated view dictionary.
+Otherwise, a new viewpath to \f5view\fP is established if
+there is no current direct or indirect viewpath from \f5view\fP to \f5dt\fP.
+\f5dtview()\fP returns \f5view\fP on success and \f5NULL\fP on error.
+Note that a dictionary using \f5Dtlist\fP,
+\f5Dtstack\fP, and \f5Dtqueue\fP cannot be on a viewpath.
+.PP
+.Ss "STORAGE METHODS"
+.PP
+Storage methods are of type \f5Dtmethod_t*\fP.
+The library supports five methods:
+.Ss "  Dthash"
+This method maintains an unordered set of unique objects.
+Objects are kept in a hash table for fast accesses.
+See below for the hash functions used for hashing byte arrays.
+.Ss "  Dttree"
+This method maintains an ordered set of unique objects.
+Objects are kept in a top-down splay tree which has
+good amortized access times and is also space-efficient.
+.Ss "  Dtlist"
+This method stores objects in a linked list.
+Objects compared equal are stored together on the list.
+Objects frequently accessed are migrated to the front of list to
+improve efficiency.
+.Ss "  Dtstack"
+This method stores objects in a stack, i.e., in reverse order of insertion.
+Thus, the last object inserted is at the top of the stack
+and also the first one to be deleted.
+.Ss "  Dtqueue"
+This method stores objects a queue, i.e., in order of insertion.
+Thus, the first object inserted is at the head of the queue
+and also the first one to be deleted.
+.PP
+.Ss "OBJECTION DESCRIPTION DISCIPLINE STRUCTURE"
+.PP
+The format of objects and various associated management functions are
+captured in a discipline structure of the type \f5Dtdisc_t\fP.
+This structure is defined as follows:
+.Cs
+    typedef struct
+    { int        key, size;
+      Dtmake_f   makef;
+      Dtfree_f   freef;
+      Dtcompar_f comparf;
+      Dthash_f   hashf;
+      Dtmemory_f memoryf;
+      Dtevent_f  eventf;
+    } Dtdisc_t;
+.Ce
+.Ss "  int key, size"
+Each object \fIobj\fP is identified by a key used for object comparison or hashing.
+This key is defined by a combination of \f5key\fP and \f5size\fP.
+When \f5key\fP is negative,
+the value \fIobj\fP is the key and \f5size\fP is ignored.
+Otherwise, let \fIaddr\fP be \fI(char*)obj+\fP\f5key\fP.
+If \f5size\fP is negative,
+the key is a null-terminated string obtained as \fI*(char**)addr\fP.
+If \f5size\fP is zero,
+\fI(char*)addr\fP is the key and it is a null-terminated string.
+Finally, if \f5size\fP is positive,
+\fI(char*)addr\fP is the key and it is a byte array of length \f5size\fP.
+.Ss "  Void_t* (*makef)(Dt_t* dt, Void_t* obj, Dtdisc_t* disc)"
+This function, if not \f5NULL\fP,
+is called to make a copy of \f5obj\fP suitable for insertion.
+The library will also allocate an object holder via \f5memoryf\fP.
+If \f5makef\fP is \f5NULL\fP, \f5obj\fP itself is assumed to be suitable
+for direct insertion.
+The format of \fIobj\fP must be as follows:
+.ne 4
+.Cs
+    struct object_type
+    {   Dtlink_t  link;
+        object data...;
+    }
+.Ce
+.Ss "  void (*freef)(Dt_t* dt, Void_t* obj, Dtdisc_t* disc)"
+This function, if not \f5NULL\fP,
+is used to free any data associated with the object \f5obj\fP
+on its deletion from the dictionary.
+.Ss "int (*comparf)(Dt_t* dt, char* key1, char* key1, Dtdisc_t* disc)"
+This function, if not \f5NULL\fP,
+is used to compare two object keys.
+For the method \f5Dttree\fP,
+\f5comparf\fP should return \f5<0\fP, \f5=0\fP, or \f5>0\fP to indicate
+whether \f5key1\fP is smaller, equal to, or larger than \f5key2\fP.
+For other methods, the return value of \f5comparf\fP should be zero
+to indicate equality and non-zero for inequality.
+If \f5(*comparf)()\fP is \f5NULL\fP, an internal function is used
+to compare the keys according to the types as defined
+by the \f5Dtdisc_t\fP fields \f5key\fP and \f5size\fP.
+.Ss "  long (*hashf)(Dt_t* dt, char* objkey, Dtdisc_t* disc)"
+This function, if not \f5NULL\fP,
+is used to compute the hash value of the given \f5objkey\fP.
+If \f5hashf\fP is \f5NULL\fP, an internal function is used to hash
+the key according to the type defined by the \f5Dtdisc_t\fP fields
+\f5key\fP and \f5size\fP.
+.Ss "  Void_t* (*memoryf)(Dt_t* dt, Void_t* addr, size_t size, Dtdisc_t* disc)"
+This function, if not \f5NULL\fP, allocates and frees memory.
+When \f5addr\fP is \f5NULL\fP, a memory segment of size \f5size\fP is requested. 
+When \f5addr\fP is not \f5NULL\fP, it should be freed.
+If \f5memoryf\fP is \f5NULL\fP, the \fImalloc\fP interface is used.
+When dictionaries share memory,
+a record of the first allocated memory segment should be kept
+so that it can be used to initialize new dictionaries (see below)
+.Ss "  int (*eventf)(Dt_t* dt, int type, Void_t* data, Dtdisc_t* disc)"
+This function, if not \f5NULL\fP, announces various events.
+If it returns a negative value, the calling operation will terminate with failure.
+Unless noted otherwise, a non-negative return value let the
+calling function proceed normally. Following are the events:
+.Tp
+\f5DT_OPEN\fP:
+A new dictionary is being opened.
+If \f5eventf\fP returns a zero value, the opening process proceeds normally.
+A positive return value indicates that this dictionary
+is sharing memory with some other dictionary already created.
+In that case, \f5eventf\fP should return in \f5(Void_t**)data\fP
+the first allocated memory segment as discussed in \f5memoryf\fP.
+\f5dtopen()\fP may fail if this segment is not returned or
+if it has not been properly initialized.
+.Tp
+\f5DT_CLOSE\fP:
+A dictionary is being closed.
+.Tp
+\f5DT_DISC\fP:
+The dictionary discipline is being changed to a new discipline given in
+\f5(Dtdisc_t*)data\fP.
+.Tp
+\f5DT_METH\fP:
+The dictionary method is being changed to a new method given in
+\f5(Dtmethod_t*)data\fP.
+.PP
+.Ss "OBJECT OPERATIONS"
+.PP
+.Ss "  Void_t* dtinsert(Dt_t* dt, Void_t* obj)"
+This function inserts an object prototyped by \f5obj\fP into \f5dt\fP
+If there is an existing object in \f5dt\fP that matches \f5obj\fP
+and the storage method is \f5Dthash\fP or \f5Dttree\fP,
+\f5dtinsert()\fP will just return the matching object.
+Otherwise, \f5dtinsert()\fP will insert a new object created according to
+the specified discipline function \f5makef\fP.
+\f5dtinsert()\fP returns the new object or \f5NULL\fP.
+.Ss "  Void_t* dtdelete(Dt_t* dt, Void_t* obj)"
+For \f5Dthash\fP and \f5Dttree\fP, the object matching \f5obj\fP is deleted.
+For \f5Dtlist\fP, only the first object matching \f5obj\fP is deleted.
+For \f5Dtstack\fP or \f5Dtqueue\fP, if \f5obj\fP is \f5NULL\fP or if
+it matches the object at the top/head of the stack/queue,
+then that object is deleted.
+\f5dtdelete()\fP returns the address of the deleted object or \f5NULL\fP.
+Note that if the discipline function \f5freef\fP is defined,
+it will be called on the deleted object to clean up any associated data.
+.Ss "  Void_t* dtsearch(Dt_t* dt, Void_t* obj)"
+This function returns an object matching \f5obj\fP in \f5dt\fP or
+other dictionaries being viewed from \f5dt\fP (see \f5dtview()\fP).
+For \f5Dtlist\fP,
+the set of objects matching \f5obj\fP will be moved to the front of the list.
+For \f5Dtstack\fP or \f5Dtqueue\fP, the search starts from the top or head
+of the list and the first matching object will become the new top or head.
+\f5dtsearch()\fP returns the matching object or \f5NULL\fP.
+.Ss "  Void_t* dtfirst(Dt_t* dt)"
+.Ss "  Void_t* dtnext(Dt_t* dt, Void_t* obj)"
+\f5dtfirst()\fP returns the first object in the dictionary.
+\f5dtnext()\fP returns the object following \f5obj\fP as defined by
+a dictionary ordering that depends on the particular storage method.
+For \f5Dttree\fP, this order is the object order.
+For \f5Dtstack\fP the order is the reverse order of insertion.
+For \f5Dtqueue\fP, the order is the order of insertion.
+For \f5Dtlist\fP and \f5Dthash\fP, the order is taken at the point of call.
+This order is preserved until a future search, insert, or delete operation.
+.PP
+Objects in a dictionary or a viewpath can be walked using 
+the below \f5for(;;)\fP loop.
+Note that only one such loop should be used at a time per dictionary.
+Concurrent or nested loops may result in unexpected behaviors.
+.Cs
+    for(obj = dtfirst(dt); obj; obj = dtnext(dt,obj))
+.Ce
+.Ss "  Void_t* dtlast(Dt_t* dt)"
+.Ss "  Void_t* dtprev(Dt_t* dt, Void_t* obj)"
+\f5dtlast()\fP and \f5dtprev()\fP are like \f5dtfirst()\fP and \f5dtnext()\fP
+but they work in the reverse order.
+Note that dictionaries on a viewpath are walked in order
+but objects in each dictionary are walked in reverse order.
+.Ss "  Void_t* dtfinger(Dt_t* dt)"
+This function returns the current object if any.
+This object is set after a call to one of
+\f5dtsearch()\fP, \f5dtfirst()\fP, \f5dtnext()\fP, \f5dtlast()\fP, or \f5dtprev()\fP.
+As a side effect of its implementation, when a dictionary is using the \f5Dttree\fP
+method, the current object is always defined and points to the root of the tree.
+.Ss "  Void_t* dtrenew(Dt_t* dt, Void_t* obj)"
+This function repositions (and perhaps rehashes)
+an object \f5obj\fP after its key has been changed.
+\f5dtrenew()\fP only works if \f5obj\fP is the current object (see \f5dtfinger()\fP).
+.Ss "  dtwalk(Dt_t* dt, int (*userf)(Void_t* obj))"
+This function walks objects in the dictionary \f5dt\fP plus those
+in other dictionaries viewable from it and
+calls \f5(*userf)(obj)\fP on each encountered object.
+If \f5userf()\fP returns a \f5<0\fP value,
+\f5dtwalk()\fP terminates and returns the same value.
+Otherwise, \f5dtwalk()\fP returns \f50\fP on completion.
+.Ss "  Dtlink_t* dtflatten(Dt_t* dt)"
+.Ss "  Dtlink_t* dtlink(Dt_t* dt, Dtlink_t* link)"
+.Ss "  Void_t* dtobj(Dt_t* dt, Dtlink_t* link)"
+Using \f5dtfirst()/dtnext()\fP or \f5dtlast()/dtprev()\fP
+to walk a single dictionary can incur significant cost due to function calls.
+\f5dtflatten()\fP and \f5dtlink()\fP can be used to
+flatten the objects in \f5dt\fP into a linked list and walk them as follows:
+.Cs
+    for(link = dtflatten(dt); link; link = dtlink(dt,link) )
+.Ce
+.PP
+Note that \f5dtflatten()\fP returns a list of the type \f5Dtlink_t*\fP,
+not \f5Void_t*\fP. That is, it returns a dictionary holder pointer,
+not a user object pointer
+(although if the discipline function \f5makef\fP is \f5NULL\fP, both are the same).
+The macro function \f5dtlink()\fP
+returns the dictionary holder object following \f5link\fP.
+The macro function \f5dtobj(dt,link)\fP
+returns the user object associated with \f5link\fP,
+The flattened object list may be unflattened on any future
+dictionary operations other than \f5dtlink()\fP.
+.Ss "  Dtlink_t* dtextract(Dt_t* dt)"
+.Ss "  int dtrestore(Dt_t* dt, Dtlink_t* link)"
+\f5dtextract()\fP extracts all objects from \f5dt\fP and makes it appear empty.
+\f5dtrestore()\fP repopulates \f5dt\fP with
+objects previously obtained via \f5dtextract()\fP.
+\f5dtrestore()\fP will fail if the dictionary is not empty.
+These functions are usually used to reduce dictionary overhead
+by sharing the same \f5dt\fP handle among many sets of objects.
+.PP
+.Ss "DICTIONARY STATUS"
+.PP
+.Ss "  Dt_t* dtsize(Dt_t* dt)"
+This function returns the number of objects stored in \f5dt\fP.
+.Ss "  int dtstat(Dt_t *dt, Dtstat_t* st, int all)"
+This function reports dictionary statistics.
+If \f5all\fP is non-zero, all fields of \f5st\fP are filled.
+Otherwise, only the \f5dt_type\fP and \f5dt_size\fP fields are filled.
+Following are the elements in \f5Dtstat_t\fP:
+.Tp
+\f5int\ dt_type\fP:
+This is one of \f5DT_HASH\fP, \f5DT_TREE\fP,
+\f5DT_LIST\fP, \f5DT_STACK\fP, and \f5DT_QUEUE\fP.
+.Tp
+\f5int\ dt_size\fP:
+This contains the number of objects in the dictionary.
+.Tp
+\f5int\ dt_n\fP:
+For \f5Dthash\fP, this is the number of non-empty chains in the hash table.
+For \f5Dttree\fP, this is the deepest level in the tree.
+Each level in the tree contains all nodes of equal distance from the root node.
+\f5dt_n\fP and the below two fields are undefined for other methods.
+.Tp
+\f5int\ dt_max\fP:
+For \f5Dthash\fP, this is the size of a largest chain.
+For \f5Dttree\fP, this is the size of a largest level.
+.Tp
+\f5int*\ dt_count\fP:
+For \f5Dthash\fP, this is the list of counts for chains of particular sizes.
+For example, \f5dt_count[1]\fP is the number of chains of size \f51\fP.
+For \f5Dttree\fP, this is the list of sizes of the levels.
+For example, \f5dt_count[1]\fP is the size of level \f51\fP.
+.PP
+.ne 4
+.Ss "HASH FUNCTIONS"
+.PP
+.Ss "  void dtcharhash(unsigned long h, unsigned char c)"
+.Ss "  void dtstrhash(unsigned long h, unsigned char* str, int n)"
+These macro functions compute hash values from bytes or strings.
+\f5dtcharhash()\fP computes a new hash value from the byte
+\f5c\fP and the current value of \f5h\fP, then stores it in \f5h\fP.
+\f5dtstrhash()\fP computes the hash value of the string \f5str\fP,
+then stores it in \f5h\fP.
+\f5str\fP is taken as a null-terminated string if \f5n\fP is negative
+or as a byte array of length \f5n\fP if \f5n\fP is non-negative.
+As these are macro functions,
+\f5h\fP must be passed as itself and not by its address.
+.SH AUTHOR
+Kiem-Phong Vo, kpv@research.att.com, AT&T Bell Laboratories.
