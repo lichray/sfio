@@ -18,12 +18,25 @@
 *	All rights reserved. AT&T is a registered trademark of AT&T Corp.	*
 ********************************************************************************/
 
-
-#define BUFSIZ		SF_BUFSIZE
-#undef FILE
-#define FILE		Sfio_t
+/* Set the below to 1 to get the function forms of putc() and getc() */
+#ifndef SF_FUNCTION_PUTCGETC
+#define SF_FUNCTION_PUTCGETC	0
+#endif
 
 #include		<sfio_t.h>
+
+typedef Sfio_t		_sfFILE;
+#undef	FILE
+#define FILE		_sfFILE
+#undef	_FILE_DEFINED
+#define _FILE_DEFINED	1	/* stop Windows from defining FILE	*/
+#undef	_FILEDEFED
+#define _FILEDEFED	1	/* stop SUNOS5.8 ...			*/
+#undef	__FILE_defined
+#define __FILE_defined	1	/* stop Linux ...			*/
+
+
+#define BUFSIZ		SF_BUFSIZE
 
 #define _IOFBF		0
 #define _IONBF		1
@@ -35,9 +48,6 @@
 
 #undef fpos_t
 #define fpos_t		Sfoff_t
-
-#undef off_t
-#define off_t		Sfoff_t
 
 _BEGIN_EXTERNS_
 #if _BLD_sfio && defined(__EXPORT__)
@@ -51,25 +61,28 @@ extern char*	ctermid _ARG_((char*));
 extern char*	cuserid _ARG_((char*));
 extern char*	tmpnam _ARG_((char*));
 extern char*	tempnam _ARG_((const char*, const char*));
-#ifndef remove
-extern int	remove _ARG_((const char*));
-#endif
-extern void	perror _ARG_((const char*));
 
 extern Sfio_t*	_stdfdopen _ARG_((int, const char*));
 extern Sfio_t*	_stdfopen _ARG_((const char*, const char*));
 extern Sfio_t*	_stdfreopen _ARG_((const char*, const char*, Sfio_t*));
 extern Sfio_t*	_stdpopen _ARG_((const char*, const char*));
 extern Sfio_t*	_stdtmpfile _ARG_((void));
+extern int	_stdfflush _ARG_((Sfio_t*));
 
 extern int	_stdprintf _ARG_((const char*, ...));
 extern int	_stdfprintf _ARG_((Sfio_t* f, const char*, ...));
 extern int	_stdsprintf _ARG_((char*, const char*, ...));
+extern int	_stdsnprintf _ARG_((char*, size_t, const char*, ...));
+extern int	_stdvsnprintf _ARG_((char*, size_t, const char*, _ast_va_list));
+extern int	_stdasprintf _ARG_((char**, const char*, ...));
+extern int	_stdvasprintf _ARG_((char**, const char*, _ast_va_list));
 extern int	_stdscanf _ARG_((const char*, ...));
 extern int	_stdfscanf _ARG_((Sfio_t* f, const char*, ...));
 extern int	_stdsetvbuf _ARG_((Sfio_t*, char*, int, size_t));
 extern int	_stdfputc _ARG_((int, Sfio_t*));
+extern int	_stdputc _ARG_((int, Sfio_t*));
 extern int	_stdfgetc _ARG_((Sfio_t*));
+extern int	_stdgetc _ARG_((Sfio_t*));
 extern int	_stdputw _ARG_((int, Sfio_t*));
 extern int	_stdgetw _ARG_((Sfio_t*));
 extern ssize_t	_stdfwrite _ARG_((const Void_t*, size_t, size_t, Sfio_t*));
@@ -85,8 +98,10 @@ _END_EXTERNS_
 #define fprintf			_stdfprintf
 
 #define sprintf			_stdsprintf
-#define snprintf		sfsprintf
-#define vsnprintf		sfvsprintf
+#define snprintf		_stdsnprintf
+#define vsnprintf		_stdvsnprintf
+#define asprintf		_stdasprintf
+#define vasprintf		_stdvasprintf
 
 #define scanf			_stdscanf
 #define fscanf			_stdfscanf
@@ -125,20 +140,21 @@ _END_EXTERNS_
 #define _std_putchar(c)		sfputc(sfstdout,(c))
 #define _std_fputs(s,f)		sfputr((f),(s),-1)
 #define _std_puts(s)		sfputr(sfstdout,(s),'\n')
-#define _std_vprintf(fmt,a)	sfvprintf(sfstdout,(fmt),(a))
-#define _std_vfprintf(f,fmt,a)	sfvprintf((f),(fmt),(a))
-#define _std_doprnt(fmt,a,f)	sfvprintf((f),(fmt),(a))
-#define _std_vsprintf(s,fmt,a)	sfvsprintf((s),_STDSIZE(s),(fmt),(a) )
+#define _std_vprintf(fmt,a)	(int)sfvprintf(sfstdout,(fmt),(a))
+#define _std_vfprintf(f,fmt,a)	(int)sfvprintf((f),(fmt),(a))
+#define _std_doprnt(fmt,a,f)	(int)sfvprintf((f),(fmt),(a))
+#define _std_vsprintf(s,fmt,a)	(int)sfvsprintf((s),_STDSIZE(s),(fmt),(a) )
+#define _std_vasprintf(s,fmt,a)	(int)sfvasprintf((s),(fmt),(a) )
 
 #define _std_getc(f)		sfgetc(f)
 #define _std_getchar()		sfgetc(sfstdin)
 #define _std_ungetc(c,f)	sfungetc((f),(c))
 #define _std_fgets(s,n,f)	_stdgets((f),(s),(n),0)
 #define _std_gets(s)		_stdgets(sfstdin,(s),_STDSIZE(s),1)
-#define _std_vscanf(fmt,a)	sfvscanf(sfstdin,(fmt),(a))
-#define _std_vfscanf(f,fmt,a)	sfvscanf((f),(fmt),(a))
-#define _std_doscan(f,fmt,a)	sfvscanf((f),(fmt),(a))
-#define _std_vsscanf(s,fmt,a)	sfvsscanf(s,(fmt),(a))
+#define _std_vscanf(fmt,a)	(int)sfvscanf(sfstdin,(fmt),(a))
+#define _std_vfscanf(f,fmt,a)	(int)sfvscanf((f),(fmt),(a))
+#define _std_doscan(f,fmt,a)	(int)sfvscanf((f),(fmt),(a))
+#define _std_vsscanf(s,fmt,a)	(int)sfvsscanf(s,(fmt),(a))
 
 #define _std_fpurge(f)		sfpurge(f)
 #define _std_fflush(f)		_stdfflush(f)
@@ -286,6 +302,14 @@ __INLINE__ void clearerr_unlocked(FILE* f)		{ (void) _std_clearerr(f);	}
 #define clearerr(f)					( (void)_std_clearerr(f)	)
 #define clearerr_unlocked(f)				( (void)_std_clearerr(f)	)
 
+#endif
+
+/* require putc&getc to be functions, not macros */
+#if SF_FUNCTION_PUTCGETC
+#undef putc
+#define putc	_stdputc
+#undef getc
+#define getc	_stdgetc
 #endif
 
 /* standard streams */

@@ -1,5 +1,4 @@
-#include	"sfhdr.h"
-#include	"stdio.h"
+#include	"stdio_s.h"
 
 /*	Stdio function setvbuf()
 **

@@ -23,7 +23,7 @@ reg int		rc;	/* record separator */
 	reg ssize_t	r, w;
 	reg uchar	*endb;
 	reg int		direct;
-	Sfoff_t		n_move;
+	Sfoff_t		n_move, sk, cur;
 	uchar		*rbuf = NIL(uchar*);
 	ssize_t		rsize = 0;
 
@@ -32,7 +32,29 @@ reg int		rc;	/* record separator */
 		SFMTXLOCK(fw);
 
 	for(n_move = 0; n != 0; )
-	{	/* get the streams into the right mode */
+	{
+		if(rc >= 0) /* moving records, let sfgetr() deal with record reading */
+		{	if(!(cp = (uchar*)sfgetr(fr,rc,0)) )
+				n = 0;
+			else
+			{	r = sfvalue(fr);
+				if(fw && (w = SFWRITE(fw, cp, r)) != r)
+				{	if(fr->extent >= 0 )
+						(void)SFSEEK(fr,(Sfoff_t)(-r),1);
+					if(fw->extent >= 0 && w > 0)
+						(void)SFSEEK(fw,(Sfoff_t)(-w),1);
+					n = 0;
+				}
+				else
+				{	n_move += 1;
+					if(n > 0)
+						n -= 1;
+				}
+			}
+			continue;
+		}
+
+		/* get the streams into the right mode */
 		if(fr->mode != SF_READ && _sfmode(fr,SF_READ,0) < 0)
 			goto done;
 
@@ -49,13 +71,21 @@ reg int		rc;	/* record separator */
 				if(SFFLSBUF(fw,-1) < 0 )
 					break;
 		}
+		else if((cur = SFSEEK(fr, (Sfoff_t)0, SEEK_CUR)) >= 0 )
+		{	sk = n > 0 ? SFSEEK(fr, n, SEEK_CUR) : SFSEEK(fr, 0, SEEK_END);
+			if(sk > cur) /* safe to skip over data in current stream */
+			{	n_move += sk - cur;
+				if(n > 0)
+					n -= sk - cur;
+				continue;
+			}
+			/* else: stream unstacking may happen below */
+		}
 
 		/* about to move all, set map to a large amount */
 		if(n < 0 && (fr->bits&SF_MMAP) && !(fr->bits&SF_MVSIZE) )
 		{	SFMVSET(fr);
-
-			if(rc < 0) /* data will be accessed sequentially */
-				fr->bits |= SF_SEQUENTIAL;
+			fr->bits |= SF_SEQUENTIAL; /* sequentially access data */
 		}
 
 		/* try reading a block of data */
@@ -100,29 +130,7 @@ reg int		rc;	/* record separator */
 			if(!direct)
 			{	/* make sure we don't read too far ahead */
 				if(n > 0 && fr->extent < 0 && (fr->flags&SF_SHARE) )
-				{	if(rc >= 0)
-					{	/* try peeking a large buffer */
-						fr->mode |= SF_RV;
-						if((r = SFFILBUF(fr,-1)) > 0)
-							goto done_filbuf;
-						else if(n > 1 && !fr->disc)
-						{	r = sfpkrd(fr->file,
-								   (Void_t*)fr->data,
-								   fr->size, rc, -1,
-								   (int)(-n) );
-							if(r <= 0)
-								goto one_r;
-							fr->next = fr->data;
-							fr->endb = fr->endr = fr->next+r;
-							goto done_filbuf;
-						}
-						else /* get a single record */
-						{one_r:	fr->getr = rc;
-							fr->mode |= SF_RC;
-							r = -1;
-						}
-					}
-					else if((Sfoff_t)(r = fr->size) > n)
+				{	if((Sfoff_t)(r = fr->size) > n)
 						r = (ssize_t)n;
 				}
 				else	r = -1;
@@ -133,7 +141,7 @@ reg int		rc;	/* record separator */
 			}
 			else
 			{	/* actual amount to be read */
-				if(rc < 0 && n > 0 && n < w)
+				if(n > 0 && n < w)
 					w = (ssize_t)n;
 
 				if((r = SFRD(fr,next,w,fr->disc)) > 0)
@@ -146,50 +154,13 @@ reg int		rc;	/* record separator */
 
 		/* compute the extent of data to be moved */
 		endb = next+r;
-		if(rc < 0)
-		{	if(n > 0)
-			{	if(r > n)
-					r = (ssize_t)n;
-				n -= r;
-			}
-			n_move += r;
-			cp = next+r;
+		if(n > 0)
+		{	if(r > n)
+				r = (ssize_t)n;
+			n -= r;
 		}
-		else
-		{	/* count records */
-			reg int	rdwr =  (fr->flags&SF_MALLOC) ||
-					(fr->bits&(SF_BOTH|SF_MMAP));
-			if(rdwr)
-			{	w = endb[-1];
-				endb[-1] = rc;
-			}
-			else	w = 0;
-			for(cp = next; cp < endb; )
-			{	/* find the line extent */
-				if(rdwr)
-					while(*cp++ != rc)
-						;
-				else	while(r-- && *cp++ != rc)
-						;
-				if(cp < endb || w == rc)
-				{	n_move += 1;
-					if(n > 0 && (n -= 1) == 0)
-						break;
-				}
-			}
-			if(rdwr)
-				endb[-1] = w;
-			r = cp-next;
-			if(fr->mode&SF_PKRD)
-			{	/* advance the read point by proper amount */
-				fr->mode &= ~SF_PKRD;
-				(void)read(fr->file,(Void_t*)next,r);
-				fr->here += r;
-				if(!direct)
-					fr->endb = cp;
-				else	endb = cp;
-			}
-		}
+		n_move += r;
+		cp = next+r;
 
 		if(!direct)
 			fr->next += r;
@@ -214,8 +185,7 @@ reg int		rc;	/* record separator */
 			{	/* a write error happened */
 				if(w > 0)
 				{	r -= w;
-					if(rc < 0)
-						n_move -= r;
+					n_move -= r;
 				}
 				if(fr->extent >= 0)
 					(void)SFSEEK(fr,(Sfoff_t)(-r),1);

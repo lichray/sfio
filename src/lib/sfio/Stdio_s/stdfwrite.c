@@ -1,5 +1,4 @@
-#include	"sfhdr.h"
-#include	"stdio.h"
+#include	"stdio_s.h"
 
 /*	Write out a block of data
 **

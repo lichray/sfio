@@ -122,18 +122,19 @@ char*	mode;		/* mode of the stream */
 	reg Proc_t*	proc;
 	reg int		sflags;
 	reg long	flags;
-	reg int		bits;
+	reg int		pflags;
 	char*		av[4];
 
-	if (!command || !command[0] || !(sflags = _sftype(mode, NiL, NiL)))
+	if (!command || !command[0] || !mode)
 		return 0;
+	sflags = _sftype(mode, NiL, NiL);
 
 	if(f == (Sfio_t*)(-1))
 	{	/* stdio compatibility mode */
 		f = NIL(Sfio_t*);
-		bits = SF_STDIO;
+		pflags = 1;
 	}
-	else	bits = 0;
+	else	pflags = 0;
 
 	flags = 0;
 	if (sflags & SF_READ)
@@ -147,9 +148,8 @@ char*	mode;		/* mode of the stream */
 	if (!(proc = procopen(0, av, 0, 0, flags)))
 		return 0;
 	if (!(f = sfnew(f, NIL(Void_t*), (size_t)SF_UNBOUND,
-	       		(sflags&SF_READ) ? proc->rfd : proc->wfd, sflags)) ||
-	    ((f->bits |= bits),
-	     _sfpopen(f, (sflags&SF_READ) ? proc->wfd : -1, proc->pid)) < 0)
+	       		(sflags&SF_READ) ? proc->rfd : proc->wfd, sflags|((sflags&SF_RDWR)?0:SF_READ))) ||
+	    _sfpopen(f, (sflags&SF_READ) ? proc->wfd : -1, proc->pid, pflags) < 0)
 	{
 		if (f) sfclose(f);
 		procclose(proc);
@@ -173,15 +173,18 @@ char*	mode;		/* mode of the stream */
 		Path = _sfgetpath("PATH");
 
 	/* sanity check */
-	if(!command || !command[0] || !(sflags = _sftype(mode,NIL(int*),NIL(int*))))
+	if(!command || !command[0] || !mode)
 		return NIL(Sfio_t*);
+	sflags = _sftype(mode,NIL(int*),NIL(int*));
 
 	/* make pipes */
 	parent[0] = parent[1] = child[0] = child[1] = -1;
-	if(pipe(parent) < 0)
-		goto error;
-	if((sflags&SF_RDWR) == SF_RDWR && pipe(child) < 0)
-		goto error;
+	if(sflags&SF_RDWR)
+	{	if(syspipef(parent) < 0)
+			goto error;
+		if((sflags&SF_RDWR) == SF_RDWR && syspipef(child) < 0)
+			goto error;
+	}
 
 	switch((pid = fork()) )
 	{
@@ -198,14 +201,15 @@ char*	mode;		/* mode of the stream */
 		else	stdio = 0;
 
 		/* make the streams */
-		if(!(f = sfnew(f,NIL(Void_t*),(size_t)SF_UNBOUND,parent[pkeep],sflags)))
+		if(!(f = sfnew(f,NIL(Void_t*),(size_t)SF_UNBOUND,parent[pkeep],sflags|((sflags&SF_RDWR)?0:SF_READ))))
 			goto error;
-		CLOSE(parent[!pkeep]);
-		SETCLOEXEC(parent[pkeep]);
-
-		if((sflags&SF_RDWR) == SF_RDWR)
-		{	CLOSE(child[!ckeep]);
-			SETCLOEXEC(child[ckeep]);
+		if(sflags&SF_RDWR)
+		{	CLOSE(parent[!pkeep]);
+			SETCLOEXEC(parent[pkeep]);
+			if((sflags&SF_RDWR) == SF_RDWR)
+			{	CLOSE(child[!ckeep]);
+				SETCLOEXEC(child[ckeep]);
+			}
 		}
 
 		/* save process info */
@@ -224,30 +228,33 @@ char*	mode;		/* mode of the stream */
 		else	{ pkeep = READ; ckeep = WRITE; }
 
 		/* zap fd that we don't need */
-		CLOSE(parent[!pkeep]);
-		if((sflags&SF_RDWR) == SF_RDWR)
-			CLOSE(child[!ckeep]);
+		if(sflags&SF_RDWR)
+		{	CLOSE(parent[!pkeep]);
+			if((sflags&SF_RDWR) == SF_RDWR)
+				CLOSE(child[!ckeep]);
+		}
 
 		/* use sfsetfd to make these descriptors the std-ones */
 		SFCLEAR(&sf,NIL(Vtmutex_t*));
 
 		/* must be careful so not to close something useful */
 		if((sflags&SF_RDWR) == SF_RDWR && pkeep == child[ckeep])
-			if((child[ckeep] = dup(pkeep)) < 0)
+			if((child[ckeep] = sysdupf(pkeep)) < 0)
 				_exit(EXIT_NOTFOUND);
 
-		if(parent[pkeep] != pkeep)
-		{	sf.file = parent[pkeep];
-			CLOSE(pkeep);
-			if(sfsetfd(&sf,pkeep) != pkeep)
-				_exit(EXIT_NOTFOUND);
-		}
-
-		if((sflags&SF_RDWR) == SF_RDWR && child[ckeep] != ckeep)
-		{	sf.file = child[ckeep];
-			CLOSE(ckeep);
-			if(sfsetfd(&sf,ckeep) != ckeep)
-				_exit(EXIT_NOTFOUND);
+		if(sflags&SF_RDWR)
+		{	if (parent[pkeep] != pkeep)
+			{	sf.file = parent[pkeep];
+				CLOSE(pkeep);
+				if(sfsetfd(&sf,pkeep) != pkeep)
+					_exit(EXIT_NOTFOUND);
+			}
+			if((sflags&SF_RDWR) == SF_RDWR && child[ckeep] != ckeep)
+			{	sf.file = child[ckeep];
+				CLOSE(ckeep);
+				if(sfsetfd(&sf,ckeep) != ckeep)
+					_exit(EXIT_NOTFOUND);
+			}
 		}
 
 		execute(command);

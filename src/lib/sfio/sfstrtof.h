@@ -1,35 +1,44 @@
-#include "sfhdr.h"
-
 /*
  * AT&T Labs Research
  * Glenn Fowler & Phong Vo
  *
  * common header and implementation for
  *
- *	strtof		strtod		strtold		_sfscand
+ *	strtof		strtod		strtold		_sfdscan
+ *	strntof		strntod		strntold
  *
  * define these macros to instantiate an implementation:
  *
  *	S2F_function	the function name
- *	S2F_static	1 if S2F_function is static
+ *	S2F_static	<0:export =0:extern >0:static
  *	S2F_type	0:float 1:double 2:long.double
+ *	S2F_size	1 for interface with size_t second arg
  *	S2F_scan	1 for alternate interface with these arguments:
  *				void* handle
- *				int (*getchar)(void* handle)
+ *				int (*getchar)(void* handle, int flag)
  *			exactly one extra (*getchar)() is done, i.e.,
  *			the caller must do the pushback
+ *				flag==0		get next char
+ *				flag==1		no number seen
+ *			return 0 on error or EOF
  */
 
-/* for Sfio, we'll define the function _sfdscan() here. This helps with
-** debugging on systems whose debuggers can't handle #include code.
-*/
+#include "sfhdr.h"
+#include "FEATURE/float"
+
+/*
+ * the default is _sfdscan for standalone sfio compatibility
+ */
+
 #if !defined(S2F_function)
 #define S2F_function	_sfdscan
-#define S2F_static	0
+#define S2F_static	1
 #define S2F_type	2
 #define S2F_scan	1
+#ifndef elementsof
+#define elementsof(a)	(sizeof(a)/sizeof(a[0]))
 #endif
-
+#endif
 
 #if S2F_type == 2 && _ast_fltmax_double
 #undef	S2F_type
@@ -83,19 +92,31 @@
 
 #if S2F_scan
 
-typedef int (*S2F_get_f)_ARG_((void*));
+typedef int (*S2F_get_f)_ARG_((void*, int));
 
 #define ERR(e)
-#define GET(p)		(*get)(p)
+#define GET(p)		(*get)(p,0)
+#define NON(p)		(*get)(p,1)
 #define PUT(p)
-#define SET(p,t)
+#define REV(p,t,b)
+#define SET(p,t,b)
 
 #else
 
 #define ERR(e)		(errno=(e))
+#define NON(p)
+
+#if S2F_size
+#define GET(p)		(((p)<(z))?(*p++):(back=0))
+#define PUT(p)		(end?(*end=(char*)p-back):(char*)0)
+#define REV(p,t,b)	(p=t,back=b)
+#define SET(p,t,b)	(t=p,b=back)
+#else
 #define GET(p)		(*p++)
 #define PUT(p)		(end?(*end=(char*)p-1):(char*)0)
-#define SET(p,t)	(t=p)
+#define REV(p,t,b)	(p=t)
+#define SET(p,t,b)	(t=p)
+#endif
 
 #endif
 
@@ -105,18 +126,20 @@ typedef struct S2F_part_s
 	int		digits;
 } S2F_part_t;
 
-#ifndef ERANGE
+#if !defined(ERANGE)
 #define ERANGE		EINVAL
 #endif
 
-#if S2F_static
+#if S2F_static > 0
 static
 #else
+#if S2F_static < 0 || !defined(S2F_static)
 #if defined(__EXPORT__)
 #define extern		__EXPORT__
 #endif
 extern
 #undef	extern
+#endif
 #endif
 S2F_number
 #if S2F_scan
@@ -126,15 +149,28 @@ S2F_function(void* s, S2F_get_f get)
 S2F_function(s, get) void* s; S2F_get_f get;
 #endif
 #else
+#if S2F_size
+#if __STD_C
+S2F_function(const char* str, size_t size, char** end)
+#else
+S2F_function(str, size, end) char* str; size_t size; char** end;
+#endif
+#else
 #if __STD_C
 S2F_function(const char* str, char** end)
 #else
 S2F_function(str, end) char* str; char** end;
 #endif
 #endif
+#endif
 {
 #if !S2F_scan
 	register unsigned char*	s = (unsigned char*)str;
+#if S2F_size
+	register unsigned char*	z = s + size;
+	int			back = 1;
+	int			b;
+#endif
 	unsigned char*		t;
 #endif
 	register S2F_batch	n;
@@ -164,7 +200,7 @@ S2F_function(str, end) char* str; char** end;
 	 */
 
 	do c = GET(s); while (isspace(c));
-	SET(s, t);
+	SET(s, t, b);
 
 	/*
 	 * get the sign
@@ -277,11 +313,12 @@ S2F_function(str, end) char* str; char** end;
 		if ((c = GET(s)) != 'n' && c != 'N' ||
 		    (c = GET(s)) != 'f' && c != 'F')
 		{
-			PUT(t);
+			REV(s, t, b);
+			PUT(s);
 			return 0;
 		}
 		c = GET(s);
-		SET(s, t);
+		SET(s, t, b);
 		if (((c)          == 'i' || c == 'I') &&
 		    ((c = GET(s)) == 'n' || c == 'N') &&
 		    ((c = GET(s)) == 'i' || c == 'I') &&
@@ -289,9 +326,10 @@ S2F_function(str, end) char* str; char** end;
 		    ((c = GET(s)) == 'y' || c == 'Y'))
 		{
 			c = GET(s);
-			SET(s, t);
+			SET(s, t, b);
 		}
-		PUT(t);
+		REV(s, t, b);
+		PUT(s);
 		return negative ? -S2F_huge : S2F_huge;
 	}
 	else if (c == 'n' || c == 'N')
@@ -299,7 +337,8 @@ S2F_function(str, end) char* str; char** end;
 		if ((c = GET(s)) != 'a' && c != 'A' ||
 		    (c = GET(s)) != 'n' && c != 'N')
 		{
-			PUT(t);
+			REV(s, t, b);
+			PUT(s);
 			return 0;
 		}
 		do c = GET(s); while (c && !isspace(c));
@@ -308,11 +347,9 @@ S2F_function(str, end) char* str; char** end;
 	}
 	else if (c < '1' || c > '9')
 	{
-		PUT(t);
-
-#if S2F_scan /* KPV: this returns an indicator that no number was specified */
-		*((int*)s) = 1;
-#endif
+		REV(s, t, b);
+		PUT(s);
+		NON(s);
 		return 0;
 	}
 
@@ -328,8 +365,7 @@ S2F_function(str, end) char* str; char** end;
 		{
 			digits++;
 			n = (n << 3) + (n << 1) + (c - '0');
-			if (n >= ((~((S2F_batch)0)) / 10) &&
-			    part < sizeof(parts)/sizeof(parts[0]) )
+			if (n >= ((~((S2F_batch)0)) / 10) && part < elementsof(parts))
 			{
 				parts[part].batch = n;
 				n = 0;
@@ -356,7 +392,7 @@ S2F_function(str, end) char* str; char** end;
 	 * don't forget the last part
 	 */
 
-	if (n && part < sizeof(parts)/sizeof(parts[0]) )
+	if (n && part < elementsof(parts))
 	{
 		parts[part].batch = n;
 		parts[part].digits = digits;
@@ -425,8 +461,7 @@ S2F_function(str, end) char* str; char** end;
 		if (c > S2F_exp_10_max)
 		{
 			ERR(ERANGE);
-			v = S2F_huge;
-			break;
+			return negative ? -S2F_huge : S2F_huge;
 		}
 		if (c > 0)
 		{
@@ -448,6 +483,13 @@ S2F_function(str, end) char* str; char** end;
 			m -= S2F_exp_10_max;
 			v /= S2F_pow10[S2F_exp_10_max];
 		}
+#if _ast_div_underflow_fpe
+		if ((S2F_min * p) > S2F_pow10[c])
+		{
+			ERR(ERANGE);
+			return negative ? -S2F_huge : S2F_huge;
+		}
+#endif
 		v /= S2F_pow10[m];
 	}
 

@@ -4,6 +4,34 @@
 **
 **	Written by Kiem-Phong Vo.
 */
+
+#if __STD_C
+static int _sfraiseall(int type, Void_t* data)
+#else
+static int _sfraiseall(type, data)
+int	type;	/* type of event	*/
+Void_t*	data;	/* associated data	*/
+#endif
+{
+	Sfio_t		*f;
+	Sfpool_t	*p, *next;
+	int		n, rv;
+
+	rv = 0;
+	for(p = &_Sfpool; p; p = next)
+	{
+		for(next = p->next; next; next = next->next)
+			if(next->n_sf > 0)
+				break;
+		for(n = 0; n < p->n_sf; ++n)
+		{	f = p->sf[n];
+			if(sfraise(f, type, data) < 0)
+				rv -= 1;
+		}
+	}
+	return rv;
+}
+
 #if __STD_C
 int sfraise(Sfio_t* f, int type, Void_t* data)
 #else
@@ -15,6 +43,9 @@ Void_t*	data;	/* associated data	*/
 {
 	reg Sfdisc_t	*disc, *next, *d;
 	reg int		local, rv;
+
+	if(!f)
+		return _sfraiseall(type,data);
 
 	SFMTXSTART(f, -1);
 
@@ -29,6 +60,8 @@ Void_t*	data;	/* associated data	*/
 
 	for(disc = f->disc; disc; )
 	{	next = disc->disc;
+		if(type == SF_FINAL)
+			f->disc = next;
 
 		if(disc->exceptf)
 		{	SFOPEN(f,0);

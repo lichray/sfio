@@ -37,9 +37,9 @@ Sfdisc_t*	disc;	/* the tee discipline */
 
 /* on close, remove the discipline */
 #if __STD_C
-static teeexcept(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
+static int teeexcept(Sfio_t* f, int type, Void_t* data, Sfdisc_t* disc)
 #else
-static teeexcept(f,type,data,disc)
+static int teeexcept(f,type,data,disc)
 Sfio_t*		f;
 int		type;
 Void_t*		data;

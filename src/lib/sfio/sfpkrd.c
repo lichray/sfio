@@ -35,7 +35,7 @@ int	action;	/* >0: peeking, if rc>=0, get action records,
 	reg char	*buf = (char*)argbuf, *endbuf;
 
 	if(rc < 0 && tm < 0 && action <= 0)
-		return read(fd,buf,n);
+		return sysreadf(fd,buf,n);
 
 	t = (action > 0 || rc >= 0) ? (STREAM_PEEK|SOCKET_PEEK) : 0;
 #if !_stream_peek
@@ -69,7 +69,7 @@ int	action;	/* >0: peeking, if rc>=0, get action records,
 			{	t &= ~SOCKET_PEEK;
 				if(r > 0 && (r = pbuf.databuf.len) <= 0)
 				{	if(action <= 0)	/* read past eof */
-						r = read(fd,buf,1);
+						r = sysreadf(fd,buf,1);
 					return r;
 				}
 				if(r == 0)
@@ -170,7 +170,7 @@ int	action;	/* >0: peeking, if rc>=0, get action records,
 
 			if(r > 0)		/* there is data now */
 			{	if(action <= 0 && rc < 0)
-					return read(fd,buf,n);
+					return sysreadf(fd,buf,n);
 				else	r = -1;
 			}
 			else if(tm >= 0)	/* timeout exceeded */
@@ -198,7 +198,7 @@ int	action;	/* >0: peeking, if rc>=0, get action records,
 					break;
 				else	/* read past eof */
 				{	if(action <= 0)
-						r = read(fd,buf,1);
+						r = sysreadf(fd,buf,1);
 					return r;
 				}
 			}
@@ -214,7 +214,7 @@ int	action;	/* >0: peeking, if rc>=0, get action records,
 			if((action = action ? -action : 1) > (int)n)
 				action = n;
 			r = 0;
-			while((t = read(fd,buf,action)) > 0)
+			while((t = sysreadf(fd,buf,action)) > 0)
 			{	r += t;
 				for(endbuf = buf+t; buf < endbuf;)
 					if(*buf++ == rc)
@@ -240,7 +240,7 @@ int	action;	/* >0: peeking, if rc>=0, get action records,
 
 	/* advance */
 	if(action <= 0)
-		r = read(fd,buf,r);
+		r = sysreadf(fd,buf,r);
 
 	return r;
 }

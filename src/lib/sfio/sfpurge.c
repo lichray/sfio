@@ -16,7 +16,7 @@ reg Sfio_t*	f;
 
 	SFMTXSTART(f,-1);
 
-	if((mode = f->mode&SF_RDWR) != (int)f->mode && _sfmode(f,mode,0) < 0)
+	if((mode = f->mode&SF_RDWR) != (int)f->mode && _sfmode(f,mode|SF_SYNCED,0) < 0)
 		SFMTXRETURN(f, -1);
 
 	if((f->flags&SF_IOCHECK) && f->disc && f->disc->exceptf)

@@ -47,8 +47,25 @@ reg int		whence;
 #define _done_fseeko	1
 #undef lcloff_t
 #define lcloff_t	stdoff_t
-
 #define fseek		fseeko
-#include	"fseek.c"
+#include		"fseek.c"
+#undef fseek
+#endif
+
+#if _lib___fseeko64 && !_done___fseeko64 && !defined(fseek)
+#define _done___fseeko64	1
+#undef lcloff_t
+#define lcloff_t		stdoff_t
+#define fseek			__fseeko64
+#include			"fseek.c"
+#undef fseek
+#endif
+
+#if _lib_fseeko64 && !_done_fseeko64 && !defined(fseek)
+#define _done_fseeko64	1
+#undef lcloff_t
+#define lcloff_t	stdoff_t
+#define fseek		fseeko64
+#include		"fseek.c"
 #undef fseek
 #endif

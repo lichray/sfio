@@ -54,7 +54,7 @@ reg int	mode;
 			return NIL(Sfpool_t*);
 		}
 
-		vtmtxopen(&p->mutex, VT_INIT); /* initialize mutex */
+		(void)vtmtxopen(&p->mutex, VT_INIT); /* initialize mutex */
 
 		p->mode = 0;
 		p->n_sf = 0;

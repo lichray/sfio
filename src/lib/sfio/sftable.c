@@ -1,17 +1,10 @@
 #include	"sfhdr.h"
+#include	"FEATURE/float"
 
 /*	Dealing with $ argument addressing stuffs.
 **
 **	Written by Kiem-Phong Vo.
 */
-
-#if _PACKAGE_ast
-#include		<sig.h>
-#define Sfsignal_f	Sig_handler_t
-#else
-#include		<signal.h>
-typedef void(*		Sfsignal_f)_ARG_((int));
-#endif
 
 #if __STD_C
 static char* sffmtint(const char* str, int* v)
@@ -28,20 +21,21 @@ int*	v;
 }
 
 #if __STD_C
-static Fmtpos_t* sffmtpos(Sfio_t* f, const char* form, va_list args, int type)
+static Fmtpos_t* sffmtpos(Sfio_t* f,const char* form,va_list args,Sffmt_t* ft,int type)
 #else
-static Fmtpos_t* sffmtpos(f,form,args,type)
+static Fmtpos_t* sffmtpos(f,form,args,ft,type)
 Sfio_t*		f;
 char*		form;
 va_list		args;
-int		type;
+Sffmt_t*	ft;
+int		type;	/* >0: scanf, =0: printf, -1: internal	*/
 #endif
 {
 	int		base, fmt, flags, dot, width, precis;
 	ssize_t		n_str, size;
 	char		*t_str, *sp;
 	int		v, n, skip, dollar, decimal, thousand;
-	Sffmt_t		*ft, savft;
+	Sffmt_t		savft;
 	Fmtpos_t*	fp;	/* position array of arguments	*/
 	int		argp, argn, maxp, need[FP_INDEX];
 #if _has_multibyte
@@ -50,7 +44,7 @@ int		type;
 
 	if(type < 0)
 		fp = NIL(Fmtpos_t*);
-	else if(!(fp = sffmtpos(f,form,args,-1)) )
+	else if(!(fp = sffmtpos(f,form,args,ft,-1)) )
 		return NIL(Fmtpos_t*);
 
 	dollar = decimal = thousand = 0; argn = maxp = -1;
@@ -325,7 +319,7 @@ int		type;
 	}
 
 	/* get value for positions */
-	for(n = 0, ft = NIL(Sffmt_t*); n <= maxp; ++n)
+	for(n = 0; n <= maxp; ++n)
 	{	if(fp[n].ft.fmt == 0) /* gap: pretend it's a 'd' pattern */
 		{	fp[n].ft.fmt = 'd';
 			fp[n].ft.width = 0;
@@ -437,7 +431,8 @@ int		type;
 					else fp[n].argv.wc = va_arg(args,wchar_t);
 				}
 #endif
-				else	fp[n].argv.c = (char)va_arg(args,int);
+					/* observe promotion rule */
+				else	fp[n].argv.i = va_arg(args,int);
 				break;
 			  default: /* unknown pattern */
 				break;
@@ -450,13 +445,15 @@ int		type;
 	return fp;
 }
 
+static const unsigned char	flt_nan[] = { _ast_flt_nan_init };
+static const unsigned char	dbl_nan[] = { _ast_dbl_nan_init };
+#ifdef _ast_ldbl_nan_init
+static const unsigned char	ldbl_nan[] = { _ast_ldbl_nan_init };
+#endif
 
 /* function to initialize conversion tables */
 static int sfcvinit()
 {	reg int		d, l;
-#ifdef SIGFPE
-	Sfsignal_f	fpe;
-#endif
 
 	for(d = 0; d <= SF_MAXCHAR; ++d)
 	{	_Sfcv36[d] = SF_RADIX;
@@ -501,41 +498,12 @@ static int sfcvinit()
 
 	/* floating point huge values */
 
-#ifdef SIGFPE
-	fpe = signal(SIGFPE, SIG_IGN);
-#endif
-
-#ifdef HUGE_VALF
-	_Sffhuge = HUGE_VALF;
+	memcpy((char*)&_Sffhuge, (char*)flt_nan, sizeof(_Sffhuge));
+	memcpy((char*)&_Sfdhuge, (char*)dbl_nan, sizeof(_Sfdhuge));
+#ifdef _ast_ldbl_nan_init
+	memcpy((char*)&_Sflhuge, (char*)ldbl_nan, sizeof(_Sflhuge));
 #else
-	{	float fn = FLT_MAX;
-		_Sffhuge = (fn *= 2) > FLT_MAX ? fn : FLT_MAX;
-	}
-#endif
-
-#ifdef HUGE_VAL
-	_Sfdhuge = HUGE_VAL;
-#else
-	{	double dn = DBL_MAX;
-		_Sfdhuge = (dn *= 2) > DBL_MAX ? dn : DBL_MAX;
-	}
-#endif
-
-#ifdef HUGE_VALL
-	_Sflhuge = HUGE_VALL;
-#else
-	{	Sfdouble_t ln, lnmax;
-#ifdef LDBL_MAX
-		ln = lnmax = LDBL_MAX;
-#else
-		ln = lnmax = DBL_MAX;
-#endif
-		_Sflhuge = (ln *= 2) > lnmax ? ln : lnmax;
-	}
-#endif
-
-#ifdef SIGFPE
-	signal(SIGFPE, fpe);
+	memcpy((char*)&_Sflhuge, (char*)dbl_nan, sizeof(_Sfdhuge));
 #endif
 
 	return 1;

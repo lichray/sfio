@@ -75,7 +75,8 @@ Sfdisc_t*	disc;	/* discipline in use */
 	}
 
 	if(errno == EINTR)
-	{	if(_Sfexiting || (f->bits&SF_ENDING))	/* stop being a hero */
+	{	if(_Sfexiting || (f->bits&SF_ENDING) ||	/* stop being a hero	*/
+		   (f->flags&SF_IOINTR) ) /* application requests to return	*/
 			SFMTXRETURN(f, SF_EDONE);
 
 		/* a normal interrupt, we can continue */

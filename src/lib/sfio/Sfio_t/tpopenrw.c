@@ -9,6 +9,7 @@ MAIN()
 	Sfio_t*	logf = sfopen(0,"LOG","a"); sfsetbuf(logf,NIL(Void_t*),0);
 #endif
 
+	alarm(10);
 	if(argc > 1)
 	{	/* coprocess only */
 		while((s = sfreserve(sfstdin,-1,0)) )

@@ -396,6 +396,12 @@ int main()
 	printf("#undef\tFILE\n");
 	printf("typedef struct _std_s\tFILE;\n\n");
 
+	printf("/* Linux7.2 requires __FILE in wchar.h - we fake it here */\n");
+	printf("#include	\"FEATURE/sfio\"\n");
+	printf("#if _typ___FILE\n");
+	printf("typedef FILE	*__FILE;\n");
+	printf("#endif\n\n");
+
 	/* now get what we need from sfio */
 	printf("#include\t\"sfhdr.h\"\n");
 	printf("#include\t\"FEATURE/stdio\"\n\n");
@@ -690,10 +696,10 @@ int main()
 	printf("extern void\t\tflockfile _ARG_((FILE*));\n");
 	printf("extern void\t\tfunlockfile _ARG_((FILE*));\n");
 	printf("extern int\t\tftrylockfile _ARG_((FILE*));\n");
-	printf("extern int\t\tsnprintf _ARG_((char*, int, const char*, ...));\n");
-	printf("extern int\t\tvsnprintf _ARG_((char*, int, const char*, va_list));\n");
-	printf("extern int\t\t__snprintf _ARG_((char*, int, const char*, ...));\n");
-	printf("extern int\t\t__vsnprintf _ARG_((char*, int, const char*, va_list));\n");
+	printf("extern int\t\tsnprintf _ARG_((char*, size_t, const char*, ...));\n");
+	printf("extern int\t\tvsnprintf _ARG_((char*, size_t, const char*, va_list));\n");
+	printf("extern int\t\t__snprintf _ARG_((char*, size_t, const char*, ...));\n");
+	printf("extern int\t\t__vsnprintf _ARG_((char*, size_t, const char*, va_list));\n");
 
 	printf("\n_END_EXTERNS_\n");
 

@@ -27,7 +27,7 @@
 verbose=0
 exit_on_fail=1
 files=""
-LIBS="../libsfio.a"
+LIBS="../libsfio.a ../Stdio_b/libstdio.a"
 HDRS="-I../Stdio_s -I.."
 DEFS="-Dvt_threaded=0"
 XLIBS=""
@@ -41,10 +41,10 @@ do
 		;;
 	-c)	exit_on_fail=0;
 		;;
-	-ut)	LIBS="../libsfio.a";
+	-ut)	LIBS="../libsfio.a ../Stdio_b/libstdio.a";
 		DEFS="-Dvt_threaded=0";
 		;;
-	-mt)	LIBS="../libsfio-mt.a ../../vthread/libvthread.a";
+	-mt)	LIBS="../libsfio-mt.a ../Stdio_b/libstdio-mt.a ../../vthread/libvthread.a";
 		DEFS="-Dvt_threaded=1";
 		;;
 	-*)	echo "Hmm, unknown argument: $1";

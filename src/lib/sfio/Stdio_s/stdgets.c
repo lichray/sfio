@@ -1,5 +1,4 @@
-#include	"sfhdr.h"
-#include	"stdio.h"
+#include	"stdio_s.h"
 
 /*	Read a line into a buffer.
 **

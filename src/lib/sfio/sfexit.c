@@ -41,7 +41,7 @@ void	(*exitf)();
 {	Exit_t*	e;
 	int	rv;
 
-	vtmtxlock(_Sfmutex);
+	(void)vtmtxlock(_Sfmutex);
 
 	if(!(e = (Exit_t*)malloc(sizeof(Exit_t))) )
 		rv = -1;
@@ -52,7 +52,7 @@ void	(*exitf)();
 		rv = 0;
 	}
 
-	vtmtxunlock(_Sfmutex);
+	(void)vtmtxunlock(_Sfmutex);
 
 	return rv;
 }
@@ -126,7 +126,7 @@ int	options;
 	if(options != 0)
 		return -1;
 
-	vtmtxlock(_Sfmutex);
+	(void)vtmtxlock(_Sfmutex);
 
 	for(w = Wait, last = NIL(Waitpid_t*); w; last = w, w = w->next)
 	{	if(pid > 0 && pid != w->pid)
@@ -140,7 +140,7 @@ int	options;
 		pid = w->pid;
 		free(w);
 
-		vtmtxunlock(_Sfmutex);
+		(void)vtmtxunlock(_Sfmutex);
 		return pid;
 	}
 
@@ -149,7 +149,7 @@ int	options;
 		{	if(status)
 				*status = ps;
 
-			vtmtxunlock(_Sfmutex);
+			(void)vtmtxunlock(_Sfmutex);
 			return pid;
 		}
 
@@ -162,7 +162,7 @@ int	options;
 		Wait = w;
 	}
 
-	vtmtxunlock(_Sfmutex);
+	(void)vtmtxunlock(_Sfmutex);
 	return -1;
 }
 

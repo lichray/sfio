@@ -28,7 +28,7 @@ va_dcl
 	if(!form || !(sf = _sfstream(f)))
 		return -1;
 
-	if((rv = sfvprintf(sf,form,args)) < 0)
+	if((rv = (int)sfvprintf(sf,form,args)) < 0)
 		_stdseterr(f,sf);
 
 	va_end(args);

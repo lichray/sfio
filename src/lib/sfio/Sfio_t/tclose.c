@@ -28,6 +28,7 @@ MAIN()
 	void(*	handler)_ARG_((int));
 
 #define N_STR	10
+	alarm(10);
 	if(argc > 1) /* to act as a coprocess that read/write ten lines */
 	{	int	i, n, rv;
 

@@ -31,8 +31,36 @@ struct stat
 {	int	st_mode;
 	int	st_size;
 };
-#define fstat(fd,st)	(-1)
+#undef sysfstatf
+#define sysfstatf(fd,st)	(-1)
 #endif /*_sys_stat*/
+
+static int setlinemode()
+{	char*			astsfio;
+	char*			endw;
+
+	static int		linemode = -1;
+	static const char	sf_line[] = "SF_LINE";
+
+#define ISSEPAR(c)	((c) == ',' || (c) == ' ' || (c) == '\t')
+	if (linemode < 0)
+	{	linemode = 0;
+		if(astsfio = getenv("_AST_SFIO_OPTIONS"))
+		{	for(; *astsfio != 0; astsfio = endw)
+			{	while(ISSEPAR(*astsfio) )
+					*astsfio++;
+				for(endw = astsfio; *endw && !ISSEPAR(*endw); ++endw)
+					;
+				if((endw-astsfio) == (sizeof(sf_line)-1) &&
+				   strncmp(astsfio,sf_line,endw-astsfio) == 0)
+				{	linemode = 1;
+					break;
+				}
+			}
+		}
+	}
+	return linemode;
+}
 
 #if __STD_C
 Void_t* sfsetbuf(reg Sfio_t* f, reg Void_t* buf, reg size_t size)
@@ -43,12 +71,12 @@ reg Void_t*	buf;	/* new buffer */
 reg size_t	size;	/* buffer size, -1 for default size */
 #endif
 {
-	reg int		sf_malloc;
-	reg uchar*	obuf;
-	reg Sfdisc_t*	disc;
-	reg ssize_t	osize, blksize;
-	reg int		oflags, init, okmmap, local;
+	int		sf_malloc, oflags, init, okmmap, local;
+	ssize_t		bufsize, blksz;
+	Sfdisc_t*	disc;
 	sfstat_t	st;
+	uchar*		obuf = NIL(uchar*);
+	ssize_t		osize = 0;
 
 	SFONCE();
 
@@ -96,7 +124,23 @@ reg size_t	size;	/* buffer size, -1 for default size */
 
 	SFLOCK(f,local);
 
-	blksize = 0;
+	if((Sfio_t*)buf != f)
+		blksz = -1;
+	else /* setting alignment size only */
+	{	blksz = (ssize_t)size;
+
+		if(!init) /* stream already initialized */
+		{	obuf = f->data;
+			osize = f->size;
+			goto done;
+		}
+		else /* initialize stream as if in the default case */
+		{	buf = NIL(Void_t*);
+			size = (size_t)SF_UNBOUND;
+		}
+	}
+
+	bufsize = 0;
 	oflags = f->flags;
 
 	/* see if memory mapping is possible (see sfwrite for SF_BOTH) */
@@ -149,16 +193,17 @@ reg size_t	size;	/* buffer size, -1 for default size */
 		}
 
 		/* get file descriptor status */
-		if(fstat((int)f->file,&st) < 0)
+		if(sysfstatf((int)f->file,&st) < 0)
 			f->here = -1;
 		else
 		{
 #if _sys_stat && _stat_blksize	/* preferred io block size */
-			if((blksize = (ssize_t)st.st_blksize) > 0)
-				while((blksize + (ssize_t)st.st_blksize) <= SF_PAGE)
-					blksize += (ssize_t)st.st_blksize;
+			if((bufsize = (ssize_t)st.st_blksize) > 0)
+				while((bufsize + (ssize_t)st.st_blksize) <= SF_PAGE)
+					bufsize += (ssize_t)st.st_blksize;
+			f->blksz = (size_t)st.st_blksize;
 #endif
-			if(S_ISDIR(st.st_mode) || (int)st.st_size < SF_GRAIN)
+			if(S_ISDIR(st.st_mode) || (Sfoff_t)st.st_size < (Sfoff_t)SF_GRAIN)
 				okmmap = 0;
 			if(S_ISREG(st.st_mode) || S_ISDIR(st.st_mode))
 				f->here = SFSK(f,(Sfoff_t)0,SEEK_CUR,f->disc);
@@ -166,10 +211,13 @@ reg size_t	size;	/* buffer size, -1 for default size */
 
 #if O_TEXT /* no memory mapping with O_TEXT because read()/write() alter data stream */
 			if(okmmap && f->here >= 0 &&
-			   (fcntl((int)f->file,F_GETFL,0) & O_TEXT) )
+			   (sysfcntlf((int)f->file,F_GETFL,0) & O_TEXT) )
 				okmmap = 0;
 #endif
 		}
+
+		if(init && setlinemode())
+			f->flags |= SF_LINE;
 
 		if(f->here >= 0)
 		{	f->extent = (Sfoff_t)st.st_size;
@@ -188,7 +236,7 @@ reg size_t	size;	/* buffer size, -1 for default size */
 			{	if(S_ISCHR(st.st_mode) )
 				{	int oerrno = errno;
 
-					blksize = SF_GRAIN;
+					bufsize = SF_GRAIN;
 
 					/* set line mode for terminals */
 					if(!(f->flags&SF_LINE) && isatty(f->file))
@@ -198,7 +246,7 @@ reg size_t	size;	/* buffer size, -1 for default size */
 					{	reg int	dev, ino;
 						dev = (int)st.st_dev;	
 						ino = (int)st.st_ino;	
-						if(stat(DEVNULL,&st) >= 0 &&
+						if(sysstatf(DEVNULL,&st) >= 0 &&
 						   dev == (int)st.st_dev &&
 						   ino == (int)st.st_ino)
 							SFSETNULL(f);
@@ -209,7 +257,7 @@ reg size_t	size;	/* buffer size, -1 for default size */
 
 				/* initialize side buffer for r+w unseekable streams */
 				if(!f->proc && (f->bits&SF_BOTH) )
-					(void)_sfpopen(f,-1,-1,0);
+					(void)_sfpopen(f,-1,-1,1);
 			}
 		}
 
@@ -233,8 +281,8 @@ reg size_t	size;	/* buffer size, -1 for default size */
 		if(!disc)
 		{	f->bits |= SF_MMAP;
 			if(size == (size_t)SF_UNBOUND)
-			{	if(blksize > _Sfpage)
-					size = blksize * SF_NMAP;
+			{	if(bufsize > _Sfpage)
+					size = bufsize * SF_NMAP;
 				else	size = _Sfpage * SF_NMAP;
 				if(size > 256*1024)
 					size = 256*1024;
@@ -256,8 +304,8 @@ setbuf:
 		else if((f->flags&SF_READ) && !(f->bits&SF_BOTH) &&
 			f->extent > 0 && f->extent < (Sfoff_t)_Sfpage )
 			size = (((size_t)f->extent + SF_GRAIN-1)/SF_GRAIN)*SF_GRAIN;
-		else if((ssize_t)(size = _Sfpage) < blksize)
-			size = blksize;
+		else if((ssize_t)(size = _Sfpage) < bufsize)
+			size = bufsize;
 
 		buf = NIL(Void_t*);
 	}
@@ -310,7 +358,19 @@ setbuf:
 		obuf = NIL(uchar*);
 	}
 
+done:
 	_Sfi = f->val = obuf ? osize : 0;
+
+	/* blksz is used for aligning disk block boundary while reading data to
+	** optimize data transfer from disk (eg, via direct I/O). blksz can be
+	** at most f->size/2 so that data movement in buffer can be optimized.
+	** blksz should also be a power-of-2 for optimal disk seeks.
+	*/
+	if(blksz <= 0 || (blksz & (blksz-1)) != 0 )
+		blksz = SF_GRAIN;
+	while(blksz > f->size/2)
+		blksz /= 2;
+	f->blksz = blksz;
 
 	SFOPEN(f,local);
 

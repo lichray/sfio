@@ -6,7 +6,7 @@
 
 #define N_PROC	3
 #define N_REC	1000
-#define B_SIZE	1024
+#define B_SIZE	256
 
 #if __STD_C
 static ssize_t inspect(Sfio_t* f, const Void_t* buf, size_t n, Sfdisc_t* disc)
@@ -48,8 +48,8 @@ MAIN()
 {
 	ssize_t		size[N_PROC][N_REC];
 	int		count[N_PROC];
-	char		record[N_PROC][128], *s;
-	int		i, r, n;
+	char		record[N_PROC][128], *s, *file;
+	int		i, r, n, pid;
 	Sfio_t*		f;
 	Sfio_t*		fa[N_PROC];
 	char		buf[N_PROC][B_SIZE], b[N_PROC][128];
@@ -69,22 +69,34 @@ MAIN()
 		record[i][r] = '0' + 2*i;
 
 	/* create file */
-	if(!(f = sfopen(NIL(Sfio_t*),tstfile(0),"w+")) )
-		terror("Opening temporary file %s\n", tstfile(0));
+	file = tstfile(0);
+	if(!(f = sfopen(NIL(Sfio_t*),file,"w+")) )
+		terror("Opening temporary file %s\n", file);
+
+	/* open file for appending */
 	for(i = 0; i < N_PROC; ++i)
-	{	fa[i] = sfopen(NIL(Sfio_t*), tstfile(0), "a");
-		sfsetbuf(fa[i], (Void_t*)buf[i], sizeof(buf[i]));
-		sfset(fa[i], SF_WHOLE, 1);
-		Disc[i].writef = inspect;
-		sfdisc(fa[i], &Disc[i]);
-	}
+		if(!(fa[i] = sfopen(NIL(Sfio_t*), file, "a")) )
+			terror("Open %s to append", file);
 
 	/* fork processes */
 	for(i = 0; i < N_PROC; ++i)
-	{	switch(fork() )
-		{ case -1:
+	{
+#ifdef DEBUG
+#define FORK()		0
+#define RETURN(v)
+#else
+#define FORK()		fork()
+#define RETURN(v)	exit(v)
+#endif
+		if((pid = (int)FORK()) < 0 )
 			terror("Creating process %d\n", i);
-		  case 0 :
+		else if(pid == 0)
+		{	/* write to file */
+			sfsetbuf(fa[i], (Void_t*)buf[i], sizeof(buf[i]));
+			sfset(fa[i], SF_WHOLE, 1);
+			Disc[i].writef = inspect;
+			sfdisc(fa[i], &Disc[i]);
+
 			for(r = 0; r < N_REC; ++r)
 			{	n = size[i][r]; s = b[i];
 				memcpy(s,record[i],n-1);
@@ -94,10 +106,12 @@ MAIN()
 				s[4] = ')';
 				s[n-2] = s[0] + 1;
 				s[n-1] = '\n';
-				sfwrite(fa[i],s,n);
+				if(sfwrite(fa[i],s,n) != n)
+					terror("sfwrite failed");
 			}
 			sfsync(fa[i]);
-			return 0;
+
+			RETURN(0);
 		}
 	}
 

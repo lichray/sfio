@@ -1,25 +1,7 @@
 #ifndef _SFIO_H
 #define _SFIO_H	1
 
-/********************************************************************************
-*	This product contains certain software code or other information	*
-*	("AT&T Software") proprietary to AT&T Corp. ("AT&T").			*
-*	The AT&T Software is provided to you "AS IS". YOU ASSUME TOTAL		*
-*	RESPONSIBILITY AND RISK FOR USE OF THE AT&T SOFTWARE.			*
-*	AT&T DOES NOT MAKE, AND EXPRESSLY DISCLAIMS, ANY EXPRESS OR		*
-*	IMPLIED WARRANTIES OF ANY KIND WHATSOEVER, INCLUDING,			*
-*	WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTABILITY OR	*
-*	FITNESS FOR A PARTICULAR PURPOSE, WARRANTIES OF TITLE OR		*
-*	NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS,			*
-*	ANY WARRANTIES ARISING BY USAGE OF TRADE, COURSE OF DEALING OR		*
-*	COURSE OF PERFORMANCE, OR ANY WARRANTY THAT THE AT&T SOFTWARE		*
-*	IS "ERROR FREE" OR WILL MEET YOUR REQUIREMENTS. 			*
-*										*
-*	All rights reserved. AT&T is a registered trademark of AT&T Corp.	*
-********************************************************************************/
-
-
-#define SFIO_VERSION	20020531L
+#define SFIO_VERSION	20050201L
 
 /*	Public header file for the sfio library
 **
@@ -141,9 +123,10 @@ struct _sffmt_s
 #define SF_PUBLIC	0004000	/* SF_SHARE and follow physical seek	*/
 #define SF_MTSAFE	0010000	/* need thread safety			*/
 #define SF_WHOLE	0020000	/* preserve wholeness of sfwrite/sfputr */
+#define SF_IOINTR	0040000	/* return on interrupts			*/
 
 #define SF_FLAGS	0077177	/* PUBLIC FLAGS PASSABLE TO SFNEW()	*/
-#define SF_SETS		0027163	/* flags passable to sfset()		*/
+#define SF_SETS		0077163	/* flags passable to sfset()		*/
 
 #ifndef _SF_NO_OBSOLETE
 #define SF_BUFCONST	0400000 /* unused flag - for compatibility only	*/
@@ -194,29 +177,25 @@ extern ssize_t		_Sfi;
 /* standard in/out/err streams */
 
 #if _BLD_sfio && defined(__EXPORT__)
-#define __PUBLIC_DATA__		__EXPORT__
-#else
-#if !_BLD_sfio && defined(__IMPORT__)
-#define __PUBLIC_DATA__		__IMPORT__
-#else
-#define __PUBLIC_DATA__
+#define extern		extern __EXPORT__
 #endif
+#if !_BLD_sfio && defined(__IMPORT__)
+#define extern		extern __IMPORT__
 #endif
 
-extern __PUBLIC_DATA__ Sfio_t*		sfstdin;
-extern __PUBLIC_DATA__ Sfio_t*		sfstdout;
-extern __PUBLIC_DATA__ Sfio_t*		sfstderr;
+extern Sfio_t*		sfstdin;
+extern Sfio_t*		sfstdout;
+extern Sfio_t*		sfstderr;
 
 #if _UWIN
-#undef	__PUBLIC_DATA__
-#define	__PUBLIC_DATA__
+#undef	extern
 #endif
 
-extern __PUBLIC_DATA__ Sfio_t		_Sfstdin;
-extern __PUBLIC_DATA__ Sfio_t		_Sfstdout;
-extern __PUBLIC_DATA__ Sfio_t		_Sfstderr;
+extern Sfio_t		_Sfstdin;
+extern Sfio_t		_Sfstdout;
+extern Sfio_t		_Sfstderr;
 
-#undef	__PUBLIC_DATA__
+#undef	extern
 
 #if _BLD_sfio && defined(__EXPORT__)
 #define extern	__EXPORT__
@@ -253,8 +232,8 @@ extern ssize_t		sfnputc _ARG_((Sfio_t*, int, size_t));
 extern int		sfungetc _ARG_((Sfio_t*, int));
 extern int		sfprintf _ARG_((Sfio_t*, const char*, ...));
 extern char*		sfprints _ARG_((const char*, ...));
-extern int		sfsprintf _ARG_((char*, int, const char*, ...));
-extern int		sfvsprintf _ARG_((char*, int, const char*, _ast_va_list));
+extern ssize_t		sfsprintf _ARG_((char*, size_t, const char*, ...));
+extern ssize_t		sfvsprintf _ARG_((char*, size_t, const char*, _ast_va_list));
 extern int		sfvprintf _ARG_((Sfio_t*, const char*, _ast_va_list));
 extern int		sfscanf _ARG_((Sfio_t*, const char*, ...));
 extern int		sfsscanf _ARG_((const char*, const char*, ...));
@@ -399,5 +378,46 @@ __INLINE__ ssize_t sfvalue(Sfio_t* f)		{ return __sf_value(f); }
 #define sfslen()				( __sf_slen() )
 
 #endif /*__INLINE__*/
+
+#ifndef _SFSTR_H /* GSF's string manipulation stuff */
+#define _SFSTR_H		1
+
+#define sfstropen()		sfnew(0, 0, -1, -1, SF_READ|SF_WRITE|SF_STRING)
+#define sfstrclose(f)		sfclose(f)
+
+#define sfstrseek(f,p,m) \
+	( (m) == SEEK_SET ? \
+	 	(((p) < 0 || (p) > (f)->_size) ? (char*)0 : \
+		 (char*)((f)->_next = (f)->_data+(p)) ) \
+	: (m) == SEEK_CUR ? \
+		((f)->_next += (p), \
+		 (((f)->_next < (f)->_data || (f)->_next > (f)->_data+(f)->_size) ? \
+			((f)->_next -= (p), (char*)0) : (char*)(f)->_next ) ) \
+	: (m) == SEEK_END ? \
+		( ((p) > 0 || (f)->_size+(p) < 0) ? (char*)0 : \
+			(char*)((f)->_next = (f)->_data+(f)->_size+(p)) ) \
+	: (char*)0 \
+	)
+
+#define sfstrsize(f)		((f)->_size)
+#define sfstrtell(f)		((f)->_next - (f)->_data)
+#define sfstrpend(f)		((f)->_size - sfstrtell())
+#define sfstrbase(f)		((char*)(f)->_data)
+
+#define sfstruse(f) \
+	(sfputc((f),0) < 0 ? (char*)0 : (char*)((f)->_next = (f)->_data) \
+	)
+
+#define sfstrrsrv(f,n) \
+	(sfreserve((f),(n),SF_WRITE|SF_LOCKR), sfwrite((f),(f)->_next,0), \
+	 ((f)->_next+(n) <= (f)->_data+(f)->_size ? (char*)(f)->_next : (char*)0) \
+	)
+
+#define sfstrbuf(f,b,n,m) \
+	(sfsetbuf((f),(b),(n)), ((f)->_flags |= (m) ? SF_MALLOC : 0), \
+	 ((f)->_data == (unsigned char*)(b) ? 0 : -1) \
+	)
+
+#endif /* _SFSTR_H */
 
 #endif /* _SFIO_H */

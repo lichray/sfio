@@ -1,5 +1,8 @@
-#define _SFIO_H_ONLY	1
 #include	"sftest.h"
+
+#undef	off_t
+#undef	mmap
+#undef	mmap64
 
 /*	This test causes mmap() to fail so that read() must be used.
 	On a system such as BSDI, malloc uses mmap() so if mmap()
@@ -10,9 +13,21 @@
 static int	Success = 1;
 
 #if __STD_C
-void* mmap(void* addr, size_t size, int x, int y, int z, Sfoff_t offset)
+void* mmap(void* addr, size_t size, int x, int y, int z, off_t offset)
 #else
 void* mmap()
+#endif
+{
+	if(Success)
+		TSTEXIT(0);
+
+	return (void*)(-1);
+}
+
+#if __STD_C
+void* mmap64(void* addr, size_t size, int x, int y, int z, Sfoff_t offset)
+#else
+void* mmap64()
 #endif
 {
 	if(Success)

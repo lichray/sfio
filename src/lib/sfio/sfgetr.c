@@ -10,8 +10,8 @@
 char* sfgetr(reg Sfio_t *f, reg int rc, int type)
 #else
 char* sfgetr(f,rc,type)
-reg Sfio_t*	f;	/* stream to read from. r11 on vax		*/
-reg int		rc;	/* record separator. r10 on Vax			*/
+reg Sfio_t*	f;	/* stream to read from	*/
+reg int		rc;	/* record separator	*/
 int		type;
 #endif
 {

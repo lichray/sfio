@@ -34,12 +34,12 @@ MAIN()
 
 	if(strcmp(sfgetr(sfstdin,'\n',1),"111") != 0)
 		terror("sfgetr failed1\n");
-	if(sfstdin->endb > sfstdin->next)
+	if(sfstdin->_endb > sfstdin->_next)
 		terror("sfgetr reads too much1\n");
 
 	if(strcmp(sfgetr(sfstdin,'\n',1),"222") != 0)
 		terror("sfgetr failed2\n");
-	if(sfstdin->endb > sfstdin->next)
+	if(sfstdin->_endb > sfstdin->_next)
 		terror("sfgetr reads too much2\n");
 
 	TSTEXIT(0);

@@ -1,5 +1,4 @@
-#include	"sfhdr.h"
-#include	"stdio.h"
+#include	"stdio_s.h"
 
 #if __STD_C
 int _stdputw(int w, FILE* f)

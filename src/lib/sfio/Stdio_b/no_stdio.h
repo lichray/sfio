@@ -61,8 +61,14 @@
 #define _INC_STDIO	1
 #endif
 
+#ifndef _FILE_DEFINED
 #define _FILE_DEFINED	1	/* stop Windows from defining FILE	*/
+#endif
+#ifndef _FILEDEFED
 #define _FILEDEFED	1	/* stop SUNOS5.8 ...			*/
+#endif
+#ifndef __FILE_defined
 #define __FILE_defined	1	/* stop Linux ...			*/
+#endif
 
 #endif/*_NO_STDIO_H*/

@@ -8,9 +8,9 @@ typedef struct _coord_
 Coord_t	Coord;
 
 #if __STD_C
-coordprint(Sfio_t* f, Void_t* v, Sffmt_t* fe)
+int coordprint(Sfio_t* f, Void_t* v, Sffmt_t* fe)
 #else
-coordprint(f, v, fe)
+int coordprint(f, v, fe)
 Sfio_t*		f;
 Void_t*		v;
 Sffmt_t*	fe;
@@ -32,11 +32,56 @@ Sffmt_t*	fe;
 	return 0;
 }
 
-int	OXcount;
+typedef union Value_u
+{
+	unsigned char	c;
+	short		h;
+	int		i;
+	long		l;
+	Sflong_t	ll;
+	Sfdouble_t	ld;
+	double		d;
+	float		f;
+	char		*s;
+	int		*ip;
+	char		**p;
+} Value_t;
+
 #if __STD_C
-OXprint(Sfio_t* f, Void_t* v, Sffmt_t* fe)
+int nulprint(Sfio_t* f, Void_t* val, Sffmt_t* fe)
 #else
-OXprint(f, v, fe)
+int nulprint(f, val, fe)
+Sfio_t*		f;
+Void_t*		val;
+Sffmt_t*	fe;
+#endif
+{
+	if(fe->fmt == 'Z')
+	{	fe->fmt = 'c';
+		fe->size = -1;
+		fe->base = -1;
+		fe->flags &= ~SFFMT_LONG;
+		fe->flags |= SFFMT_VALUE;
+		((Value_t*)val)->l = 0x04050607;
+		((Value_t*)val)->c = 0;
+	}
+	else if(fe->fmt == 'Y')
+	{	fe->fmt = 'c';
+		fe->size = -1;
+		fe->base = ':';
+		fe->flags &= ~SFFMT_LONG;
+		fe->flags |= SFFMT_VALUE;
+		((Value_t*)val)->s = "abc";
+	}
+	return 0;
+}
+
+static int	OXcount;
+static char*	OXstr = "abc";
+#if __STD_C
+int DOXSprint(Sfio_t* f, Void_t* v, Sffmt_t* fe)
+#else
+int DOXSprint(f, v, fe)
 Sfio_t*		f;
 Void_t*		v;
 Sffmt_t*	fe;
@@ -62,15 +107,20 @@ Sffmt_t*	fe;
 		*((int*)v) = 12;
 		fe->flags |= SFFMT_VALUE;
 		return 0;
+
+	case 's':
+		*((char**)v) = OXstr;
+		fe->flags |= SFFMT_VALUE;
+		return 0;
 	}
 
 	return 0;
 }
 
 #if __STD_C
-abprint(Sfio_t* f, Void_t* v, Sffmt_t* fe)
+int abprint(Sfio_t* f, Void_t* v, Sffmt_t* fe)
 #else
-abprint(f, v, fe)
+int abprint(f, v, fe)
 Sfio_t*		f;
 Void_t*		v;
 Sffmt_t*	fe;
@@ -95,9 +145,9 @@ Sffmt_t*	fe;
 }
 
 #if __STD_C
-intarg(Sfio_t* f, Void_t* val, Sffmt_t* fe)
+int intarg(Sfio_t* f, Void_t* val, Sffmt_t* fe)
 #else
-intarg(f, val, fe)
+int intarg(f, val, fe)
 Sfio_t*		f;
 Void_t*		val;
 Sffmt_t*	fe;
@@ -109,9 +159,9 @@ Sffmt_t*	fe;
 }
 
 #if __STD_C
-shortarg(Sfio_t* f, Void_t* val, Sffmt_t* fe)
+int shortarg(Sfio_t* f, Void_t* val, Sffmt_t* fe)
 #else
-shortarg(f, val, fe)
+int shortarg(f, val, fe)
 Sfio_t*		f;
 Void_t*		val;
 Sffmt_t*	fe;
@@ -126,9 +176,9 @@ Sffmt_t*	fe;
 }
 
 #if __STD_C
-transarg(Sfio_t* f, Void_t* val, Sffmt_t* fe)
+int transarg(Sfio_t* f, Void_t* val, Sffmt_t* fe)
 #else
-transarg(f, val, fe)
+int transarg(f, val, fe)
 Sfio_t*		f;
 Void_t*		val;
 Sffmt_t*	fe;
@@ -148,7 +198,6 @@ Sffmt_t*	fe;
 	  default : return -1;
 	}
 }
-
 
 #if __STD_C
 void stkprint(char* buf, int n, char* form, ...)
@@ -205,14 +254,14 @@ MAIN()
 
 	fe.version = SFIO_VERSION;
 	fe.form = NIL(char*);
-	fe.extf = OXprint;
+	fe.extf = DOXSprint;
 	fe.eventf = NIL(Sffmtevent_f);
 
-	sfsprintf(buf1,sizeof(buf1),"%4d %4o %4x %4o %4x", 10, 11, 12, 11, 10);
-	sfsprintf(buf2,sizeof(buf2),"%!%2$4d %3$4O %4$4X %3$4O %2$4x", &fe);
+	sfsprintf(buf1,sizeof(buf1),"%4d %4o %4x %4o %4x %s", 10, 11, 12, 11, 10, "abc");
+	sfsprintf(buf2,sizeof(buf2),"%!%2$4d %3$4O %4$4X %3$4O %2$4x %5$s", &fe);
 	if(strcmp(buf1,buf2) != 0)
 		terror("Failed testing $position2\n");
-	if(OXcount != 3)
+	if(OXcount != 4)
 		terror("Failed OXprint called wrong number of times %d\n",OXcount);
 
 	sfsprintf(buf1,sizeof(buf1),"%6.2f",x);
@@ -271,6 +320,28 @@ MAIN()
 	sfsprintf(buf2,sizeof(buf2),"%!%(%d %d)c",&fe,&Coord);
 	if(strcmp(buf1,buf2) != 0)
 		terror("%%()c `%s' != `%s'\n", buf1, buf2);
+
+	fe.form = NIL(char*);
+	fe.extf = nulprint;
+	buf2[0] = buf2[1] = buf2[2] = buf2[3] = buf2[4] = 3;
+	sfsprintf(buf2,sizeof(buf2),"%!\001%Z\002",&fe);
+	if(buf2[0]!=1||buf2[1]!=0||buf2[2]!=2||buf2[3]!=0||buf2[4]!=3)
+		terror("%%Z <1,0,2,0,3> != <%o,%o,%o,%o,%o>\n",
+			buf2[0], buf2[1], buf2[2], buf2[3], buf2[4]);
+
+	fe.form = NIL(char*);
+	fe.extf = nulprint;
+	buf2[0] = buf2[1] = buf2[2] = buf2[3] = buf2[4] = 3;
+	sfsprintf(buf2,sizeof(buf2),"%!%c%Z%c",&fe,1,2);
+	if(buf2[0]!=1||buf2[1]!=0||buf2[2]!=2||buf2[3]!=0||buf2[4]!=3)
+		terror("%%Z <1,0,2,0,3> != <%o,%o,%o,%o,%o>\n",
+			buf2[0], buf2[1], buf2[2], buf2[3], buf2[4]);
+
+	fe.form = NIL(char*);
+	fe.extf = nulprint;
+	sfsprintf(buf2,sizeof(buf2),"%!%Y",&fe);
+	if(strcmp(buf2,"a:b:c"))
+		terror("%%Y a:b:c != %s\n", buf2);
 
 	sfsprintf(buf1,sizeof(buf1),"%d %d %d %d",1,2,3,4);
 	stkprint(buf2,sizeof(buf2),"%d %d",1,2);
@@ -483,6 +554,20 @@ MAIN()
 
 	if(strcmp(buf1,"1345 1234 11145401322 322 3e+02 -0.01 0.01 1e-05 1 -1    |") )
 		terror("Precision not set to zero as required after a dot");
+
+	/* test %#c to print C-style characters */
+	sfsprintf(buf1, sizeof(buf1), "%#.2c%#.2c", '\n', 255);
+	if(strcmp(buf1, "\\n\\n\\377\\377") != 0)
+		terror("%%#c formatting failed");
+
+	/* test printing of signed integer of length 1 */
+#if defined(__STDC__)
+	{	signed char	c = -128;
+		sfsprintf(buf1, sizeof(buf1), "%I1d", c);
+		if(strcmp(buf1, "-128") != 0)
+			terror("%%I1d formatting failed");
+	}
+#endif
 
 	TSTEXIT(0);
 }

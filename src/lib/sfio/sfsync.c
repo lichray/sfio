@@ -80,6 +80,9 @@ reg Sfio_t*	f;	/* stream to be synchronized */
 
 	rv = 0;
 
+	if(origf->mode == (SF_SYNCED|SF_READ) ) /* already synced */
+		goto done;
+
 	if((origf->mode&SF_RDWR) != SFMODE(origf,local) && _sfmode(origf,0,local) < 0)
 	{	rv = -1;
 		goto done;

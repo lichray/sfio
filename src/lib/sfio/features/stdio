@@ -209,6 +209,21 @@ lib __vsnprintf
 lib fseeko
 lib ftello
 
+lib tmpfile64
+lib __tmpfile64
+lib fopen64
+lib __fopen64
+lib freopen64
+lib __freopen64
+lib fgetpos64
+lib __fgetpos64
+lib fsetpos64
+lib __fsetpos64
+lib ftello64
+lib __ftello64
+lib fseeko64
+lib __fseeko64
+
 # detect microsoft dll declaration of _iob
 mac	_iob	stdio.h
 msft	iob note{ microsoft's oddity }end compile{

@@ -21,3 +21,17 @@ FILE* tmpfile()
 
 	return f;
 }
+
+#if _lib___tmpfile64 && !_done___tmpfile64 && !defined(tmpfile)
+#define _done___tmpfile64	1
+#define tmpfile			__tmpfile64
+#include			"tmpfile.c"
+#undef tmpfile
+#endif
+
+#if _lib_tmpfile64 && !_done_tmpfile64 && !defined(tmpfile)
+#define _done_tmpfile64	1
+#define tmpfile		tmpfile64
+#include		"tmpfile.c"
+#undef tmpfile
+#endif

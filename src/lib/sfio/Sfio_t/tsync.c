@@ -3,9 +3,9 @@
 /* this tests to see if SF_SYNC is raised at the right time */
 static int	Count = 0;
 #if __STD_C
-static except(Sfio_t* f, int type, Void_t* arg, Sfdisc_t* disc)
+static int except(Sfio_t* f, int type, Void_t* arg, Sfdisc_t* disc)
 #else
-static except(f, type, arg, disc)
+static int except(f, type, arg, disc)
 Sfio_t*		f;
 int		type;
 Void_t*		arg;

@@ -50,7 +50,7 @@ Sfdisc_t*	disc;
 
 	if(type == SF_CLOSING)
 	{
-		vtmtxlock(_Sfmutex);
+		(void)vtmtxlock(_Sfmutex);
 		for(last = NIL(File_t*), ff = File; ff; last = ff, ff = ff->next)
 			if(ff->f == f)
 				break;
@@ -63,12 +63,12 @@ Sfdisc_t*	disc;
 				(*_Sfnotify)(f,SF_CLOSING,f->file);
 			CLOSE(f->file);
 			f->file = -1;
-			while(remove(ff->name) < 0 && errno == EINTR)
+			while(sysremovef(ff->name) < 0 && errno == EINTR)
 				errno = 0;
 
 			free((Void_t*)ff);
 		}
-		vtmtxunlock(_Sfmutex);
+		(void)vtmtxunlock(_Sfmutex);
 	}
 
 	return 0;
@@ -81,12 +81,12 @@ static void _rmfiles()
 #endif
 {	reg File_t	*ff, *next;
 
-	vtmtxlock(_Sfmutex);
+	(void)vtmtxlock(_Sfmutex);
 	for(ff = File; ff; ff = next)
 	{	next = ff->next;
 		_tmprmfile(ff->f, SF_CLOSING, NIL(Void_t*), ff->f->disc);
 	}
-	vtmtxunlock(_Sfmutex);
+	(void)vtmtxunlock(_Sfmutex);
 }
 
 static Sfdisc_t	Rmdisc =
@@ -110,16 +110,15 @@ char*	file;
 
 	if(!(ff = (File_t*)malloc(sizeof(File_t)+strlen(file))) )
 		return -1;
-	vtmtxlock(_Sfmutex);
+	(void)vtmtxlock(_Sfmutex);
 	ff->f = f;
 	strcpy(ff->name,file);
 	ff->next = File;
 	File = ff;
-	vtmtxunlock(_Sfmutex);
+	(void)vtmtxunlock(_Sfmutex);
 
 #else	/* can remove now */
-	f = 0;
-	while(remove(file) < 0 && errno == EINTR)
+	while(sysremovef(file) < 0 && errno == EINTR)
 		errno = 0;
 #endif
 
@@ -184,10 +183,16 @@ Sfio_t*	f;
 #endif
 {
 	reg char*	file;
-	reg int		fd;
+	int		fd;
+
+#if _PACKAGE_ast
+	if(!(file = pathtemp(NiL,PATH_MAX,NiL,"sf",&fd)))
+		return -1;
+	_rmtmp(f, file);
+	free(file);
+#else
 	int		t;
 
-#if !_PACKAGE_ast
 	/* set up path of dirs to create temp files */
 	if(!Tmppath && !(Tmppath = _sfgetpath("TMPPATH")) )
 	{	if(!(Tmppath = (char**)malloc(2*sizeof(char*))) )
@@ -208,12 +213,10 @@ Sfio_t*	f;
 		Tmpcur += 1;
 	if(!Tmpcur || !Tmpcur[0])
 		Tmpcur = Tmppath;
-#endif /*!_PACKAGE_ast*/
 
-	file = NIL(char*); fd = -1;
+	fd = -1;
 	for(t = 0; t < 10; ++t)
 	{	/* compute a random name */
-#if !_PACKAGE_ast
 		static ulong	Key, A;
 		if(A == 0 || t > 0)	/* get a quasi-random coefficient */
 		{	reg int	r;
@@ -228,40 +231,32 @@ Sfio_t*	f;
 		Key = A*Key + 987654321;
 		file = sfprints("%s/sf%3.3.32lu.%3.3.32lu",
 				Tmpcur[0], (Key>>15)&0x7fff, Key&0x7fff);
-#else
-		file = pathtmp(file,NiL,"sf",NiL);
-#endif /*!_PACKAGE_ast*/
-
 		if(!file)
 			return -1;
 #if _has_oflags
-		if((fd = open(file,O_RDWR|O_CREAT|O_EXCL|O_TEMPORARY,SF_CREATMODE)) >= 0)
+		if((fd = sysopenf(file,O_RDWR|O_CREAT|O_EXCL|O_TEMPORARY,SF_CREATMODE)) >= 0)
 			break;
 #else
-		if((fd = open(file,O_RDONLY)) >= 0)
+		if((fd = sysopenf(file,O_RDONLY)) >= 0)
 		{	/* file already exists */
 			CLOSE(fd);
 			fd = -1;
 		}
-		else if((fd = creat(file,SF_CREATMODE)) >= 0)
+		else if((fd = syscreatf(file,SF_CREATMODE)) >= 0)
 		{	/* reopen for read and write */
 			CLOSE(fd);
-			if((fd = open(file,O_RDWR)) >= 0)
+			if((fd = sysopenf(file,O_RDWR)) >= 0)
 				break;
 
 			/* don't know what happened but must remove file */
-			while(remove(file) < 0 && errno == EINTR)
+			while(sysremovef(file) < 0 && errno == EINTR)
 				errno = 0;
 		}
-#endif
+#endif /* _has_oflags */
 	}
-
 	if(fd >= 0)
 		_rmtmp(f, file);
-#if _PACKAGE_ast
-	free(file);
-#endif /*_PACKAGE_ast*/
-
+#endif /* _PACKAGE_ast */
 	return fd;
 }
 
@@ -307,8 +302,8 @@ Sfdisc_t*	disc;
 		return -1;
 
 	if(newf.mutex) /* don't need a mutex for this stream */
-	{	vtmtxclrlock(newf.mutex);
-		vtmtxclose(newf.mutex);
+	{	(void)vtmtxclrlock(newf.mutex);
+		(void)vtmtxclose(newf.mutex);
 		newf.mutex = NIL(Vtmutex_t*);
 	}
 

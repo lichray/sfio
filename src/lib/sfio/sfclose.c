@@ -22,7 +22,7 @@ reg Sfio_t*	f;
 	if(!(f->mode&SF_INIT) &&
 	   SFMODE(f,local) != (f->mode&SF_RDWR) &&
 	   SFMODE(f,local) != (f->mode&(SF_READ|SF_SYNCED)) &&
-	   _sfmode(f,0,local) < 0)
+	   _sfmode(f,SF_SYNCED,local) < 0)
 		SFMTXRETURN(f,-1);
 
 	/* closing a stack of streams */
@@ -118,9 +118,9 @@ reg Sfio_t*	f;
 
 	/* destroy the mutex */
 	if(f->mutex)
-	{	vtmtxclrlock(f->mutex);
+	{	(void)vtmtxclrlock(f->mutex);
 		if(f != sfstdin && f != sfstdout && f != sfstderr)
-		{	vtmtxclose(f->mutex);
+		{	(void)vtmtxclose(f->mutex);
 			f->mutex = NIL(Vtmutex_t*);
 		}
 	}

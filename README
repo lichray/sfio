@@ -8,12 +8,12 @@ Standard directories:
 	./src		for source code of packages
 
 Package directories:
-	./src/lib/sfio
 	./src/lib/vthread
+	./src/lib/sfio
 
 Before building a package, you should add the above "bin" directory
-to your PATH environment variable. In most shell environments,
-the PATH variable can be set as follows:
+to your PATH environment variable. In most shell environments, the
+PATH variable can be set as follows:
 
 	PATH=$PATH:$PWD/bin
 
@@ -30,17 +30,10 @@ obtained in either text or html forms as follows:
 	iffe --html
 
 
-Each package directory also has a local README file that explains the
-local directory hierarchy and may give specific directions to build
-and test the respective package. Barring further package-specific
-instructions, below are the general steps for package building:
-
-	change the PATH environment variable as described, then
-	for each package, do:
-		change directory to package-directory,
-		read the README file for any specific instructions,
-		run "make -f Makefile install".
-
+The simplest way to build everything is to invoke the script "Runmake"
+available in this directory. Each package directory also has a README
+file that explains the local directory hierarchy and may give specific
+directions to build and test the respective package.
 
 Let me know of any problems. Good luck and have fun.
 

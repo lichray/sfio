@@ -7,7 +7,7 @@
 #define RBUF	16
 #define ITER	1024
 
-main()
+MAIN()
 {
 	Sfio_t		*fr;
 	int		p[2];

@@ -1,5 +1,5 @@
 #include	"sfhdr.h"
-static char*	Version = "\n@(#)sfio (AT&T Labs - kpv) 2002-05-31\0\n";
+static char*	Version = "\n@(#)sfio (AT&T Labs - kpv) 2005-02-01\0\n";
 
 /*	Functions to set a given stream to some desired mode
 **
@@ -19,6 +19,11 @@ static char*	Version = "\n@(#)sfio (AT&T Labs - kpv) 2002-05-31\0\n";
 **		09/09/1999 (thread-safe)
 **		02/01/2001 (adaptive buffering)
 **		05/31/2002 (multi-byte handling in sfvprintf/vscanf)
+**		09/06/2002 (SF_IOINTR flag)
+**		11/15/2002 (%#c for sfvprintf)
+**		05/31/2003 (sfsetbuf(f,f,align_size) to set alignment for data)
+**			   (%I1d is fixed to handle "signed char" correctly)
+**		01/01/2004 Porting issues to various platforms resolved.
 */
 
 /* the below is for protecting the application from SIGPIPE */
@@ -209,12 +214,12 @@ int		stdio;	/* stdio popen() does not reset SIGPIPE handler */
 	if(p->sigp)
 	{	Sfsignal_f	handler;
 
-		vtmtxlock(_Sfmutex);
+		(void)vtmtxlock(_Sfmutex);
 		if((handler = signal(SIGPIPE, ignoresig)) != SIG_DFL &&
 		    handler != ignoresig)
 			signal(SIGPIPE, handler); /* honor user handler */
 		_Sfsigp += 1;
-		vtmtxunlock(_Sfmutex);
+		(void)vtmtxunlock(_Sfmutex);
 	}
 #endif
 
@@ -247,18 +252,18 @@ reg Sfio_t*	f;	/* stream to close */
 
 		/* wait for process termination */
 #if _PACKAGE_ast
-		sigcritical(1);
+		sigcritical(SIG_REG_EXEC|SIG_REG_PROC);
 #endif
 		while ((pid = waitpid(p->pid,&status,0)) == -1 && errno == EINTR)
 			;
-		if(pid < 0)
+		if(pid == -1)
 			status = -1;
 #if _PACKAGE_ast
 		sigcritical(0);
 #endif
 
 #ifdef SIGPIPE
-		vtmtxlock(_Sfmutex);
+		(void)vtmtxlock(_Sfmutex);
 		if(p->sigp && (_Sfsigp -= 1) <= 0)
 		{	Sfsignal_f	handler;
 			if((handler = signal(SIGPIPE,SIG_DFL)) != SIG_DFL &&
@@ -266,7 +271,7 @@ reg Sfio_t*	f;	/* stream to close */
 				signal(SIGPIPE,handler); /* honor user handler */
 			_Sfsigp = 0;
 		}
-		vtmtxunlock(_Sfmutex);
+		(void)vtmtxunlock(_Sfmutex);
 #endif
 	}
 
@@ -339,6 +344,14 @@ reg int		local;	/* a local call */
 	reg int	rv = 0;
 
 	SFONCE();	/* initialize mutexes */
+
+	if(wanted&SF_SYNCED) /* for (SF_SYNCED|SF_READ) stream, just junk data */
+	{	wanted &= ~SF_SYNCED;
+		if((f->mode&(SF_SYNCED|SF_READ)) == (SF_SYNCED|SF_READ) )
+		{	f->next = f->endb = f->endr = f->data;
+			f->mode &= ~SF_SYNCED;
+		}
+	}
 
 	if((!local && SFFROZEN(f)) || (!(f->flags&SF_STRING) && f->file < 0))
 	{	if(local || !f->disc || !f->disc->exceptf)

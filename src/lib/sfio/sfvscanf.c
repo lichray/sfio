@@ -7,6 +7,12 @@
 
 #define MAXWIDTH	(int)(((uint)~0)>>1)	/* max amount to scan	*/
 
+/*
+ * pull in a private strtold()
+ */
+
+#include "sfstrtof.h"
+
 /* refresh stream buffer - taking care of unseekable/share streams too */
 #if __STD_C
 static void _sfbuf(Sfio_t* f, int* peek)
@@ -52,17 +58,25 @@ typedef struct _scan_s
 			 peek = (sc)->peek, n_input = (sc)->n_input)
 
 #if __STD_C
-static int _scgetc(void* arg)
+static int _scgetc(void* arg, int flag)
 #else
-static int _scgetc(arg)
+static int _scgetc(arg, flag)
 void*	arg;
+int	flag;
 #endif
 {
 	Scan_t	*sc = (Scan_t*)arg;
 
+	if (flag)
+	{	sc->error = flag;
+		return 0;
+	}
+
 	/* if width >= 0, do not allow to exceed width number of bytes */
 	if(sc->width == 0)
-		return (sc->inp = -2);
+	{	sc->inp = -1;
+		return 0;
+	}
 
 	if(sc->d >= sc->endd) /* refresh local buffer */
 	{	sc->n_input += sc->d - sc->data;
@@ -75,7 +89,9 @@ void*	arg;
 		sc->endd = sc->f->endb;
 
 		if(sc->d >= sc->endd)
-			return (sc->inp = -2);
+		{	sc->inp = -1;
+			return 0;
+		}
 	}
 
 	if((sc->width -= 1) >= 0) /* from _sfdscan */
@@ -206,13 +222,12 @@ Accept_t*	ac;	/* accept handle for %[		*/
 Void_t*		mbs;	/* multibyte parsing state	*/
 #endif
 {
-	int	n;
-	char	b[16]; /* assuming that MB_CUR_MAX <= 16! */
-	size_t	rv;
+	int	n, v;
+	char	b[16]; /* assuming that SFMBMAX <= 16! */
 
 	/* shift left data so that there will be more room to back up on error.
 	   this won't help streams with small buffers - c'est la vie! */
-	if(sc->d > sc->f->data && (n = sc->endd - sc->d) > 0 && n < MB_CUR_MAX)
+	if(sc->d > sc->f->data && (n = sc->endd - sc->d) > 0 && n < SFMBMAX)
 	{	memcpy(sc->f->data, sc->d, n);
 		if(sc->f->endr == sc->f->endb)
 			sc->f->endr = sc->f->data+n;
@@ -224,15 +239,16 @@ Void_t*		mbs;	/* multibyte parsing state	*/
 		if(!mbs) sc->f->endb = sc->endd; /* stop cc's "unused mbs" warning */
 	}
 
-	for(n = 0; n < MB_CUR_MAX; )
-	{	b[n++] = _scgetc((Void_t*)sc);
+	for(n = 0; n < SFMBMAX; )
+	{	if((v = _scgetc((Void_t*)sc, 0)) <= 0)
+			goto no_match;
+		else	b[n++] = v;
 
-		if((rv = mbrtowc(wc, b, n, (mbstate_t*)mbs)) == (size_t)(-2))
-			continue;	/* incomplete multi-byte char */
-		else if(rv == (size_t)(-1))
-			goto no_match;	/* malformed multi-byte char */
-		else /* multi-byte char converted successfully */
-		{	if(fmt == 'c')
+		if(mbrtowc(wc, b, n, (mbstate_t*)mbs) == (size_t)(-1))
+			goto no_match;  /* malformed multi-byte char */
+		else
+		{	/* multi-byte char converted successfully */
+			if(fmt == 'c')
 				return 1;
 			else if(fmt == 's')
 			{	if(n > 1 || (n == 1 && !isspace(b[0]) ) )
@@ -352,7 +368,7 @@ loop_fmt:
 			else
 			{ match_1:
 #if _has_multibyte
-				if((n = (int)mbrtowc(&wc,form-1,MB_CUR_MAX,&fmbs)) <= 0)
+				if((n = (int)mbrtowc(&wc,form-1,SFMBMAX,&fmbs)) <= 0)
 					goto pop_fmt;
 				if(n > 1)
 				{	acc.wc = wc;
@@ -422,7 +438,7 @@ loop_fmt:
 						if(*t_str == '$')
 						{	if(!fp &&
 							   !(fp = (*_Sffmtposf)
-								  (f,oform,oargs,1)) )
+								  (f,oform,oargs,ft,1)) )
 								goto pop_fmt;
 							n = FP_SET(n,argn);
 						}
@@ -470,7 +486,8 @@ loop_fmt:
 			{	form = (*_Sffmtintf)(form+1,&n);
 				if(*form == '$')
 				{	form += 1;
-					if(!fp && !(fp = (*_Sffmtposf)(f,oform,oargs,1)) )
+					if(!fp &&
+					   !(fp = (*_Sffmtposf)(f,oform,oargs,ft,1)) )
 						goto pop_fmt;
 					n = FP_SET(n,argn);
 				}
@@ -502,7 +519,7 @@ loop_fmt:
 
 			if(*form == '$')
 			{	form += 1;
-				if(!fp && !(fp = (*_Sffmtposf)(f,oform,oargs,1)) )
+				if(!fp && !(fp = (*_Sffmtposf)(f,oform,oargs,ft,1)) )
 					goto pop_fmt;
 				argp = v-1;
 				goto loop_flags;
@@ -525,7 +542,8 @@ loop_fmt:
 			{	form = (*_Sffmtintf)(form+1,&n);
 				if(*form == '$')
 				{	form += 1;
-					if(!fp && !(fp = (*_Sffmtposf)(f,oform,oargs,1)))
+					if(!fp &&
+					   !(fp = (*_Sffmtposf)(f,oform,oargs,ft,1)))
 						goto pop_fmt;
 					n = FP_SET(n,argn);
 				}
@@ -664,13 +682,9 @@ loop_fmt:
 		if(_Sftype[fmt] == 0) /* unknown pattern */
 			goto pop_fmt;
 
-		/* get the address to assign value */
-		if(!value && !(flags&SFFMT_SKIP) )
-			value = va_arg(args,Void_t*);
-
 		if(fmt == '!')
 		{	if(!fp)
-				fp = (*_Sffmtposf)(f,oform,oargs,1);
+				fp = (*_Sffmtposf)(f,oform,oargs,ft,1);
 			else	goto pop_fmt;
 
 			if(!(argv.ft = va_arg(args,Sffmt_t*)) )
@@ -686,6 +700,7 @@ loop_fmt:
 					goto done;
 
 				ft = fm->ft = argv.ft;
+				SFMBSET(ft->mbs, &fmbs);
 				if(ft->form)
 				{	fm->form = (char*)form; SFMBCPY(&fm->mbs,&fmbs);
 					va_copy(fm->args,args);
@@ -710,6 +725,10 @@ loop_fmt:
 			}
 			continue;
 		}
+
+		/* get the address to assign value */
+		if(!value && !(flags&SFFMT_SKIP) )
+			value = va_arg(args,Void_t*);
 
 		if(fmt == 'n') /* return length of consumed input */
 		{

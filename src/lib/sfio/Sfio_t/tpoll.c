@@ -1,8 +1,11 @@
 #include	"sftest.h"
+#if _sys_socket
+#include	<sys/socket.h>
+#endif
 
 MAIN()
 {
-	Sfio_t	*f, *str, *fr, *fw, *sf[2];
+	Sfio_t	*f, *g, *str, *fr, *fw, *sf[2];
 	int	c;
 	char	*s;
 	int	fd[2];
@@ -69,26 +72,87 @@ MAIN()
 	s = sfprints("%s 1", argv[0]);
 	if(!(f = sfpopen(0, s, "w+")) )
 		terror("Can't create read/write process");
+
+	/* this write does not flush yet */
 	if(sfwrite(f, "abc\n",4) != 4)
 		terror("Writing to pipe");
 
 	if(sfpoll(&f, 1, 0) != 1)
 		terror("Poll should succeed\n");
-	if(sfvalue(f)&SF_READ)
+	if(sfvalue(f)&SF_READ) /* data has not been flushed to the child yet */
 		terror("Read should not be ready\n");
 	if(!(sfvalue(f)&SF_WRITE) )
 		terror("Write should be ready\n");
-	if(sfsync(f) < 0)
-		terror("Bad sync");
 
+	if(sfsync(f) < 0) /* now flush data to the child process */
+		terror("Bad sync");
 	if(sfpoll(&f, 1, 1000) != 1)
 		terror("Poll should succeed2\n");
-	if(!(sfvalue(f)&SF_READ) )
+	if(!(sfvalue(f)&SF_READ) ) /* the child should have read and rewritten */
 		terror("Read should be ready\n");
 	if(!(sfvalue(f)&SF_WRITE) )
 		terror("Write should be ready\n");
 	if(!(s = sfgetr(f,'\n',1)) || strcmp(s, "abc") != 0)
 		terror("Bad read");
+
+#if _lib_socketpair
+	if(socketpair(AF_UNIX, SOCK_STREAM, 0, fd) != 0)
+		terror("socketpair failed");
+	if(!(f = sfnew(0,NIL(Void_t*),(size_t)SF_UNBOUND,fd[0],SF_READ|SF_WRITE)) )
+		terror("Can't create stream with socket file descriptor\n");
+	if(!(g = sfnew(0,NIL(Void_t*),(size_t)SF_UNBOUND,fd[1],SF_READ|SF_WRITE)) )
+		terror("Can't create stream with socket file descriptor\n");
+
+	/* turn off write-capability for f */
+	sfset(f,SF_WRITE,0);
+
+	sf[0] = f;
+	sf[1] = g;
+	if(sfpoll(sf,2,0) != 1)
+		terror("Exactly one stream should be ready!");
+	if(sf[0] != g)
+		terror("Stream g should be ready");
+	if(sfvalue(g)&SF_READ)
+		terror("Read should not be ready for g");
+	if(!(sfvalue(g)&SF_WRITE) )
+		terror("Write should be ready for g");
+
+	if(sfwrite(g, "abc\n", 4) != 4  || sfsync(g) < 0)
+		terror("Writing to g socket");
+	if(sfpoll(sf, 2, 0) != 2)
+		terror("Poll should succeed with both streams\n");
+	if(!(sfvalue(f)&SF_READ) )
+		terror("Read should be ready for f\n");
+
+	if(sfgetc(f) != 'a' )
+		terror("sfgetc failed");
+
+	/* turn back on write-capability for f */
+	sfset(f,SF_WRITE,1);
+
+	if(sfwrite(f,"def\n",4) != 4 || sfsync(f) < 0)
+		terror("Writing to f socket");
+
+	if(sfpoll(sf, 2, 0) != 2)
+		terror("Poll should succeed for both streams\n");
+	if(!sfvalue(f)&SF_READ)
+		terror("Read should be ready for f");
+	if(!sfvalue(g)&SF_READ)
+		terror("Read should be ready for g");
+
+	if(!(s = sfgetr(f,'\n',1)) || strcmp(s,"bc") != 0)
+		terror("f gets wrong data");
+
+	if(!(s = sfgetr(g,'\n',1)) || strcmp(s,"def") != 0)
+		terror("g gets wrong data");
+
+	if(sfpoll(sf, 2, 0) != 2)
+		terror("Poll should succeed for both streams\n");
+	if(sfvalue(f)&SF_READ)
+		terror("Read should not be ready for f");
+	if(sfvalue(g)&SF_READ)
+		terror("Read should not be ready for g");
+#endif
 
 	TSTEXIT(0);
 }

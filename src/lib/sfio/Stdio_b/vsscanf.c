@@ -13,5 +13,5 @@ reg char*	form;
 va_list		args;
 #endif
 {
-	return (s && form) ? sfvsscanf(s,form,args) : -1;
+	return (s && form) ? (int)sfvsscanf(s,form,args) : -1;
 }

@@ -19,7 +19,7 @@ va_list args;           /* arg list if argf == 0 */
 	if(!(sf = _sfstream(f)))
 		return -1;
 
-	if((rv = sfvprintf(sf,form,args)) < 0)
+	if((rv = (int)sfvprintf(sf,form,args)) < 0)
 		_stdseterr(f,sf);
 
 	return rv;

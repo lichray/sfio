@@ -8,11 +8,11 @@
 static Vtmutex_t	Sfmutex;
 static Vtonce_t		Sfonce = VTONCE_INITDATA;
 static void _sfoncef()
-{	vtmtxopen(_Sfmutex, VT_INIT);
-	vtmtxopen(&_Sfpool.mutex, VT_INIT);
-	vtmtxopen(sfstdin->mutex, VT_INIT);
-	vtmtxopen(sfstdout->mutex, VT_INIT);
-	vtmtxopen(sfstderr->mutex, VT_INIT);
+{	(void)vtmtxopen(_Sfmutex, VT_INIT);
+	(void)vtmtxopen(&_Sfpool.mutex, VT_INIT);
+	(void)vtmtxopen(sfstdin->mutex, VT_INIT);
+	(void)vtmtxopen(sfstdout->mutex, VT_INIT);
+	(void)vtmtxopen(sfstderr->mutex, VT_INIT);
 	_Sfdone = 1;
 }
 
@@ -58,6 +58,10 @@ Sfio_t	_Sfstdout = SFNEW(NIL(char*),-1,1,
 			  (SF_WRITE|SF_STATIC|SF_MTSAFE),NIL(Sfdisc_t*),SFMTXOUT);
 Sfio_t	_Sfstderr = SFNEW(NIL(char*),-1,2,
 			  (SF_WRITE|SF_STATIC|SF_MTSAFE),NIL(Sfdisc_t*),SFMTXERR);
+
+#undef	sfstdin
+#undef	sfstdout
+#undef	sfstderr
 
 Sfio_t*	sfstdin  = &_Sfstdin;
 Sfio_t*	sfstdout = &_Sfstdout;

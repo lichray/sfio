@@ -18,7 +18,6 @@ int		tm;	/* time in millisecs for select/poll	*/
 {
 	reg int		r, c, m, np;
 	reg Sfio_t*	f;
-	reg Sfdisc_t*	d;
 	reg int		*status, *check;
 
 	if(n <= 0 || !fa)
@@ -28,14 +27,14 @@ int		tm;	/* time in millisecs for select/poll	*/
 		return -1;
 	check = status+n; /* streams that need polling */
 
-/* check the auxilliary file descriptor to see if polling needed */
-#define CHKAUXFD(f)	((f->mode&SF_WRITE) && f->proc && f->proc->file >= 0 && \
-			 f->proc->file != f->file && f->proc->rdata == 0 )
+	/* a SF_READ stream is ready if there is buffered read data */
+#define RDREADY(f)	(((f->mode&SF_READ) && f->next < f->endb) || \
+			 ((f->mode&SF_WRITE) && f->proc && f->proc->ndata > 0) )
 
-/* check the main file descriptor to see if polling needed */
-#define POLLRD(f)	((f->mode&SF_READ)  && f->next == f->endb )
-#define POLLWR(f)	((f->mode&SF_WRITE) && f->next >  f->data )
-#define CHKMAINFD(f)	(POLLRD(f) || POLLWR(f))
+	/* a SF_WRITE stream is ready if there is no write data */
+#define WRREADY(f)	(!(f->mode&SF_WRITE) || f->next == f->data)
+
+#define HASAUXFD(f)	(f->proc && f->proc->file >= 0 && f->proc->file != f->file)
 
 	for(r = c = 0; r < n; ++r) /* compute streams that must be checked */
 	{	f = fa[r];
@@ -46,18 +45,18 @@ int		tm;	/* time in millisecs for select/poll	*/
 		if((int)f->mode != m && _sfmode(f,m,0) < 0)
 			continue;
 
-		if((f->flags&SF_READ)  && !POLLRD(f) && !CHKAUXFD(f) )
+		if((f->flags&SF_READ) && RDREADY(f))
 			status[r] |= SF_READ;
 
-		if((f->flags&SF_WRITE) && (!POLLWR(f) || (f->mode&SF_READ)) )
+		if((f->flags&SF_WRITE) && WRREADY(f))
 			status[r] |= SF_WRITE;
 
 		if((f->flags&SF_RDWR) == status[r])
 			continue;
 
 		/* has discipline, ask its opinion */
-		if((d = f->disc) && d->exceptf)
-		{	if((m = (*d->exceptf)(f,SF_DPOLL,&tm,d)) < 0)
+		if(f->disc && f->disc->exceptf)
+		{	if((m = (*f->disc->exceptf)(f,SF_DPOLL,&tm,f->disc)) < 0)
 				continue;
 			else if(m > 0)
 			{	status[r] = m&SF_RDWR;
@@ -83,7 +82,7 @@ int		tm;	/* time in millisecs for select/poll	*/
 		/* construct the poll array */
 		for(m = 0, r = 0; r < c; ++r, ++m)
 		{	f = fa[check[r]];
-			if(CHKMAINFD(f) && CHKAUXFD(f))
+			if(HASAUXFD(f))
 				m += 1;
 		}
 		if(!(fds = (struct pollfd*)malloc(m*sizeof(struct pollfd))) )
@@ -92,21 +91,22 @@ int		tm;	/* time in millisecs for select/poll	*/
 		for(m = 0, r = 0; r < c; ++r, ++m)
 		{	f = fa[check[r]];
 
-			if(CHKAUXFD(f) )
-			{	fds[m].fd = f->proc->file;
-				fds[m].events  = POLLIN;
-				fds[m].revents = 0;
-				if(!CHKMAINFD(f))
-					continue;
-				else	m += 1;
-			}
-
 			fds[m].fd = f->file;
 			fds[m].events = fds[m].revents = 0;
-			if((f->flags&SF_READ)  && POLLRD(f) )
-				fds[m].events |= POLLIN;
-			if((f->flags&SF_WRITE) && POLLWR(f) )
+
+			if((f->flags&SF_WRITE) && !WRREADY(f) )
 				fds[m].events |= POLLOUT;
+
+			if((f->flags&SF_READ)  && !RDREADY(f) )
+			{	/* a sfpopen situation with two file descriptors */
+				if((f->mode&SF_WRITE) && HASAUXFD(f))
+				{	m += 1;
+					fds[m].fd = f->proc->file;
+					fds[m].revents = 0;
+				}
+
+				fds[m].events |= POLLIN;
+			}
 		}
 
 		while((np = SFPOLL(fds,m,tm)) < 0 )
@@ -120,18 +120,17 @@ int		tm;	/* time in millisecs for select/poll	*/
 		for(m = 0, r = 0; r < np; ++r, ++m)
 		{	f = fa[check[r]];
 
-			if(CHKAUXFD(f))
-			{	if(fds[m].revents & POLLIN)
-					status[check[r]] |= SF_READ;
-				if(!CHKMAINFD(f))
-					continue;
-				else	m += 1;
+			if((f->flags&SF_WRITE) && !WRREADY(f) )
+			{	if(fds[m].revents&POLLOUT)
+					status[check[r]] |= SF_WRITE;
 			}
 
-			if((f->flags&SF_READ)  && POLLRD(f) && (fds[m].revents&POLLIN) )
-				status[check[r]] |= SF_READ;
-			if((f->flags&SF_WRITE) && POLLWR(f) && (fds[m].revents&POLLOUT))
-				status[check[r]] |= SF_WRITE;
+			if((f->flags&SF_READ)  && !RDREADY(f))
+			{	if((f->mode&SF_WRITE) && HASAUXFD(f))
+					m += 1;
+				if(fds[m].revents&POLLIN)
+					status[check[r]] |= SF_READ;
+			}
 		}
 
 		free((Void_t*)fds);
@@ -149,20 +148,20 @@ int		tm;	/* time in millisecs for select/poll	*/
 		for(r = 0; r < c; ++r)
 		{	f = fa[check[r]];
 
-			if(CHKAUXFD(f) )
-			{	if(f->proc->file > m)
-					m = f->proc->file;
-				FD_SET(f->proc->file, &rd);
-				if(!CHKMAINFD(f))
-					continue;
-			}
-
 			if(f->file > m)
 				m = f->file;
-			if((f->flags&SF_READ)  && POLLRD(f))
-				FD_SET(f->file,&rd);
-			if((f->flags&SF_WRITE) && POLLWR(f))
+
+			if((f->flags&SF_WRITE) && !WRREADY(f))
 				FD_SET(f->file,&wr);
+
+			if((f->flags&SF_READ)  && !RDREADY(f))
+			{	if((f->mode&SF_WRITE) && HASAUXFD(f))
+				{	if(f->proc->file > m)
+						m = f->proc->file;
+					FD_SET(f->proc->file, &rd);
+				}
+				else	FD_SET(f->file,&rd);
+			}
 		}
 		if(tm < 0)
 			tmp = NIL(struct timeval*);
@@ -182,35 +181,40 @@ int		tm;	/* time in millisecs for select/poll	*/
 
 		for(r = 0; r < np; ++r)
 		{	f = fa[check[r]];
-			if(CHKAUXFD(f))
-			{	if(FD_ISSET(f->proc->file, &rd))
-					status[check[r]] |= SF_READ;
-				if(!CHKMAINFD(f))
-					continue;
+
+			if((f->flags&SF_WRITE) && !WRREADY(f) )
+			{	if(FD_ISSET(f->file,&wr) )
+					status[check[r]] |= SF_WRITE;
 			}
 
-			if(((f->flags&SF_READ)  && POLLRD(f) && FD_ISSET(f->file,&rd)) )
-				status[check[r]] |= SF_READ;
-			if(((f->flags&SF_WRITE) && POLLWR(f) && FD_ISSET(f->file,&wr)) )
-				status[check[r]] |= SF_WRITE;
+			if((f->flags&SF_READ) && !RDREADY(f) )
+			{	if((f->mode&SF_WRITE) && HASAUXFD(f) )
+				{	if(FD_ISSET(f->proc->file, &rd) )
+						status[check[r]] |= SF_READ;
+				}
+				else
+				{	if(FD_ISSET(f->file,&rd) )
+						status[check[r]] |= SF_READ;
+				}
+			}
 		}
 	}
 #endif /*_lib_select*/
 
-	/* announce readiness */
-	for(c = 0; c < n; ++c)
-		if(status[c] != 0 && (d = fa[c]->disc) && d->exceptf)
-			(*d->exceptf)(fa[c],SF_READY,(Void_t*)status[c],d);
-
-	/* move ready streams to the front */
 	for(r = c = 0; c < n; ++c)
 	{	if(status[c] == 0)
 			continue;
-		fa[c]->val = (ssize_t)status[c];
-		if(c > r)
-		{	f = fa[r];
-			fa[r] = fa[c];
-			fa[c] = f;
+
+		f = fa[c];
+		f->val = (ssize_t)status[c];
+
+		/* announce status */
+		if(f->disc && f->disc->exceptf)
+			(*f->disc->exceptf)(f,SF_READY,(Void_t*)status[c],f->disc);
+
+		if(c > r) /* move to front of list */
+		{	fa[c] = fa[r];
+			fa[r] = f;
 		}
 		r += 1;
 	}

@@ -13,13 +13,7 @@ void ae()
 		terror("Can't write to file");
 }
 
-#if __STD_C
-main(int argc, char** argv)
-#else
-main(argc, argv)
-int	argc;
-char**	argv;
-#endif
+MAIN()
 {
 	Sfio_t* f;
 

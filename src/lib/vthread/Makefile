@@ -20,8 +20,6 @@ OBJS=	vtclose.o vtextern.o vtkill.o vtmtxclose.o vtmtxclrlock.o \
 
 .c.o :
 	$(CC) -c $(CCFLAGS) $*.c
-%.o : %.c
-	$(CC) -c $(CCFLAGS) $*.c
 
 all:	install
 

@@ -1,5 +1,4 @@
-#include	"sfhdr.h"
-#include	"stdio.h"
+#include	"stdio_s.h"
 
 
 /*	fprintf function
@@ -27,7 +26,7 @@ va_dcl
 	form = va_arg(args,char*);
 #endif
 
-	rv = (f && form) ? sfvprintf(f,form,args) : -1;
+	rv = (f && form) ? (int)sfvprintf(f,form,args) : -1;
 
 	va_end(args);
 

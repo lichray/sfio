@@ -8,6 +8,7 @@ code based on Stdio to either recompile or relink using Sfio.
 DIRECTORY HIERARCHY:
 
 . :		source code for Sfio.
+./sfio.3:	manual page for Sfio.
 ./features:	source code for generating configuration parameters.
 ./Sfio_f:	function versions of sfio macros.
 ./Stdio_s:	the source level <stdio> compatibility package.

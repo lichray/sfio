@@ -8,7 +8,6 @@
 **	Written by Kiem-Phong Vo
 */
 
-/* map <sfio_s.h> members to the library implementation form */
 #define _next		next
 #define _endw		endw
 #define _endr		endr
@@ -21,15 +20,37 @@
 #define _val		val
 
 #include	"FEATURE/sfio"
+#include	"FEATURE/mmap"
+
+/* define va_list, etc. before including sfio_t.h (sfio.h) */
+#if !_PACKAGE_ast
+
+/* some systems don't know large files */
+#if defined(_NO_LARGEFILE64_SOURCE) || _mips == 2 /* || __hppa */
+#undef _NO_LARGEFILE64_SOURCE
+#define _NO_LARGEFILE64_SOURCE	1
+#undef	_LARGEFILE64_SOURCE
+#undef	_LARGEFILE_SOURCE
+#endif
+
+#if !_NO_LARGEFILE64_SOURCE && _typ_off64_t && _lib_lseek64 && _lib_stat64
+#undef	_LARGEFILE64_SOURCE
+#undef	_LARGEFILE_SOURCE
+#undef	_FILE_OFFSET_BITS
+#define _LARGEFILE64_SOURCE	1	/* enabling the *64 stuff */
+#define _LARGEFILE_SOURCE	1	
+#endif
 
 #if _hdr_stdarg
 #include	<stdarg.h>
 #else
 #include	<varargs.h>
 #endif
-
 #include	"FEATURE/common"
-#include	"FEATURE/float"
+#if !__STD_C
+#define const	
+#endif
+#endif /* !_PACKAGE_ast */
 
 #include	"sfio_t.h"
 
@@ -60,19 +81,25 @@
 #define _lib_locale	1
 #endif
 
+#define sfoff_t		off_t
+#define sfstat_t	struct stat
+#define sysclosef	close
+#define syscreatf	creat
+#define sysdupf		dup
+#define sysfcntlf	fcntl
+#define sysfstatf	fstat
+#define sysftruncatef	ftruncate
+#define syslseekf	lseek
+#define sysmmapf	mmap
+#define sysmunmapf	munmap
+#define sysopenf	open
+#define syspipef	pipe
+#define sysreadf	read
+#define sysremovef	remove
+#define sysstatf	stat
+#define syswritef	write
+
 #else /*!_PACKAGE_ast*/
-
-/* these guys don't know large files */
-#if (__hppa || __mips == 2) && !defined(NO_LARGEFILE64_SOURCE)
-#define NO_LARGEFILE64_SOURCE	1
-#undef	_LARGEFILE64_SOURCE
-#endif
-
-#if !defined(_NO_LARGEFILE64_SOURCE) && _typ_off64_t && _lib_lseek64 && _lib_stat64
-#if !defined(_LARGEFILE64_SOURCE)
-#define _LARGEFILE64_SOURCE	1	/* enabling the *64 stuff */
-#endif
-#endif
 
 /* when building the binary compatibility package, a number of header files
    are not needed and they may get in the way so we remove them here.
@@ -167,13 +194,14 @@
 #undef _hdr_mman
 #undef _sys_mman
 #endif
-#if _hdr_man
+#if _hdr_mman
 #include	<mman.h>
 #endif
 #if _sys_mman
 #include	<sys/mman.h>
 #endif
 
+/* standardize system calls and types dealing with files */
 #if _typ_off64_t
 #define sfoff_t		off64_t
 #else
@@ -185,58 +213,105 @@
 #define sfstat_t	struct stat
 #endif
 #if _lib_lseek64
-#define lseek		lseek64
+#define syslseekf	lseek64
+#else
+#define syslseekf	lseek
 #endif
 #if _lib_stat64
-#define stat		stat64
+#define sysstatf	stat64
+#else
+#define sysstatf	stat
 #endif
 #if _lib_fstat64
-#define fstat		fstat64
+#define sysfstatf	fstat64
+#else
+#define sysfstatf	fstat
 #endif
 #if _lib_mmap64
-#define mmap		mmap64
+#define sysmmapf	mmap64
+#else
+#define sysmmapf	mmap
 #endif
 #if _lib_munmap64
-#define munmap		munmap64
+#define sysmunmapf	munmap64
+#else
+#define sysmunmapf	munmap
 #endif
 #if _lib_open64
-#define open		open64
+#define sysopenf	open64
+#else
+#define sysopenf	open
 #endif
 #if _lib_creat64
-#define creat		creat64
+#define syscreatf	creat64
+#else
+#define syscreatf	creat
 #endif
 #if _lib_close64
-#define close		close64
+#define sysclosef	close64
+#else
+#define sysclosef	close
 #endif
 #if _lib_ftruncate64
-#define ftruncate	ftruncate64
+#undef _lib_ftruncate
+#define _lib_ftruncate	1
+#define sysftruncatef	ftruncate64
+#endif
+#if !_lib_ftruncate64 && _lib_ftruncate
+#define sysftruncatef	ftruncate
+#endif
+#if _lib_remove
+#define sysremovef	remove
+#else
+#define sysremovef	unlink
 #endif
 
+#define sysreadf	read
+#define syswritef	write
+#define syspipef	pipe
+#define sysdupf		dup
+#define sysfcntlf	fcntl
+
 #endif /*_PACKAGE_ast*/
+
+#if !_mmap_worthy
+#undef MAP_TYPE
+#endif
+
+#include	"FEATURE/float"
 
 #include	<errno.h>
 #include	<ctype.h>
 
 /* deal with multi-byte character and string conversions */
-#if _hdr_wchar && _typ_mbstate_t && _lib_wcrtomb && _lib_mbrtowc
-#define _has_multibyte		1	/* Xopen-compliant	*/
+#if _PACKAGE_ast
+
 #include	<wchar.h>
-#ifndef MB_CUR_MAX
-#define MB_CUR_MAX		sizeof(Sflong_t)
-#endif
+
+#define _has_multibyte		1
+
+#define SFMBMAX			mbmax()
 #define SFMBCPY(to,fr)		memcpy((to), (fr), sizeof(mbstate_t))
 #define SFMBCLR(mb)		memset((mb), 0,  sizeof(mbstate_t))
 #define SFMBSET(lhs,v)		(lhs = (v))
-#define SFMBLEN(s,mb)		mbrtowc(0, (s), MB_CUR_MAX, (mb) )
+#define SFMBLEN(s,mb)		mbsize(s)
+#define SFMBDCL(ms)		mbstate_t ms;
+
+#else
+
+#if _hdr_wchar && _typ_mbstate_t && _lib_wcrtomb && _lib_mbrtowc
+#define _has_multibyte		1	/* Xopen-compliant	*/
+#include	<wchar.h>
+#define SFMBCPY(to,fr)		memcpy((to), (fr), sizeof(mbstate_t))
+#define SFMBCLR(mb)		memset((mb), 0,  sizeof(mbstate_t))
+#define SFMBSET(lhs,v)		(lhs = (v))
 #define SFMBDCL(mb)		mbstate_t mb;
+#define SFMBLEN(s,mb)		mbrtowc(NIL(wchar_t*), (s), SFMBMAX, (mb) )
 #endif /*_hdr_wchar && _typ_mbstate_t && _lib_wcrtomb && _lib_mbrtowc*/
 
 #if !_has_multibyte && _hdr_wchar && _lib_mbtowc && _lib_wctomb
 #define _has_multibyte		2	/* no shift states	*/
 #include	<wchar.h>
-#ifndef MB_CUR_MAX
-#define MB_CUR_MAX		sizeof(Sflong_t)
-#endif
 #undef mbrtowc
 #define mbrtowc(wp,s,n,mb)	mbtowc(wp, s, n)
 #undef wcrtomb
@@ -244,9 +319,17 @@
 #define SFMBCPY(to,fr)
 #define SFMBCLR(mb)
 #define SFMBSET(lhs,v)
-#define SFMBLEN(s,mb)		mbrtowc(0, (s), MB_CUR_MAX, (mb) )
 #define SFMBDCL(mb)
+#define SFMBLEN(s,mb)		mbrtowc(NIL(wchar_t*), (s), SFMBMAX, (mb) )
 #endif /*!_has_multibyte && _hdr_wchar && _lib_mbtowc && _lib_wctomb*/
+
+#ifdef MB_CUR_MAX
+#define SFMBMAX			MB_CUR_MAX
+#else
+#define SFMBMAX			sizeof(Sflong_t)
+#endif
+
+#endif /* _PACKAGE_ast */
 
 #if !_has_multibyte
 #define _has_multibyte		0	/* no multibyte support	*/
@@ -279,10 +362,10 @@
 #undef SF_MTSAFE /* no need to worry about thread-safety */
 #define SF_MTSAFE		0
 
-#define SFONCE()		(0)
+#define SFONCE()		/*(0)*/
 
-#define SFMTXLOCK(f)		(0)
-#define SFMTXUNLOCK(f)		(0)
+#define SFMTXLOCK(f)		/*(0)*/
+#define SFMTXUNLOCK(f)		/*(0)*/
 #define SFMTXSTART(f,v)		{ if(!f) return(v); }
 #define SFMTXRETURN(f,v)	{ return(v); }
 
@@ -335,10 +418,6 @@
 #include	<sys/vfork.h>
 #endif
 #define fork	vfork
-#endif
-
-#if _lib_unlink
-#define remove	unlink
 #endif
 
 /* to get rid of pesky compiler warnings */
@@ -500,7 +579,7 @@
 	do if (*(dp) == 0) { \
 		Lc_numeric_t*	lv = (Lc_numeric_t*)LCINFO(AST_LC_NUMERIC)->data; \
 		*(dp) = lv->decimal; \
-		*(tp) = lv->thousand; \
+		if (tp) *(tp) = lv->thousand; \
 	} while (0)
 #endif /*!defined(SFSETLOCALE) && _PACKAGE_ast*/
 
@@ -510,12 +589,12 @@
 	do { struct lconv*	lv; \
 	  if(*(decimal) == 0) \
 	  { *(decimal) = '.'; \
-	    *(thousand) = 0; \
+	    if (thousand) *(thousand) = -1; \
 	    if((lv = localeconv())) \
-	    { if(lv->decimal_point && lv->decimal_point[0]) \
-	    	*(decimal) = lv->decimal_point[0]; \
-	      if(thousand && lv->thousands_sep && lv->thousands_sep[0]) \
-	    	*(thousand) = lv->thousands_sep[0]; \
+	    { if(lv->decimal_point && *lv->decimal_point) \
+	    	*(decimal) = *(unsigned char*)lv->decimal_point; \
+	      if(thousand && lv->thousands_sep && *lv->thousands_sep) \
+	    	*(thousand) = *(unsigned char*)lv->thousands_sep; \
 	    } \
 	  } \
 	} while (0)
@@ -699,7 +778,14 @@ typedef struct _sfextern_s
 			 ((n) >= SF_GRAIN && (ssize_t)(n) >= (f)->size/16 ) )
 
 /* number of pages to memory map at a time */
-#define SF_NMAP		8
+#define SF_NMAP		4
+
+#ifndef MAP_VARIABLE
+#define MAP_VARIABLE	0
+#endif
+#ifndef _mmap_fixed
+#define _mmap_fixed	0
+#endif
 
 /* set/unset sequential states for mmap */
 #if _lib_madvise && defined(MADV_SEQUENTIAL) && defined(MADV_NORMAL)
@@ -718,16 +804,12 @@ typedef struct _sfextern_s
 #define SFMMSEQOFF(f,a,s)
 #endif
 
-#define SFMUNMAP(f,a,s)		(munmap((caddr_t)(a),(size_t)(s)), \
+#define SFMUNMAP(f,a,s)		(sysmunmapf((caddr_t)(a),(size_t)(s)), \
 				 ((f)->endb = (f)->endr = (f)->endw = (f)->next = \
 				  (f)->data = NIL(uchar*)) )
 
-#ifndef MAP_VARIABLE
-#define MAP_VARIABLE	0
-#endif
-#ifndef _mmap_fixed
-#define _mmap_fixed	0
-#endif
+/* safe closing function */
+#define CLOSE(f)	{ while(sysclosef(f) < 0 && errno == EINTR) errno = 0; }
 
 /* the bottomless bit bucket */
 #define DEVNULL		"/dev/null"
@@ -775,8 +857,9 @@ typedef struct _sfextern_s
 				((f)->mode &= ~(SF_LOCK|SF_RC|SF_RV), _SFOPEN(f), 0) )
 
 /* check to see if the stream can be accessed */
-#define SFFROZEN(f)	((f)->mode&(SF_PUSH|SF_LOCK|SF_PEEK) ? 1 : \
-			 ((f)->mode&SF_STDIO) ? (*_Sfstdsync)(f) : 0)
+#define SFFROZEN(f)	(((f)->mode&(SF_PUSH|SF_LOCK|SF_PEEK)) ? 1 : \
+			 !((f)->mode&SF_STDIO) ? 0 : \
+			 _Sfstdsync ? (*_Sfstdsync)(f) : (((f)->mode &= ~SF_STDIO),0) )
 
 
 /* set discipline code */
@@ -813,9 +896,6 @@ typedef struct _sfextern_s
 
 /* more than this for a line buffer, we might as well flush */
 #define HIFORLINE	128
-
-/* safe closing function */
-#define CLOSE(f)	{ while(close(f) < 0 && errno == EINTR) errno = 0; }
 
 /* string stream extent */
 #define SFSTRSIZE(f)	{ Sfoff_t s = (f)->next - (f)->data; \
@@ -903,7 +983,7 @@ typedef struct _sftab_
 	char*		sf_digits;		/* digits for general bases	*/ 
 	int		(*sf_cvinitf)();	/* initialization function	*/
 	int		sf_cvinit;		/* initialization state		*/
-	Fmtpos_t*	(*sf_fmtposf)_ARG_((Sfio_t*,const char*,va_list,int));
+	Fmtpos_t*	(*sf_fmtposf)_ARG_((Sfio_t*,const char*,va_list,Sffmt_t*,int));
 	char*		(*sf_fmtintf)_ARG_((const char*,int*));
 	float*		sf_flt_pow10;		/* float powers of 10		*/
 	double*		sf_dbl_pow10;		/* double powers of 10		*/
@@ -1020,13 +1100,13 @@ extern Sfrsrv_t*	_sfrsrv _ARG_((Sfio_t*, ssize_t));
 extern int		_sfsetpool _ARG_((Sfio_t*));
 extern char*		_sfcvt _ARG_((Sfdouble_t,char*,size_t,int,int*,int*,int*,int));
 extern char**		_sfgetpath _ARG_((char*));
-extern Sfdouble_t	_sfdscan _ARG_((Void_t*, int(*)(Void_t*)));
+extern Sfdouble_t	_sfdscan _ARG_((Void_t*, int(*)(Void_t*,int)));
 
 #if _BLD_sfio && defined(__EXPORT__)
-#define extern	__EXPORT__
+#define extern		__EXPORT__
 #endif
-#if _BLD_stdio && defined(__IMPORT__)
-#define extern	__IMPORT__
+#if !_BLD_sfio && defined(__IMPORT__)
+#define extern		extern __IMPORT__
 #endif
 
 extern Sfextern_t	_Sfextern;
@@ -1041,13 +1121,21 @@ extern int		errno;
 #endif
 
 /* for portable encoding of double values */
+#ifndef frexpl
 #if _ast_fltmax_double
 #define frexpl		frexp
-#define ldexpl		ldexp
 #endif
 #if !__STDC__
 extern Sfdouble_t	frexpl _ARG_((Sfdouble_t, int*));
+#endif
+#endif
+#ifndef ldexpl
+#if _ast_fltmax_double
+#define ldexpl		ldexp
+#endif
+#if !__STDC__
 extern Sfdouble_t	ldexpl _ARG_((Sfdouble_t, int));
+#endif
 #endif
 
 #if !_PACKAGE_ast
@@ -1072,20 +1160,28 @@ extern Void_t*	memcpy _ARG_((void*, const void*, size_t));
 extern double	strtod _ARG_((const char*, char**));
 #endif
 #if !defined(remove)
-extern int	remove _ARG_((const char*));
+extern int	sysremovef _ARG_((const char*));
 #endif
 #endif /* !__STDC__ && !_hdr_stdlib */
 
 #if !_hdr_unistd
-extern int	close _ARG_((int));
-extern ssize_t	read _ARG_((int, void*, size_t));
-extern ssize_t	write _ARG_((int, const void*, size_t));
-extern sfoff_t	lseek _ARG_((int, sfoff_t, int));
-extern int	dup _ARG_((int));
+#if _proto_open && __cplusplus
+extern int	sysopenf _ARG_((const char*, int, ...));
+#endif
+extern int	sysclosef _ARG_((int));
+extern ssize_t	sysreadf _ARG_((int, void*, size_t));
+extern ssize_t	syswritef _ARG_((int, const void*, size_t));
+extern sfoff_t	syslseekf _ARG_((int, sfoff_t, int));
+extern int	sysdupf _ARG_((int));
+extern int	syspipef _ARG_((int*));
+extern int	sysaccessf _ARG_((const char*, int));
+extern int	sysremovef _ARG_((const char*));
+extern int	sysfstatf _ARG_((int, sfstat_t*));
+extern int	sysstatf _ARG_((const char*, sfstat_t*));
+
 extern int	isatty _ARG_((int));
+
 extern int	wait _ARG_((int*));
-extern int	pipe _ARG_((int*));
-extern int	access _ARG_((const char*, int));
 extern uint	sleep _ARG_((uint));
 extern int	execl _ARG_((const char*, const char*,...));
 extern int	execv _ARG_((const char*, char**));
@@ -1111,10 +1207,6 @@ extern void	_exit _ARG_((int));
 typedef int(*	Onexit_f)_ARG_((void));
 extern Onexit_f	onexit _ARG_((Onexit_f));
 
-#if _sys_stat
-extern int	fstat _ARG_((int, sfstat_t*));
-#endif
-
 #if _lib_vfork && !_hdr_vfork && !_sys_vfork
 extern pid_t	vfork _ARG_((void));
 #endif /*_lib_vfork*/
@@ -1126,10 +1218,6 @@ extern int	poll _ARG_((struct pollfd*, ulong, int));
 extern int	poll _ARG_((ulong, struct pollfd*, int));
 #endif
 #endif /*_lib_poll*/
-
-#if _proto_open && __cplusplus
-extern int	open _ARG_((const char*, int, ...));
-#endif
 
 #endif /* _PACKAGE_ast */
 

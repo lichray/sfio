@@ -5,7 +5,7 @@
 #
 # Written by Kiem-Phong Vo
 
-LIBTYPE=
+LIBTYPE= -Dvt_threaded=0
 
 INCDIR=	../../../include
 LIBDIR=	../../../lib
@@ -29,7 +29,11 @@ SRCS=	sfclose.c sfclrlock.c sfcvt.c sfdisc.c sfdlen.c sfexcept.c \
 	sfstack.c sfsync.c sftable.c sftell.c sftmp.c \
 	sfungetc.c sfvprintf.c sfvscanf.c sfwr.c sfwrite.c sfexit.c \
 	sfpurge.c sfpoll.c sfreserve.c sfswap.c sfraise.c sfmutex.c \
-	sfgetm.c sfputm.c sfresize.c sffrexp.c sfstrtof.c
+	sfgetm.c sfputm.c sfresize.c sffrexp.c \
+	_sfclrerr.c _sfdlen.c _sfeof.c _sferror.c _sffileno.c _sfgetc.c \
+	_sfgetl.c _sfgetl2.c _sfgetu.c _sfgetu2.c _sfllen.c _sfopen.c \
+	_sfputc.c _sfputd.c _sfputl.c _sfputm.c _sfputu.c _sfslen.c \
+	_sfstacked.c _sfulen.c _sfvalue.c
 OBJS=	sfclose.o sfclrlock.o sfcvt.o sfdisc.o sfdlen.o sfexcept.o \
 	sfextern.o sffilbuf.o sfflsbuf.o sfprints.o sfgetd.o sfgetl.o \
 	sfgetr.o sfgetu.o sfllen.o sfmode.o sfmove.o sfnew.o \
@@ -39,15 +43,11 @@ OBJS=	sfclose.o sfclrlock.o sfcvt.o sfdisc.o sfdlen.o sfexcept.o \
 	sfstack.o sfsync.o sftable.o sftell.o sftmp.o \
 	sfungetc.o sfvprintf.o sfvscanf.o sfwr.o sfwrite.o sfexit.o \
 	sfpurge.o sfpoll.o sfreserve.o sfswap.o sfraise.o sfmutex.o \
-	sfgetm.o sfputm.o sfresize.o sffrexp.o sfstrtof.o
-
-# function versions of macros
-SFIO_F=	Sfio_f/_sfclrerr.o Sfio_f/_sfdlen.o Sfio_f/_sfeof.o \
-	Sfio_f/_sferror.o Sfio_f/_sffileno.o Sfio_f/_sfgetc.o \
-	Sfio_f/_sfllen.o Sfio_f/_sfputc.o Sfio_f/_sfputd.o \
-	Sfio_f/_sfputl.o Sfio_f/_sfputm.o Sfio_f/_sfputu.o \
-	Sfio_f/_sfslen.o Sfio_f/_sfstacked.o Sfio_f/_sfulen.o \
-	Sfio_f/_sfvalue.o
+	sfgetm.o sfputm.o sfresize.o sffrexp.o \
+	_sfclrerr.o _sfdlen.o _sfeof.o _sferror.o _sffileno.o _sfgetc.o \
+	_sfgetl.o _sfgetl2.o _sfgetu.o _sfgetu2.o _sfllen.o _sfopen.o \
+	_sfputc.o _sfputd.o _sfputl.o _sfputm.o _sfputu.o _sfslen.o \
+	_sfstacked.o _sfulen.o _sfvalue.o
 
 # stdio-source compatibility code
 STDIO_S=Stdio_s/stdfgetc.o Stdio_s/stdfprintf.o Stdio_s/stdfputc.o \
@@ -70,8 +70,6 @@ SFIO_DC=Sfio_dc/sfdcdio.o Sfio_dc/sfdcdos.o Sfio_dc/sfdcfilter.o \
 	Sfio_dc/sfdcsubstream.o Sfio_dc/sfdctee.o Sfio_dc/sfdcunion.o
 
 .c.o:
-	$(CC) -c $(CCFLAGS) $*.c
-%.o : %.c
 	$(CC) -c $(CCFLAGS) $*.c
 
 # this target builds the uni-threaded version of Sfio
@@ -101,8 +99,8 @@ install_unithreaded: libsfio.a libstdio.a
 	cp Stdio_b/libstdio.a $(LIBDIR)
 	-(ranlib $(LIBDIR)/libstdio.a; exit 0) >/dev/null 2>&1
 
-libsfio.a: FEATURES $(OBJS) mksfio_f mkstdio_s mksfio_dc
-	$(AR) cr libsfio.a $(OBJS) $(SFIO_F) $(STDIO_S) $(SFIO_DC)
+libsfio.a: FEATURES $(OBJS) mkstdio_s mksfio_dc
+	$(AR) cr libsfio.a $(OBJS) $(STDIO_S) $(SFIO_DC)
 	-(ranlib libsfio.a; exit 0) >/dev/null 2>&1
 
 libstdio.a:
@@ -117,8 +115,8 @@ install_multithreaded: libsfio-mt.a libstdio-mt.a
 	cp Stdio_b/libstdio-mt.a $(LIBDIR)
 	-(ranlib $(LIBDIR)/libstdio-mt.a; exit 0) >/dev/null 2>&1
 
-libsfio-mt.a: FEATURES $(OBJS) mksfio_f mkstdio_s mksfio_dc
-	$(AR) cr libsfio-mt.a $(OBJS) $(SFIO_F) $(STDIO_S) $(SFIO_DC) $(MTSAFE)
+libsfio-mt.a: FEATURES $(OBJS) mkstdio_s mksfio_dc
+	$(AR) cr libsfio-mt.a $(OBJS) $(STDIO_S) $(SFIO_DC) $(MTSAFE)
 	-(ranlib libsfio-mt.a; exit 0) >/dev/null 2>&1
 
 libstdio-mt.a:
@@ -126,7 +124,8 @@ libstdio-mt.a:
 		 CC="$(CC)" CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)" libstdio-mt.a
 
 # the make goals below are common to both uni&multi-threaded versions
-FEATURES: FEATURE/common FEATURE/float FEATURE/sfio FEATURE/iffeio FEATURE/sfinit
+FEATURES: FEATURE/common FEATURE/float FEATURE/sfio FEATURE/iffeio \
+	FEATURE/sfinit FEATURE/mmap
 FEATURE/iffeio: FEATURE/common FEATURE/stdio.lcl
 	$(BINDIR)/iffe set cc $(CC) $(CCFLAGS) : run features/iffeio
 FEATURE/stdio.lcl: features/stdio_lcl
@@ -141,9 +140,8 @@ FEATURE/sfinit: features/sfinit.c
 	$(BINDIR)/iffe set cc $(CC) $(CCFLAGS) : run features/sfinit.c
 FEATURE/sfio: features/sfio
 	$(BINDIR)/iffe set cc $(CC) $(CCFLAGS) : run features/sfio
-mksfio_f:
-	cd Sfio_f; $(MAKE) -f Makefile LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" \
-		CC="$(CC)" CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)"
+FEATURE/mmap: features/mmap
+	$(BINDIR)/iffe set cc $(CC) $(CCFLAGS) : run features/mmap
 mkstdio_s:
 	cd Stdio_s; $(MAKE) -f Makefile LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" \
 		CC="$(CC)" CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)"
@@ -154,7 +152,6 @@ mksfio_dc:
 3dupdate:
 	cp Makefile $(SRCS) $(HDRS) ...
 	cd features; cp common float iffeio sfinit.c sfio stdio stdio_lcl ...
-	cd Sfio_f;  $(MAKE) -f Makefile SHELL="$(SHELL)" 3dupdate
 	cd Stdio_s; $(MAKE) -f Makefile SHELL="$(SHELL)" 3dupdate
 	cd Stdio_b; $(MAKE) -f Makefile SHELL="$(SHELL)" 3dupdate
 	cd Sfio_dc; $(MAKE) -f Makefile SHELL="$(SHELL)" 3dupdate
@@ -162,7 +159,6 @@ mksfio_dc:
 clean:
 	-(rm -rf FEATURE $(OBJS) ast_common.h Makefile.state; exit 0) >/dev/null 2>&1
 	-(rm libsfio.a libstdio.a libsfio-mt.a libstdio-mt.a; exit 0) >/dev/null 2>&1
-	cd Sfio_f;  $(MAKE) -f Makefile SHELL="$(SHELL)" clean
 	cd Stdio_s; $(MAKE) -f Makefile SHELL="$(SHELL)" clean
 	cd Stdio_b; $(MAKE) -f Makefile SHELL="$(SHELL)" clean
 	cd Sfio_dc; $(MAKE) -f Makefile SHELL="$(SHELL)" clean

@@ -29,7 +29,7 @@ Sfdisc_t*	disc;
 #if __STD_C
 static Sfoff_t discseek(Sfio_t* f, Sfoff_t offset, int type, Sfdisc_t* disc)
 #else
-static ssize_t discseek(f, offset, type, disc)
+static Sfoff_t discseek(f, offset, type, disc)
 Sfio_t*		f;
 Sfoff_t		offset;
 int		type;
@@ -49,6 +49,7 @@ MAIN()
 	char*	s;
 	int	i;
 
+	alarm(10);
 	if(argc > 1)
         {       /* coprocess only */
                 while((s = sfgetr(sfstdin,'\n',0)) )
@@ -71,12 +72,12 @@ MAIN()
 
 	sfset(f,SF_SHARE,1);
 
-	if(sfwrite(f,"123\n",4) != 4)
+	if(sfwrite(f,"456\n",4) != 4)
 		terror("Write coprocess2\n");
 	if(sftell(f) != 12)
 		terror("sftell 3\n");
 
-	if(!(s = sfreserve(f,4,0)) || strncmp(s,"123\n",4) != 0 )
+	if(!(s = sfreserve(f,4,0)) || strncmp(s,"456\n",4) != 0 )
 		terror("Read coprocess2\n");
 	if(sftell(f) != 16)
 		terror("sftell 4\n");

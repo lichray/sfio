@@ -44,7 +44,7 @@ reg Sfio_t*	f;
 #if _sys_stat
 			else
 			{	sfstat_t	st;
-				if(fstat(f->file,&st) < 0)
+				if(sysfstatf(f->file,&st) < 0)
 					f->extent = -1;
 				else if((f->extent = st.st_size) < f->here)
 					f->here = SFSK(f,(Sfoff_t)0,SEEK_CUR,disc);

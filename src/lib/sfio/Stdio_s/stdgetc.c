@@ -1,11 +1,9 @@
-#include	"sfhdr.h"
-#include	"stdio.h"
-#undef getc
+#include	"stdio_s.h"
 
 #if __STD_C
-int getc(FILE* f)
+int _stdgetc(FILE* f)
 #else
-int getc(f)
+int _stdgetc(f)
 FILE*	f;
 #endif
 {

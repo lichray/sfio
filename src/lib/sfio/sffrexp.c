@@ -121,6 +121,27 @@ int	x;
 }
 #endif /* defined(_ldexp_) */
 
+#if !_lib_frexp
+#undef _lib_frexp
+#define _lib_frexp	1
+
+#undef _frexp_
+#undef _ldexp_
+#undef _dbl_t
+#undef _initpow2
+#undef _pow2
+#undef _dbl_max_exp
+
+#define _frexp_		frexp
+#define _ldexp_		ldexp
+#define _dbl_t		double
+#define _initpow2	initdblpow2
+#define _pow2		dblpow2
+#define _dbl_max_exp	DBL_MAX_EXP
+
+#include	"sffrexp.c"
+#endif /*!_lib_frexp*/
+
 /* now define frexpl and ldexpl as needed */
 #if !_lib_frexpl && _ast_fltmax_double && _lib_frexp
 #undef _lib_frexpl
@@ -131,15 +152,23 @@ int	x;
 #undef _lib_frexpl
 #define _lib_frexpl	2
 
+#undef _frexp_
+#undef _ldexp_
+#undef _dbl_t
+#undef _initpow2
+#undef _pow2
+#undef _dbl_max_exp
+
+#define _frexp_		frexpl
+#define _ldexp_		ldexpl
 #define _dbl_t		_ast_fltmax_t
+#define _initpow2	initldblpow2
 #define _pow2		ldblpow2
 #if defined(LDBL_MAX_EXP)
 #define _dbl_max_exp	LDBL_MAX_EXP
 #else
 #define _dbl_max_exp	DBL_MAX_EXP
 #endif
-#define _frexp_		frexpl
-#define _ldexp_		ldexpl
 
 #include	"sffrexp.c"
 #endif /* !_lib_frexpl */

@@ -5,16 +5,16 @@
 */
 
 #if __STD_C
-int vsnprintf(char* s, int n, const char* form, va_list args)
+int vsnprintf(char* s, size_t n, const char* form, va_list args)
 #else
 int vsnprintf(s,n,form,args)
 reg char*	s;
-reg int		n;
+reg size_t	n;
 reg char*	form;
 va_list		args;
 #endif
 {
-	return (s && form) ? sfvsprintf(s,n,form,args) : -1;
+	return (s && form) ? (int)sfvsprintf(s,n,form,args) : -1;
 }
 
 #if _lib___vsnprintf && !done_lib___vsnprintf && !defined(vsnprintf)

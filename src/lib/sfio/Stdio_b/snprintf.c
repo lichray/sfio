@@ -5,7 +5,7 @@
 */
 
 #if __STD_C
-int snprintf(char* s, int n,  const char* form, ...)
+int snprintf(char* s, size_t n,  const char* form, ...)
 #else
 int snprintf(va_alist)
 va_dcl
@@ -17,15 +17,15 @@ va_dcl
 	va_start(args,form);
 #else
 	reg char*	s;
-	reg int		n;
+	reg size_t	n;
 	reg char*	form;
 	va_start(args);
 	s = va_arg(args,char*);
-	n = va_arg(args,int);
+	n = va_arg(args,size_t);
 	form = va_arg(args,char*);
 #endif
 
-	rv = (s && form) ? sfvsprintf(s,n,form,args) : -1;
+	rv = (s && form) ? (int)sfvsprintf(s,n,form,args) : -1;
 	va_end(args);
 
 	return rv;

@@ -1,7 +1,7 @@
 hdr	float,limits,math,values
 lib	frexp,frexpl,ldexp,ldexpl
 
-ast	mpy_overflow_fpe note{ fpe on mpy overflow }end noexecute{
+tst	_ast_mpy_overflow_fpe note{ fpe on mpy overflow }end noexecute{
 	main()
 	{
 		float	f;
@@ -17,7 +17,7 @@ ast	mpy_overflow_fpe note{ fpe on mpy overflow }end noexecute{
 	}
 }end
 
-ast	div_underflow_fpe note{ fpe on div underflow }end noexecute{
+tst	_ast_div_underflow_fpe note{ fpe on div underflow }end noexecute{
 	main()
 	{
 		float	f;
@@ -74,14 +74,10 @@ macro{
 	#endif
 
 	#if _hdr_float
-	<<#if _hdr_float>>
 	<<"#include <float.h>">>
-	<<#endif>>
 	#endif
 	#if _hdr_math
-	<<#if _hdr_math>>
 	<<"#include <math.h>">>
-	<<#endif>>
 	#endif
 	#ifdef FLT_DIG
 	<<"#ifndef FLT_DIG">>
@@ -254,9 +250,6 @@ tst	- output{
 	#ifdef SIGFPE
 		signal(SIGFPE, catch);
 	#endif
-
-		printf("#include\t\"FEATURE/common\"\n");
-
 		printf("\n");
 		printf("\n");
 		us = 0;
@@ -732,20 +725,18 @@ tst	- output{
 	#endif
 
 		printf("\n");
-		printf("_BEGIN_EXTERNS_\n");
-	#if !_lib_frexp
-		printf("extern double		frexp _ARG_((double, int*));\n");
+	#if !_lib_frexp && !defined(frexp)
+		printf("extern double		frexp(double, int*);\n");
 	#endif
-	#if !_lib_frexpl
-		printf("extern _ast_fltmax_t	frexpl _ARG_((_ast_fltmax_t, int*));\n");
+	#if !_lib_frexpl && !defined(frexpl)
+		printf("extern _ast_fltmax_t	frexpl(_ast_fltmax_t, int*);\n");
 	#endif
-	#if !_lib_ldexp
-		printf("extern double		ldexp _ARG_((double, int));\n");
+	#if !_lib_ldexp && !defined(ldexp)
+		printf("extern double		ldexp(double, int);\n");
 	#endif
-	#if !_lib_ldexpl
-		printf("extern _ast_fltmax_t	ldexpl _ARG_((_ast_fltmax_t, int));\n");
+	#if !_lib_ldexpl && !defined(ldexpl)
+		printf("extern _ast_fltmax_t	ldexpl(_ast_fltmax_t, int);\n");
 	#endif
-		printf("_END_EXTERNS_\n");
 
 		return 0;
 	}
@@ -764,6 +755,100 @@ tst	- -DN=1 - -DN=2 output{
 		printf("#define _ast_flt_unsigned_max_t	unsigned long long\n");
 	#else
 		printf("#define _ast_flt_unsigned_max_t	unsigned long\n");
+	#endif
+		return 0;
+	}
+}end
+
+tst	- -DEXP=1 - -DADD=1 - -DMPY=1 output{
+	#include "FEATURE/common"
+	#include <sys/types.h>
+	#include <signal.h>
+	#if _hdr_float
+	#include <float.h>
+	#endif
+	#if _hdr_limits
+	#include <limits.h>
+	#endif
+	#if _hdr_math
+	#include <math.h>
+	#endif
+	#if _hdr_values
+	#include <values.h>
+	#endif
+	#if !defined(FLT_MAX) && defined(MAXFLOAT)
+	#define FLT_MAX		MAXFLOAT
+	#endif
+	#if !defined(DBL_MAX) && defined(MAXDOUBLE)
+	#define DBL_MAX		MAXDOUBLE
+	#endif
+	static void
+	#if _STD_
+	list(const char* pfx, void* val, int siz)
+	#else
+	list(pfx, val, siz)
+	char* pfx;
+	void* val;
+	int siz;
+	#endif
+	{
+		register unsigned char*	u = (unsigned char*)val;
+		register unsigned char*	e = u + siz;
+	
+		printf("#define _ast_%s_nan_init\t0x%02x", pfx, *u);
+		while (++u < e)
+			printf(",0x%02x", *u);
+		printf("\n");
+	}
+	main()
+	{
+	#ifdef SIGFPE
+		signal(SIGFPE, SIG_IGN);
+	#endif
+	#ifdef FLT_MAX
+		{
+			float	f = FLT_MAX;
+	#if ADD
+			f += f;
+	#endif
+	#if EXP
+			f = exp(f);
+	#endif
+	#if MPY
+			f *= 2;
+	#endif
+			list("flt", &f, sizeof(f));
+		}
+	#endif
+	#ifdef DBL_MAX
+		{
+			double	f = DBL_MAX;
+	#if ADD
+			f += f;
+	#endif
+	#if EXP
+			f = exp(f);
+	#endif
+	#if MPY
+			f *= 2;
+	#endif
+			list("dbl", &f, sizeof(f));
+		}
+	#endif
+	#ifdef LDBL_MAX
+		{
+			long double	f = LDBL_MAX;
+	#if ADD
+			f += f;
+	#endif
+	#if EXP
+			f = exp(f);
+	#endif
+	#if MPY
+			f *= 2;
+	#endif
+			list("ldbl", &f, sizeof(f));
+		}
 	#endif
 		return 0;
 	}

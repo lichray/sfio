@@ -28,3 +28,17 @@ char*	mode;
 
 	return(f);
 }
+
+#if _lib___fopen64 && !_done___fopen64 && !defined(fopen)
+#define _done___fopen64	1
+#define fopen		__fopen64
+#include		"fopen.c"
+#undef fopen
+#endif
+
+#if _lib_fopen64 && !_done_fopen64 && !defined(fopen)
+#define _done_fopen64	1
+#define fopen		fopen64
+#include		"fopen.c"
+#undef fopen
+#endif

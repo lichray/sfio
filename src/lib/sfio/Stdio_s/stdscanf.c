@@ -1,5 +1,4 @@
-#include	"sfhdr.h"
-#include	"stdio.h"
+#include	"stdio_s.h"
 
 /*	Read formatted data from a stream
 **
@@ -24,7 +23,7 @@ va_dcl
 	form = va_arg(args,char*);
 #endif
 
-	rv = form ? sfvscanf(sfstdin,form,args) : -1;
+	rv = form ? (int)sfvscanf(sfstdin,form,args) : -1;
 	va_end(args);
 	return rv;
 }

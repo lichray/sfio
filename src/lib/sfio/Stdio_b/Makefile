@@ -20,7 +20,8 @@ SRCS=	doprnt.c doscan.c fclose.c fdopen.c fflush.c fgetc.c fgets.c filbuf.c \
 	setlinebuf.c setvbuf.c sprintf.c sscanf.c stdextern.c stdstream.c \
 	tmpfile.c ungetc.c vfprintf.c vfscanf.c vprintf.c vscanf.c vsprintf.c \
 	vsscanf.c fileno.c feof.c ferror.c clearerr.c fpurge.c fgetpos.c fsetpos.c \
-	cleanup.c vsnprintf.c snprintf.c flockfile.c ftrylockfile.c funlockfile.c
+	cleanup.c vsnprintf.c snprintf.c flockfile.c ftrylockfile.c funlockfile.c \
+	perror.c
 
 OBJS=	doprnt.o doscan.o fclose.o fdopen.o fflush.o fgetc.o fgets.o filbuf.o \
 	flsbuf.o fopen.o fprintf.o fputc.o fputs.o fread.o freopen.o fscanf.o \
@@ -29,7 +30,8 @@ OBJS=	doprnt.o doscan.o fclose.o fdopen.o fflush.o fgetc.o fgets.o filbuf.o \
 	setlinebuf.o setvbuf.o sprintf.o sscanf.o stdextern.o stdstream.o \
 	tmpfile.o ungetc.o vfprintf.o vfscanf.o vprintf.o vscanf.o vsprintf.o \
 	vsscanf.o fileno.o feof.o ferror.o clearerr.o fpurge.o fsetpos.o fgetpos.o \
-	cleanup.o vsnprintf.o snprintf.o flockfile.o ftrylockfile.o funlockfile.o
+	cleanup.o vsnprintf.o snprintf.o flockfile.o ftrylockfile.o funlockfile.o \
+	perror.o
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $*.c

@@ -91,7 +91,7 @@ Sfio_t*	f;
 		terror("Sending eof signal");
 }
 
-main()
+MAIN()
 {
 	Sfio_t		*fw, *fr;
 	Mydisc_t	disc;

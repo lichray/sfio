@@ -19,3 +19,17 @@ reg stdfpos_t*	pos;
 
 	return (stdfpos_t)sfseek(sf, (Sfoff_t)(*pos), SEEK_SET|SF_SHARE) == *pos ? 0 : -1;
 }
+
+#if _lib___fsetpos64 && !_done___fsetpos64 && !defined(fsetpos)
+#define _done___fsetpos64	1
+#define fsetpos		__fsetpos64
+#include		"fsetpos.c"
+#undef fsetpos
+#endif
+
+#if _lib_fsetpos64 && !_done_fsetpos64 && !defined(fsetpos)
+#define _done_fsetpos64	1
+#define fsetpos		fsetpos64
+#include		"fsetpos.c"
+#undef fsetpos
+#endif

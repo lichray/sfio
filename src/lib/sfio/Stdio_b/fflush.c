@@ -19,10 +19,14 @@ reg FILE*	f;
 	if(!(sf = _sfstream(f)))
 		return -1;
 
-	if(sf->extent >= 0)
+	if(sf->extent >= 0 && !(sf->mode&SF_INIT) )
 		(void)sfseek(sf, (Sfoff_t)0, SEEK_CUR|SF_PUBLIC);
 
-	return (sfsync(sf) < 0 || sfpurge(sf) < 0) ? -1 : 0;
+	if((sf->mode&SF_WRITE) && sfsync(sf) < 0)
+		return -1;
+	if((sf->mode&SF_READ) && sfpurge(sf) < 0)
+		return -1;
+	return 0;
 }
 
 #if _lib_fflush_unlocked && !_done_fflush_unlocked && !defined(fflush)

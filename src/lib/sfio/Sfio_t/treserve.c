@@ -12,22 +12,38 @@ MAIN()
 
 	if(!(f = sfopen(0, tstfile(0), "w")) )
 		terror("Opening file to write");
-	if(sfwrite(f,"0123456789",10) != 10 || sfwrite(f,"abcde",5) != 5)
+	if(sfwrite(f,"0123456789",10) != 10 || sfwrite(f,"abcdefgh",8) != 8)
 		terror("Writing data");
+
 	if(!(f = sfopen(f, tstfile(0), "r")) )
 		terror("Opening file to read");
+	sfsetbuf(f, buf, sizeof(buf));
+
 	if(!(s = (char*)sfreserve(f,10,0)) )
 		terror("sfreserve failed");
 	if(strncmp(s,"0123456789",10) != 0)
 		terror("Did not get correct data");
+
 	if((s = (char*)sfreserve(f,10,0)) )
 		terror("sfreserve should not have succeeded");
-	if(sfvalue(f) != 5)
+	if(sfvalue(f) != 8)
 		terror("sfreserve should have left the right unread record length");
+
+	if(!(s = (char*)sfreserve(f,4,0)) )
+		terror("sfreserve should return 4 bytes");
+	if(strncmp(s,"abcd",4) != 0)
+		terror("Got wrong data");
+
+	if((s = (char*)sfreserve(f,10,0)) )
+		terror("sfreserve should not have succeeded2");
+	if(sfvalue(f) != 4)
+		terror("sfreserve should have left 4 bytes length");
+
 	if(!(s = (char*)sfreserve(f,0,SF_LASTR)) )
 		terror("sfreserve should have returned last unread record");
-	if(strncmp(s,"abcde",5) != 0)
+	if(strncmp(s,"efgh",4) != 0)
 		terror("Record has wrong data");
+
 	sfclose(f);
 
 	sfsetbuf(sfstdout,buf,sizeof(buf));
@@ -271,6 +287,24 @@ MAIN()
 		terror("sfreserve failed 12\n");
 	if(sfvalue(f) < 16 )
 		terror("hmm\n");
+
+	if(!(f = sfopen(0, "", "sr")) )
+		terror("can't open a read string stream");
+	if(!(s = sfreserve(f, 0, 1)) )
+		terror("can't lock an empty string stream");
+	if(sfread(f,s,0) != 0)
+		terror("can't unlock");
+	if((s = sfreserve(f, 0, 0)) )
+		terror("reserve successful on an empty stream");
+
+	if(!(f = sfopen(0, "", "sw")) )
+		terror("can't open a write string stream");
+	if(!(s = sfreserve(f, 0, 1)) )
+		terror("can't lock an empty string stream");
+	if(sfwrite(f,s,0) != 0)
+		terror("can't unlock");
+	if((s = sfreserve(f, 0, 0)) )
+		terror("reserve successful on an empty stream");
 
 	TSTEXIT(0);
 }

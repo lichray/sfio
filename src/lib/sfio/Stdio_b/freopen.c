@@ -34,3 +34,17 @@ reg FILE*	f;
 		else	return f;
 	}
 }
+
+#if _lib___freopen64 && !_done___freopen64 && !defined(freopen)
+#define _done___freopen64	1
+#define freopen		__freopen64
+#include		"freopen.c"
+#undef freopen
+#endif
+
+#if _lib_freopen64 && !_done_freopen64 && !defined(freopen)
+#define _done_freopen64	1
+#define freopen		freopen64
+#include		"freopen.c"
+#undef freopen
+#endif

@@ -6,11 +6,19 @@
 # Written by Kiem-Phong Vo
 ##################################################################
 
+hdr zlib
+
+key signed
+
 hdr time
 sys time
 
 hdr stdarg
 hdr stdlib
+hdr io
+hdr process
+hdr stat
+sys stat
 
 hdr wchar
 typ mbstate_t	wchar.h
@@ -31,25 +39,90 @@ hdr float
 lib atexit
 lib onexit
 
-lib ftruncate
+lib isnan
 
-lib ftruncate64
-lib open64
-lib close64
-lib creat64
-lib lseek64
-lib stat64
-lib fstat64
-lib mmap64
-lib munmap64
-typ off64_t
+lib remove,_remove,unlink,_unlink
+lib access,_access
+lib lseek,lseek64,_lseek
+lib read,_read
+lib write,_write
+lib dup,_dup
+lib pipe,_pipe
+lib fcntl,_fcntl
+lib ftruncate,ftruncate64,_ftruncate
+lib open,open64,_open
+lib close,close64,_close
+lib creat,creat64,_creat
+lib stat,stat64,_stat
+lib fstat,fstat64,_fstat
+lib mmap,mmap64,_mmap
+lib munmap,munmap64,_munmap
+lib isatty
+
+typ off_t,off64_t,_off_t
+
+typ struct_stat compile{
+	#include	<sys/types.h>
+	#include	<sys/stat.h>
+	main()
+	{	struct stat statb;
+	}
+}end
+typ struct__stat compile{
+	#include	<sys/types.h>
+	#include	<sys/stat.h>
+	main()
+	{	struct _stat statb;
+	}
+}end
 typ struct_stat64 compile{
+	#define _LARGEFILE64_SOURCE
 	#include	<sys/types.h>
 	#include	<sys/stat.h>
 	main()
 	{	struct stat64 statb;
 	}
 }end
+typ struct__stat64 compile{
+	#define _LARGEFILE64_SOURCE
+	#include	<sys/types.h>
+	#include	<sys/stat.h>
+	main()
+	{	struct _stat64 statb;
+	}
+}end
+typ struct__stati64 compile{
+	#define _LARGEFILE64_SOURCE
+	#include	<sys/types.h>
+	#include	<sys/stat.h>
+	main()
+	{	struct _stati64 statb;
+	}
+}end
+
+hdr	stdio_tag
+typ __FILE compile{
+	#include	<wchar.h>
+	main()
+	{
+	#if _hdr_stdio_tag /* no need to typedef __FILE */
+		f = -1;
+	#else
+		__FILE	*f = 0;
+	#endif
+	}
+}end
+
+chr ebcdic compile{
+	#if 'A' == 0301
+	foo() { int ebcdic = 1; }
+	#else
+	foo() { int ebcdic = no; }
+	#endif
+}end
+
+sys socket
+lib socketpair
 
 exit    cleanup note{ stuck with standard _cleanup }end execute{
         #include <stdio.h>
@@ -290,7 +363,8 @@ tst	output{
 
 hdr vfork
 sys vfork
-lib vfork
+lib vfork,fork
+lib execv,execl
 
 ##################################################
 # file control checks
@@ -299,8 +373,6 @@ lib vfork
 hdr filio
 sys filio
 sys ioctl
-lib remove
-lib unlink
 lib waitpid
 lib getpagesize
 
@@ -390,6 +462,22 @@ proto bzero note{ bzero() has prototype }end compile{
 	main()
 	{	char	buf[128];
 		bzero(buf, 128);
+	}
+}end
+
+proto time note{ time() has prototype }end compile{
+	#include	<time.h>
+	main()
+	{	
+		time(0);
+	}
+}end
+
+proto _exit note{ _exit() has prototype }end compile{
+	#include	<stdlib.h>
+	main()
+	{	
+		_exit(0);
 	}
 }end
 
