@@ -11,18 +11,13 @@ char* gets(buf)
 char*	buf;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 	reg char*	rv;
 
-	if(!(sp = _sfstream(stdin)))
+	if(!(sf = SFSTREAM(stdin)))
 		return NIL(char*);
 
-	_stdclrerr(stdin,sp);
-	if(!(rv = _stdgets(sp,buf,BUFSIZ,1)))
-	{	if(sfeof(sp))
-			_stdeof(stdin);
-		if(sferror(sp))
-			_stderr(stdin);
-	}
+	if(!(rv = _stdgets(sf,buf,BUFSIZ,1)))
+		_stdseterr(stdin,sf);
 	return rv;
 }

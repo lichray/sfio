@@ -3,7 +3,7 @@
 /*	Internal function to do a hard read.
 **	This knows about discipline and memory mapping, peek read.
 **
-**	Written by Kiem-Phong Vo (02/11/91)
+**	Written by Kiem-Phong Vo.
 */
 
 /* synchronize unseekable write streams */
@@ -29,9 +29,15 @@ static void _sfwrsync()
 	/* and all the ones in the discrete pool */
 	for(n = 0; n < _Sfpool.n_sf; ++n)
 	{	f = _Sfpool.sf[n];
+
 		if(!SFFROZEN(f) && f->next > f->data &&
 		   (f->mode&SF_WRITE) && f->extent < 0 )
+		{	/* make sure that line mode is kept for this stream */
+			if(!(f->bits&SF_BOTH) && (f->flags&SF_LINE))
+				f->bits |= SF_KEEPLINE;
+
 			(void)_sfflsbuf(f,-1);
+		}
 	}
 }
 
@@ -49,20 +55,22 @@ Sfdisc_t*	disc;
 	reg Sfdisc_t*	dc;
 	reg int		local, rcrv, dosync, oerrno;
 
+	SFMTXSTART(f,-1);
+
 	GETLOCAL(f,local);
 	if((rcrv = f->mode & (SF_RC|SF_RV)) )
 		f->mode &= ~(SF_RC|SF_RV);
 	f->bits &= ~SF_JUSTSEEK;
 
 	if(f->mode&SF_PKRD)
-		return -1;
+		SFMTXRETURN(f, -1);
 
 	if(!local && !(f->bits&SF_DCDOWN)) /* an external user's call */
 	{	if(f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0)
-			return -1;
+			SFMTXRETURN(f, -1);
 		if(f->next < f->endb)
 		{	if(SFSYNC(f) < 0)
-				return -1;
+				SFMTXRETURN(f, -1);
 #ifdef MAP_TYPE
 			if((f->bits&SF_MMAP) && f->data)
 			{	SFMUNMAP(f, f->data, f->endb-f->data);
@@ -76,7 +84,7 @@ Sfdisc_t*	disc;
 	for(dosync = 0;;)
 	{	/* stream locked by sfsetfd() */
 		if(!(f->flags&SF_STRING) && f->file < 0)
-			return 0;
+			SFMTXRETURN(f, 0);
 
 		f->flags &= ~(SF_EOF|SF_ERROR);
 
@@ -84,9 +92,9 @@ Sfdisc_t*	disc;
 		if(f->flags&SF_STRING)
 		{	if((r = (f->data+f->extent) - f->next) < 0)
 				r = 0;
-			if(r > 0)
-				return (ssize_t)r;
-			else	goto do_except;
+			if(r <= 0)
+				goto do_except;
+			SFMTXRETURN(f, (ssize_t)r);
 		}
 
 		/* warn that a read is about to happen */
@@ -99,14 +107,13 @@ Sfdisc_t*	disc;
 				n = rv;
 			else if(rv < 0)
 			{	f->flags |= SF_ERROR;
-				return (ssize_t)rv;
+				SFMTXRETURN(f, (ssize_t)rv);
 			}
 		}
 
 #ifdef MAP_TYPE
 		if(f->bits&SF_MMAP)
 		{	reg ssize_t	a, round;
-			reg int		prot, flags;
 			Stat_t		st;
 
 			/* determine if we have to copy data to buffer */
@@ -117,7 +124,7 @@ Sfdisc_t*	disc;
 
 			/* actual seek location */
 			if((f->flags&(SF_SHARE|SF_PUBLIC)) == (SF_SHARE|SF_PUBLIC) &&
-			   (r = SFSK(f,(Sfoff_t)0,1,dc)) != f->here)
+			   (r = SFSK(f,(Sfoff_t)0,SEEK_CUR,dc)) != f->here)
 				f->here = r;
 			else	f->here -= f->endb-f->next;
 
@@ -144,11 +151,11 @@ Sfdisc_t*	disc;
 			if(f->data)
 				SFMUNMAP(f, f->data, f->endb-f->data);
 
-			prot = PROT_READ | ((f->flags&SF_BUFCONST) ? 0 : PROT_WRITE);
-			flags = (f->flags&SF_BUFCONST) ? MAP_SHARED : MAP_PRIVATE;
 			for(;;)
-			{	f->data = (uchar*) mmap((caddr_t)0, (size_t)r, prot,
-						flags, f->file, (off_t)f->here);
+			{	f->data = (uchar*) mmap((caddr_t)0, (size_t)r,
+							(PROT_READ|PROT_WRITE),
+							MAP_PRIVATE,
+							f->file, (off_t)f->here);
 				if(f->data && (caddr_t)f->data != (caddr_t)(-1))
 					break;
 				else
@@ -168,23 +175,24 @@ Sfdisc_t*	disc;
 				f->here += r;
 
 				/* make known our seek location */
-				(void)SFSK(f,f->here,0,dc);
+				(void)SFSK(f,f->here,SEEK_SET,dc);
 
 				if(buf)
 				{	if(n > (size_t)(r-a))
 						n = (ssize_t)(r-a);
 					memcpy(buf,f->next,n);
 					f->next += n;
-					return n;
 				}
-				else	return f->endb-f->next;
+				else	n = f->endb - f->next;
+
+				SFMTXRETURN(f, n);
 			}
 			else
 			{	r = -1;
 				f->here += a;
 
 				/* reset seek pointer to its physical location */
-				(void)SFSK(f,f->here,0,dc);
+				(void)SFSK(f,f->here,SEEK_SET,dc);
 
 				/* make a buffer */
 				(void)SFSETBUF(f,(Void_t*)f->tiny,(size_t)SF_UNBOUND);
@@ -206,8 +214,8 @@ Sfdisc_t*	disc;
 		/* make sure file pointer is right */
 		if(f->extent >= 0 && (f->flags&SF_SHARE) )
 		{	if(!(f->flags&SF_PUBLIC) )
-				f->here = SFSK(f,f->here,0,dc);
-			else	f->here = SFSK(f,(Sfoff_t)0,1,dc);
+				f->here = SFSK(f,f->here,SEEK_SET,dc);
+			else	f->here = SFSK(f,(Sfoff_t)0,SEEK_CUR,dc);
 		}
 
 		oerrno = errno;
@@ -221,7 +229,7 @@ Sfdisc_t*	disc;
 				/* tell readf that no peeking necessary */
 			else	f->flags &= ~SF_SHARE;
 
-			r = SFDCRD(f,buf,n,dc,r);
+			SFDCRD(f,buf,n,dc,r);
 
 			/* reset flags */
 			if(rcrv)
@@ -258,7 +266,7 @@ Sfdisc_t*	disc;
 					f->endb = f->endr = ((uchar*)buf) + r;
 			}
 
-			return (ssize_t)r;
+			SFMTXRETURN(f, (ssize_t)r);
 		}
 
 	do_except:
@@ -269,13 +277,14 @@ Sfdisc_t*	disc;
 		case SF_ECONT :
 			goto do_continue;
 		case SF_EDONE :
-			return local ? 0 : (ssize_t)r;
+			n = local ? 0 : (ssize_t)r;
+			SFMTXRETURN(f,n);
 		case SF_EDISC :
 			if(!local && !(f->flags&SF_STRING))
 				goto do_continue;
 			/* else fall thru */
 		case SF_ESTACK :
-			return -1;
+			SFMTXRETURN(f, -1);
 		}
 
 	do_continue:

@@ -3,7 +3,7 @@
 /*	Read a record delineated by a character.
 **	The record length can be accessed via sfvalue(f).
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo
 */
 
 #if __STD_C
@@ -19,14 +19,16 @@ int		type;
 	reg uchar	*s, *ends, *us;
 	reg ssize_t	un;
 	reg int		found;
-	reg Sfrsrv_t*	frs;
+	reg Sfrsrv_t*	rsrv;
+
+	SFMTXSTART(f, NIL(char*));
 
 	if(rc < 0 || (f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0) )
-		return NIL(char*);
+		SFMTXRETURN(f, NIL(char*));
 	SFLOCK(f,0);
 
 	/* buffer to be returned */
-	frs = NIL(Sfrsrv_t*);
+	rsrv = NIL(Sfrsrv_t*);
 	us = NIL(uchar*);
 	un = 0;
 	found = 0;
@@ -35,8 +37,8 @@ int		type;
 	type = type < 0 ? SF_LASTR : type == 1 ? SF_STRING : type;
 
 	if(type&SF_LASTR) /* return the broken record */
-	{	if((frs = _sfrsrv(f,0)) && (un = -frs->slen) > 0)
-		{	us = frs->data;
+	{	if((rsrv = f->rsrv) && (un = -rsrv->slen) > 0)
+		{	us = rsrv->data;
 			found = 1;
 		}
 		goto done;
@@ -77,10 +79,8 @@ int		type;
 			found = 1;
 
 			if(!us &&
-			   (!(type&SF_STRING) ||
-			    ((f->flags&SF_STRING) && (f->bits&SF_BOTH) ) ||
-			    ((f->bits&SF_MMAP) && !(f->flags&SF_BUFCONST) ) ||
-			    (!(f->flags&SF_STRING) && !(f->bits&SF_MMAP) ) ) )
+			   (!(type&SF_STRING) || !(f->flags&SF_STRING) ||
+			    ((f->flags&SF_STRING) && (f->bits&SF_BOTH) ) ) )
 			{	/* returning data in buffer */
 				us = f->next;
 				un = s - f->next;
@@ -93,11 +93,11 @@ int		type;
 		n = s - f->next;
 
 		/* get internal buffer */
-		if(!frs || frs->size < un+n+1)
-		{	if(frs)
-				frs->slen = un;
-			if((frs = _sfrsrv(f,un+n+1)) != NIL(Sfrsrv_t*))
-				us = frs->data;
+		if(!rsrv || rsrv->size < un+n+1)
+		{	if(rsrv)
+				rsrv->slen = un;
+			if((rsrv = _sfrsrv(f,un+n+1)) != NIL(Sfrsrv_t*))
+				us = rsrv->data;
 			else
 			{	us = NIL(uchar*);
 				goto done;
@@ -124,18 +124,15 @@ done:
 	}
 
 	/* prepare for a call to get the broken record */
-	if(frs)
-		frs->slen = found ? 0 : -un;
+	if(rsrv)
+		rsrv->slen = found ? 0 : -un;
 
 	SFOPEN(f,0);
 
-	if(!us)
-		return NIL(char*);
-	else
-	{	if(type&SF_LOCKR)
-		{	f->mode |= SF_PEEK|SF_GETR;
-			f->endr = f->data;
-		}
-		return (char*)us;
+	if(us && (type&SF_LOCKR) )
+	{	f->mode |= SF_PEEK|SF_GETR;
+		f->endr = f->data;
 	}
+
+	SFMTXRETURN(f, (char*)us);
 }

@@ -6,45 +6,33 @@
 
 
 #if __STD_C
-int fputc(int c, FILE* fp)
+int fputc(int c, FILE* f)
 #else
-int fputc(c, fp)
+int fputc(c, f)
 reg int		c;
-reg FILE*	fp;
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
 
-	_stdclrerr(fp,sp);
-	if(sfputc(sp,c) < 0)
-	{	_stderr(fp);
-		return -1;
-	}
-	else	return c;
+	if((c = sfputc(sf,c)) < 0)
+		_stdseterr(f,sf);
+	return c;
 }
 
-#if _lib__IO_putc
-#if __STD_C
-int _IO_putc(int c, FILE* fp)
-#else
-int _IO_putc(c, fp)
-reg int		c;
-reg FILE*	fp;
+#if _lib__IO_putc && !_done_IO_putc && !defined(fputc)
+#define _done_IO_putc	1
+#define fputc	_IO_putc
+#include	"fputc.c"
+#undef fputc
 #endif
-{
-	reg Sfio_t*	sp;
 
-	if(!(sp = _sfstream(fp)))
-		return -1;
-
-	_stdclrerr(fp,sp);
-	if(sfputc(sp,c) < 0)
-	{	_stderr(fp);
-		return -1;
-	}
-	else	return c;
-}
+#if _lib_fputc_unlocked && !_done_fputc_unlocked && !defined(fputc)
+#define _done_fputc_unlocked	1
+#define fputc	fputc_unlocked
+#include	"fputc.c"
+#undef fputc
 #endif

@@ -2,7 +2,7 @@
 
 /*	Write out a long value in a portable format
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -18,8 +18,9 @@ Sflong_t	v;	/* the value to be written */
 	reg ssize_t	n, p;
 	uchar		c[N_ARRAY];
 
+	SFMTXSTART(f,-1);
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
-		return -1;
+		SFMTXRETURN(f, -1);
 	SFLOCK(f,0);
 
 	s = ps = &(c[N_ARRAY-1]);
@@ -55,5 +56,5 @@ Sflong_t	v;	/* the value to be written */
 	}
 
 	SFOPEN(f,0);
-	return n;
+	SFMTXRETURN(f, n);
 }

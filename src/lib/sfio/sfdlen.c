@@ -2,7 +2,7 @@
 
 /*	Return the length of a double value if coded in a portable format
 **
-**	Written by Kiem-Phong Vo (08/05/90)
+**	Written by Kiem-Phong Vo
 */
 
 #if __STD_C

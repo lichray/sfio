@@ -9,5 +9,5 @@ int getc(f)
 FILE*	f;
 #endif
 {
-	return __sf_fgetc(f);
+	return _std_getc(f);
 }

@@ -5,27 +5,32 @@
 */
 
 #if __STD_C
-size_t fwrite(const void* buf, size_t size, size_t nmem, reg FILE* fp)
+size_t fwrite(const Void_t* buf, size_t esize, size_t nelts, reg FILE* f)
 #else
-size_t fwrite(buf,size,nmem,fp)
-reg char*	buf;
-reg size_t	size;
-reg size_t	nmem;
-reg FILE*	fp;
+size_t fwrite(buf,esize,nelts,f)
+reg Void_t*	buf;
+reg size_t	esize;
+reg size_t	nelts;
+reg FILE*	f;
 #endif
 {
 	reg ssize_t	rv;
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return 0;
 
-	_stdclrerr(fp,sp);
-
-	if((rv = sfwrite(sp,buf,size*nmem)) >= 0)
-		return rv/size;
+	if((rv = sfwrite(sf,buf,esize*nelts)) >= 0)
+		return rv/esize;
 	else
-	{	_stderr(fp);
+	{	_stdseterr(f,sf);
 		return 0;
 	}
 }
+
+#if _lib_fwrite_unlocked && !_done_fwrite_unlocked && !defined(fwrite)
+#define _done_fwrite_unlocked	1
+#define fwrite	fwrite_unlocked
+#include	"fwrite.c"
+#undef fwrite
+#endif

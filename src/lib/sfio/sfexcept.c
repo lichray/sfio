@@ -1,8 +1,9 @@
 #include	"sfhdr.h"
 
 /*	Function to handle io exceptions.
-**	Written by Kiem-Phong Vo (8/18/90)
+**	Written by Kiem-Phong Vo
 */
+
 #if __STD_C
 int _sfexcept(Sfio_t* f, int type, ssize_t io, Sfdisc_t* disc)
 #else
@@ -16,6 +17,8 @@ Sfdisc_t*	disc;	/* discipline in use */
 	reg int		ev, local, lock;
 	reg ssize_t	size;
 	reg uchar*	data;
+
+	SFMTXSTART(f,-1);
 
 	GETLOCAL(f,local);
 	lock = f->mode&SF_LOCK;
@@ -37,18 +40,18 @@ Sfdisc_t*	disc;	/* discipline in use */
 			SFLOCK(f,0);
 
 		if(io > 0 && !(f->flags&SF_STRING) )
-			return ev;
-		else if(ev < 0)
-			return SF_EDONE;
-		else if(ev > 0)
-			return SF_EDISC;
+			SFMTXRETURN(f, ev);
+		if(ev < 0)
+			SFMTXRETURN(f, SF_EDONE);
+		if(ev > 0)
+			SFMTXRETURN(f, SF_EDISC);
 	}
 
 	if(f->flags&SF_STRING)
 	{	if(type == SF_READ)
 			goto chk_stack;
 		else if(type != SF_WRITE && type != SF_SEEK)
-			return SF_EDONE;
+			SFMTXRETURN(f, SF_EDONE);
 		if(local && io >= 0)
 		{	if(f->size >= 0 && !(f->flags&SF_MALLOC))
 				goto chk_stack;
@@ -68,14 +71,17 @@ Sfdisc_t*	disc;	/* discipline in use */
 			f->endr = f->endw = f->data = data;
 			f->size = size;
 		}
-		return SF_EDISC;
+		SFMTXRETURN(f, SF_EDISC);
 	}
 
 	if(errno == EINTR)
-	{	/* if just an interrupt, we can continue */
+	{	if(_Sfexiting || (f->bits&SF_CLOSING))	/* stop being a hero */
+			SFMTXRETURN(f, SF_EDONE);
+
+		/* a normal interrupt, we can continue */
 		errno = 0;
 		f->flags &= ~(SF_EOF|SF_ERROR);
-		return SF_ECONT;
+		SFMTXRETURN(f, SF_ECONT);
 	}
 
 chk_stack:
@@ -96,8 +102,9 @@ chk_stack:
 		if(lock)
 			SFLOCK(f,0);
 
-		return ev < 0 ? SF_EDONE : SF_ESTACK;
+		ev = ev < 0 ? SF_EDONE : SF_ESTACK;
 	}
+	else	ev = SF_EDONE;
 
-	return SF_EDONE;
+	SFMTXRETURN(f, ev);
 }

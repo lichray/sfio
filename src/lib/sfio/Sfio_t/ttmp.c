@@ -1,12 +1,5 @@
 #include	"sftest.h"
 
-#undef fork	/* make sure fork() is used, not vfork() */
-
-_BEGIN_EXTERNS_
-extern int	fork();
-extern int	wait _ARG_((int*));
-_END_EXTERNS_
-
 static int	Count = 0;
 static Sfdisc_t	Disc;
 
@@ -25,7 +18,7 @@ int fd;
 		Count += 1;
 }
 
-main()
+MAIN()
 {
 	Sfio_t*	f;
 	char*	s;
@@ -129,5 +122,5 @@ main()
 	if(pid != 0)
 		wait(&pid);
 
-	return 0;
+	TSTRETURN(0);
 }

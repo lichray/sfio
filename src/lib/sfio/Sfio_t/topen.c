@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	Sfio_t*	f;
 	Sfio_t	sf;
@@ -24,12 +24,11 @@ main()
 		terror("Did not close sf\n");
 
 	/* test for exclusive opens */
-	unlink(Kpv[0]);
-	if(!(f = sfopen(NIL(Sfio_t*),Kpv[0],"wx") ) )
+	unlink(tstfile(0));
+	if(!(f = sfopen(NIL(Sfio_t*),tstfile(0),"wx") ) )
 		terror("sfopen failed\n");
-	if((f = sfopen(f,Kpv[0],"wx") ) )
+	if((f = sfopen(f,tstfile(0),"wx") ) )
 		terror("sfopen should not succeed here\n");
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

@@ -5,49 +5,32 @@
 */
 
 #if __STD_C
-int fgetc(reg FILE* fp)
+int fgetc(reg FILE* f)
 #else
-int fgetc(fp)
-reg FILE*	fp;
+int fgetc(f)
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 	reg int		rv;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-
-	_stdclrerr(fp,sp);
-	if((rv = sfgetc(sp)) < 0)
-	{	if(sfeof(sp))
-			_stdeof(fp);
-		if(sferror(sp))
-			_stderr(fp);
-	}
+	if((rv = sfgetc(sf)) < 0)
+		_stdseterr(f,sf);
 	return rv;
 }
 
-#if _lib__IO_getc
-#if __STD_C
-int _IO_getc(reg FILE* fp)
-#else
-int _IO_getc(fp)
-reg FILE* fp;
+#if _lib__IO_getc && !_done_IO_getc && !defined(fgetc)
+#define _done_IO_getc	1
+#define fgetc	_IO_getc
+#include	"fgetc.c"
+#undef fgetc
 #endif
-{
-	reg Sfio_t*	sp;
-	reg int		rv;
 
-	if(!(sp = _sfstream(fp)))
-		return -1;
-
-	_stdclrerr(fp,sp);
-	if((rv = sfgetc(sp)) < 0)
-	{	if(sfeof(sp))
-			_stdeof(fp);
-		if(sferror(sp))
-			_stderr(fp);
-	}
-	return rv;
-}
+#if _lib_fgetc_unlocked && !_done_fgetc_unlocked && !defined(fgetc)
+#define _done_fgetc_unlocked	1
+#define fgetc	fgetc_unlocked
+#include	"fgetc.c"
+#undef fgetc
 #endif

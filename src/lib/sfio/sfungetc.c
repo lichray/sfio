@@ -2,7 +2,7 @@
 
 /*	Push back one byte to a given SF_READ stream
 **
-**	Written by Kiem-Phong Vo (03/02/91)
+**	Written by Kiem-Phong Vo.
 */
 #if __STD_C
 static int _uexcept(reg Sfio_t* f, reg int type, Void_t* val, reg Sfdisc_t* disc)
@@ -37,8 +37,10 @@ reg int		c;	/* the value to be pushed back */
 {
 	reg Sfio_t*	uf;
 
+	SFMTXSTART(f, -1)
+
 	if(c < 0 || (f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0))
-		return -1;
+		SFMTXRETURN(f, -1);
 	SFLOCK(f,0);
 
 	/* fast handling of the typical unget */
@@ -80,5 +82,5 @@ reg int		c;	/* the value to be pushed back */
 	*--f->next = (uchar)c;
 done:
 	SFOPEN(f,0);
-	return c;
+	SFMTXRETURN(f, c);
 }

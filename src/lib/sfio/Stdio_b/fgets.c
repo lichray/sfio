@@ -5,27 +5,27 @@
 */
 
 #if __STD_C
-char* fgets(char* buf, int n, FILE* fp)
+char* fgets(char* buf, int n, FILE* f)
 #else
-char* fgets(buf,n,fp)
+char* fgets(buf,n,f)
 char*	buf;
 int	n;
-FILE*	fp;
+FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 	reg char*	rv;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)) )
 		return NIL(char*);
-
-	_stdclrerr(fp,sp);
-	if(!(rv = _stdgets(sp,buf,n,0)))
-	{	if(sfeof(sp))
-			_stdeof(fp);
-		if(sferror(sp))
-			_stderr(fp);
-	}
-
+	if(!(rv = _stdgets(sf,buf,n,0)))
+		_stdseterr(f,sf);
 	return rv;
 }
+
+#if _lib_fgets_unlocked && !_done_fgets_unlocked && !defined(fgets)
+#define _done_fgets_unlocked	1
+#define fgets	fgets_unlocked
+#include	"fgets.c"
+#undef fgets
+#endif

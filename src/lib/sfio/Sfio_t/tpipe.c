@@ -11,7 +11,7 @@ int	sig;
 	terror("Alarm went off\n");
 }
 
-main()
+MAIN()
 {
 	int	fd[2];
 	Sfio_t	*fr, *fw;
@@ -92,5 +92,5 @@ main()
 	if(strncmp(s,"0123456789",10) != 0)
 		terror("Bad peek str %s\n",s);
 
-	return 0;
+	TSTRETURN(0);
 }

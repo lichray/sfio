@@ -1,24 +1,31 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	Sfio_t	*f;
 
-	if(!(f = sfopen((Sfio_t*)0,Kpv[0],"w")))
+	if(argc > 1)
+	{	if(sfopen(sfstdin,argv[1],"r") != sfstdin)
+			terror("Can't reopen stdin");
+		sfmove(sfstdin,sfstdout,(Sfoff_t)(-1),-1);
+		return 0;
+	}
+
+	if(!(f = sfopen((Sfio_t*)0,tstfile(0),"w")))
 		terror("Opening to write\n");
 	if(sfputc(f,'a') != 'a')
 		terror("sfputc\n");
 	if(sfgetc(f) >= 0)
 		terror("sfgetc\n");
 	
-	if(!(f = sfopen(f,Kpv[0],"r")))
+	if(!(f = sfopen(f,tstfile(0),"r")))
 		terror("Opening to read\n");
 	if(sfgetc(f) != 'a')
 		terror("sfgetc2\n");
 	if(sfputc(f,'b') >= 0)
 		terror("sfputc2\n");
 
-	if(!(f = sfopen(f,Kpv[0],"r+")))
+	if(!(f = sfopen(f,tstfile(0),"r+")))
 		terror("Opening to read/write\n");
 
 	if(sfgetc(f) != 'a')
@@ -28,7 +35,7 @@ main()
 	if(sfclose(f) < 0)
 		terror("sfclose\n");
 
-	if(!(f = sfpopen(NIL(Sfio_t*),sfprints("cat %s",Kpv[0]),"r")))
+	if(!(f = sfpopen(NIL(Sfio_t*),sfprints("%s %s", argv[0], tstfile(0)),"r")))
 		terror("sfpopen\n");
 	if(sfgetc(f) != 'a')
 		terror("sfgetc4\n");
@@ -37,7 +44,7 @@ main()
 	if(sfgetc(f) >= 0)
 		terror("sfgetc6\n");
 
-	if(!(f = sfopen(f,Kpv[0],"w")) )
+	if(!(f = sfopen(f,tstfile(0),"w")) )
 		terror("sfopen\n");
 	if(sfputc(f,'a') != 'a')
 		terror("sfputc1\n");
@@ -47,7 +54,7 @@ main()
 	if(sfclose(f) < 0)
 		terror("sfclose\n");
 
-	if(!(f = sfopen(NIL(Sfio_t*),Kpv[0],"a+")) )
+	if(!(f = sfopen(NIL(Sfio_t*),tstfile(0),"a+")) )
 		terror("sfopen2\n");
 	sfset(f,SF_READ,0);
 	if(!sfreserve(f,0,-1) )
@@ -55,6 +62,5 @@ main()
 	if(sfvalue(f) <= 0)
 		terror("There is no buffer?\n");
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

@@ -1,5 +1,4 @@
 #include	"sftest.h"
-#undef fork
 
 /* see if multiple writers do create a consistent set of records. */
 
@@ -14,7 +13,7 @@ static long vrandom()
 	return (hash = hash*0xbadbeef + 0xdeadbeef)&LOWBITS;
 }
 
-main()
+MAIN()
 {
 	ssize_t	size[N_WRITER][N_RECORD];
 	int	count[N_WRITER];
@@ -34,11 +33,11 @@ main()
 		record[i][r] = '0'+i;
 
 	/* create file */
-	fr = sfopen(NIL(Sfio_t*),Kpv[0],"w+");
+	fr = sfopen(NIL(Sfio_t*),tstfile(0),"w+");
 
 	/* create records */
 	for(i = 0; i < N_WRITER; ++i)
-	{	fw[i] = sfopen(NIL(Sfio_t*),Kpv[0],"a");
+	{	fw[i] = sfopen(NIL(Sfio_t*),tstfile(0),"a");
 		count[i] = 0;
 	}
 
@@ -81,6 +80,5 @@ main()
 		if(count[i] != N_RECORD)
 			terror("Bad count%d %d\n", i, count[i]);
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

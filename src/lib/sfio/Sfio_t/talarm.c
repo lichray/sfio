@@ -40,7 +40,7 @@ Sfdisc_t*	disc;
 
 Sfdisc_t Disc = {NIL(Sfread_f), NIL(Sfwrite_f), NIL(Sfseek_f), exceptf};
 
-main()
+MAIN()
 {
 	int	fd[2];
 
@@ -71,5 +71,5 @@ main()
 	if(!Except)
 		terror("Exception handler wasn't called2\n");
 
-	return 0;
+	TSTRETURN(0);
 }

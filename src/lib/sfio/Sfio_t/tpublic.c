@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	Sfio_t*	f;
 	Sfio_t*	g;
@@ -8,16 +8,16 @@ main()
 	char	buf[1024];
 	int	n, i;
 
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w")) )
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "w")) )
 		terror("Can't open file to write\n");
 	sfputr(f,"1111",'\n');
 	sfputr(f,"2222",'\n');
 	sfputr(f,"3333",'\n');
 	sfputr(f,"4444",'\n');
 
-	if(!(f = sfopen(f, Kpv[0], "r")) )
+	if(!(f = sfopen(f, tstfile(0), "r")) )
 		terror("Can't open file to read1\n");
-	if(!(g = sfnew(NIL(Sfio_t*),NIL(Void_t*),SF_UNBOUND,sffileno(f),SF_READ)) )
+	if(!(g = sfnew(NIL(Sfio_t*),NIL(Void_t*),SF_UNBOUND,dup(sffileno(f)),SF_READ)) )
 		terror("Can't open file to read2\n");
 
 	sfset(f,SF_SHARE|SF_PUBLIC,1);
@@ -38,9 +38,9 @@ main()
 
 	sfclose(f);
 	sfclose(g);
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "r+")) )
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "r+")) )
 		terror("Can't open file to write2\n");
-	if(!(g = sfnew(NIL(Sfio_t*),NIL(char*),-1,sffileno(f),SF_READ)) )
+	if(!(g = sfnew(NIL(Sfio_t*),NIL(Void_t*),SF_UNBOUND,dup(sffileno(f)),SF_READ)) )
 		terror("Can't open file to read3\n");
 
 	sfset(f,SF_SHARE|SF_PUBLIC,1);
@@ -59,7 +59,7 @@ main()
 		terror("Wrong data6\n");
 	sfsync(g);
 
-	if(!(f = sfopen(f, Kpv[0], "w")) )
+	if(!(f = sfopen(f, tstfile(0), "w")) )
 		terror("Can't open file to write3\n");
 
 	for(i = 0; i < sizeof(buf); ++i)
@@ -74,7 +74,7 @@ main()
 		if(sfwrite(f,buf,sizeof(buf)) != sizeof(buf))
 			terror("Writing buffer1\n");
 
-	if(!(f = sfopen(f, Kpv[0], "r")) )
+	if(!(f = sfopen(f, tstfile(0), "r")) )
 		terror("Can't open file to read3\n");
 	sfset(f,SF_SHARE|SF_PUBLIC,1);
 
@@ -97,12 +97,12 @@ main()
 	if((s = sfreserve(f,1,0)) )
 		terror("Reading beyond eof\n");
 
-	if(!(f = sfopen(f, Kpv[0], "w")) )
+	if(!(f = sfopen(f, tstfile(0), "w")) )
 		terror("Can't open to write\n");
 	if(sfwrite(f,"aaa\nbbb\nccc\n",12) != 12)
 		terror("Can't write\n");
 	sfclose(f);
-	if(sfopen(sfstdin,Kpv[0],"r") != sfstdin)
+	if(sfopen(sfstdin,tstfile(0),"r") != sfstdin)
 		terror("Can't open file as sfstdin\n");
 	if((n = (int)sfmove(sfstdin,NIL(Sfio_t*),(Sfoff_t)SF_UNBOUND,'\n')) != 3)
 		terror("sfmove wrong number of lines %d\n",n);
@@ -113,6 +113,5 @@ main()
 	if((n = (int)sfmove(sfstdin,NIL(Sfio_t*),(Sfoff_t)SF_UNBOUND,'\n')) != 1)
 		terror("sfmove3 wrong number of lines %d\n",n);
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

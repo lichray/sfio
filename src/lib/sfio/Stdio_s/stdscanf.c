@@ -3,7 +3,7 @@
 
 /*	Read formatted data from a stream
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C

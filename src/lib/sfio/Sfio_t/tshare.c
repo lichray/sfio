@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	char		buf[1024], *s;
 	Sfio_t*	f;
@@ -29,5 +29,5 @@ main()
 	if(strcmp(s,"0123456789") != 0)
 		terror("Data is wrong\n");
 
-	return 0;
+	TSTRETURN(0);
 }

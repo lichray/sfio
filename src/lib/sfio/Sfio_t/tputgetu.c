@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	unsigned int	i, r;
 	Sfio_t	*fp;
@@ -17,5 +17,6 @@ main()
 	for(i = 10000; i <= 100000; i += 9)
 		if((r = (unsigned int)sfgetu(fp)) != i)
 			terror("Input=%u, Expect=%u\n",r,i);
-	return 0;
+
+	TSTRETURN(0);
 }

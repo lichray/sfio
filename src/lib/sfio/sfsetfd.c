@@ -2,7 +2,7 @@
 
 /*	Change the file descriptor
 **
-**	Written by Kiem-Phong Vo (01/08/91)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -44,18 +44,20 @@ reg int		newfd;
 {
 	reg int		oldfd;
 
+	SFMTXSTART(f, -1);
+
 	if(f->flags&SF_STRING)
-		return -1;
+		SFMTXRETURN(f, -1);
 
 	if((f->mode&SF_INIT) && f->file < 0)
 	{	/* restoring file descriptor after a previous freeze */
 		if(newfd < 0)
-			return -1;
+			SFMTXRETURN(f, -1);
 	}
 	else
 	{	/* change file descriptor */
 		if((f->mode&SF_RDWR) != f->mode && _sfmode(f,0,0) < 0)
-			return -1;
+			SFMTXRETURN(f, -1);
 		SFLOCK(f,0);
 
 		oldfd = f->file;
@@ -63,7 +65,7 @@ reg int		newfd;
 		{	if(newfd >= 0)
 			{	if((newfd = _sfdup(oldfd,newfd)) < 0)
 				{	SFOPEN(f,0);
-					return -1;
+					SFMTXRETURN(f, -1);
 				}
 				CLOSE(oldfd);
 			}
@@ -73,7 +75,7 @@ reg int		newfd;
 				   (f->mode&SF_READ) || f->disc == _Sfudisc)
 				{	if(SFSYNC(f) < 0)
 					{	SFOPEN(f,0);
-						return -1;
+						SFMTXRETURN(f, -1);
 					}
 				}
 
@@ -81,7 +83,7 @@ reg int		newfd;
 				   ((f->mode&SF_READ) && f->extent < 0 &&
 				    f->next < f->endb) )
 				{	SFOPEN(f,0);
-					return -1;
+					SFMTXRETURN(f, -1);
 				}
 
 #ifdef MAP_TYPE
@@ -105,6 +107,8 @@ reg int		newfd;
 	/* notify changes */
 	if(_Sfnotify)
 		(*_Sfnotify)(f,SF_SETFD,newfd);
+
 	f->file = newfd;
-	return newfd;
+
+	SFMTXRETURN(f,newfd);
 }

@@ -2,7 +2,7 @@
 
 /*	Write out a floating point value in a portable format
 **
-**	Written by Kiem-Phong Vo (08/05/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -20,8 +20,10 @@ Sfdouble_t	v;
 	uchar		c[N_ARRAY];
 	double		x;
 
+	SFMTXSTART(f,-1);
+
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
-		return -1;
+		SFMTXRETURN(f, -1);
 	SFLOCK(f,0);
 
 	/* get the sign of v */
@@ -32,10 +34,9 @@ Sfdouble_t	v;
 	else	n = 0;
 
 #if !_ast_fltmax_double /* don't know how to do these yet */
-	if(v > MAXDOUBLE && !_has_expfuncs)
-	{
-		SFOPEN(f,0);
-		return -1;
+	if(v > SF_MAXDOUBLE && !_has_expfuncs)
+	{	SFOPEN(f,0);
+		SFMTXRETURN(f, -1);
 	}
 #endif
 
@@ -53,7 +54,7 @@ Sfdouble_t	v;
 	/* write out the signs and the exp */
 	SFOPEN(f,0);
 	if(sfputc(f,n) < 0 || (w = sfputu(f,w)) < 0)
-		return -1;
+		SFMTXRETURN(f, -1);
 	SFLOCK(f,0);
 	w += 1;
 
@@ -76,5 +77,5 @@ Sfdouble_t	v;
 	w = SFWRITE(f,(Void_t*)s,n) == n ? w+n : -1;
 
 	SFOPEN(f,0);
-	return w;
+	SFMTXRETURN(f,w);
 }

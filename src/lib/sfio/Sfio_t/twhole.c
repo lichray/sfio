@@ -22,7 +22,7 @@ Sfdisc_t*	disc;
 
 Sfdisc_t	Disc = {(Sfread_f)0, writef, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
 
-main()
+MAIN()
 {
 	Sfio_t*	f;
 	char	buf[550];
@@ -32,7 +32,7 @@ main()
 	Count = 0;
 	Size = 52;
 
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w")) )
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "w")) )
 		terror("Opening to write\n");
 	sfsetbuf(f,buf,sizeof(buf));
 	sfset(f,SF_WHOLE,1);
@@ -48,7 +48,7 @@ main()
 	Count = 0;
 	Size = 53;
 
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0],"w")) )
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0),"w")) )
 		terror("Opening to write\n");
 	sfsetbuf(f,buf,sizeof(buf));
 	sfset(f,SF_WHOLE,1);
@@ -61,6 +61,5 @@ main()
 	if(Count != 10)
 		terror("Wrong number of writes2\n");
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

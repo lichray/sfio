@@ -5,27 +5,22 @@
 */
 
 #if __STD_C
-int vfscanf(FILE* fp, const char* form, va_list args)
+int vfscanf(FILE* f, const char* form, va_list args)
 #else
-int vfscanf(fp,form,args)
-FILE*	fp;
+int vfscanf(f,form,args)
+FILE*	f;
 char*	form;          /* format to use */
 va_list args;           /* arg list if argf == 0 */
 #endif
 {
 	reg int		rv;
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-	_stdclrerr(fp,sp);
 
-	if((rv = sfvscanf(sp,form,args)) <= 0)
-	{	if(sfeof(sp))
-			_stdeof(fp);
-		if(sferror(sp))
-			_stderr(fp);
-	}
+	if((rv = sfvscanf(sf,form,args)) <= 0)
+		_stdseterr(f,sf);
 
 	return rv;
 }

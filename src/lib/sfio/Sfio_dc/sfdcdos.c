@@ -3,7 +3,7 @@
 /*	Discipline to turn \r\n into \n.
 **	This is useful to deal with DOS text files.
 **
-**	Written by David Korn (03/18/98).
+**	Written by David Korn (03/18/1998).
 */
 
 #define MINMAP	8

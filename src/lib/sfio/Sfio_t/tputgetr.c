@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	char	buf[100];
 	Sfio_t	*fp;
@@ -37,5 +37,5 @@ main()
 	if(sfvalue(fp) != sfsize(fp))
 		terror("Wrong size\n");
 
-	return 0;
+	TSTRETURN(0);
 }

@@ -13,3 +13,10 @@ reg int	c;
 {
 	return fputc(c,stdout);
 }
+
+#if _lib_putchar_unlocked && !_done_putchar_unlocked && !defined(putchar)
+#define _done_putchar_unlocked	1
+#define putchar	putchar_unlocked
+#include	"putchar.c"
+#undef putchar
+#endif

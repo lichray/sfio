@@ -6,27 +6,21 @@
 
 
 #if __STD_C
-int getw(FILE* fp)
+int getw(FILE* f)
 #else
-int getw(fp)
-reg FILE*	fp;
+int getw(f)
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 	int		w;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
 
-	_stdclrerr(fp,sp);
-	if(sfread(sp,(char*)(&w),sizeof(int)) != sizeof(int))
-	{
-		if(sfeof(sp))
-			_stdeof(fp);
-		if(sferror(sp))
-			_stderr(fp);
+	if(sfread(sf,(char*)(&w),sizeof(int)) != sizeof(int))
+	{	_stdseterr(f,sf);
 		return -1;
 	}
-
-	return w;
+	else	return w;
 }

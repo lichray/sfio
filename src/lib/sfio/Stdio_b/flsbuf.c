@@ -9,16 +9,12 @@ FLSBUF(c,f)
 {
 	reg Sfio_t*	sf;
 
-	if(!(sf = _sfstream(f)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
 
-	_stdclrerr(f,sf);
-	if(sfputc(sf,c) < 0)
-	{	_stderr(f);
-		return -1;
-	}
-
-	if(!(sf->flags&SF_LINE))
+	if((c = sfputc(sf,c)) < 0)
+		_stdseterr(f,sf);
+	else if(!(sf->flags&(SF_LINE|SF_MTSAFE)))
 	{	/* fast access to buffer for putc benefit */
 #if _FILE_writeptr
 		f->std_writeptr = sf->next;
@@ -41,10 +37,10 @@ FLSBUF(c,f)
 #endif
 #if _FILE_writeptr || _FILE_cnt || _FILE_w
 		/* internal protection against mixing of sfio/stdio */
-		_Sfstdio = _sfstdio;
 		sf->mode |= SF_STDIO;
 		sf->endr = sf->endw = sf->data;
 #endif
+		SETSYNC(f);
 	}
 
 	return c;

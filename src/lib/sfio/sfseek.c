@@ -2,7 +2,7 @@
 
 /*	Set the IO pointer to a specific location in the stream
 **
-**	Written by Kiem-Phong Vo (03/24/98)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -36,9 +36,11 @@ Sfoff_t	p;	/* place to seek to */
 int	type;	/* 0: from org, 1: from here, 2: from end */
 #endif
 {
-	Sfoff_t	r, s, d;
-	size_t	a;
-	reg int	mode, local, hardseek, mustsync;
+	Sfoff_t	r, s;
+	size_t	a, b, c;
+	int	mode, local, hardseek, mustsync;
+
+	SFMTXSTART(f, (Sfoff_t)(-1));
 
 	GETLOCAL(f,local);
 
@@ -50,14 +52,34 @@ int	type;	/* 0: from org, 1: from here, 2: from end */
 	}
 
 	/* set and initialize the stream to a definite mode */
-	if((int)SFMODE(f,local) != (mode = f->mode&SF_RDWR) && _sfmode(f,mode,local) < 0 )
-		return -1;
+	if((int)SFMODE(f,local) != (mode = f->mode&SF_RDWR))
+	{	int	flags = f->flags;
+
+		if(hardseek&SF_PUBLIC) /* seek ptr must follow file descriptor */
+			f->flags |= SF_SHARE|SF_PUBLIC;
+		mode = _sfmode(f,mode,local);
+		if(hardseek&SF_PUBLIC)
+			f->flags = flags;
+
+		if(mode < 0)
+			SFMTXRETURN(f, (Sfoff_t)(-1));
+	}
 
 	mustsync = (type&SF_SHARE) && !(type&SF_PUBLIC) &&
 		   (f->mode&SF_READ) && !(f->flags&SF_STRING);
 
-	if((type &= (0|1|2)) < 0 || type > 2 || f->extent < 0)
-		return -1;
+	/* Xopen-compliant */
+	if((type &= (SEEK_SET|SEEK_CUR|SEEK_END)) != SEEK_SET &&
+	   type != SEEK_CUR && type != SEEK_END )
+	{	errno = EINVAL;
+		SFMTXRETURN(f, (Sfoff_t)(-1));
+	}
+
+	if(f->extent < 0)
+	{	/* let system call set errno */
+		(void)SFSK(f,(Sfoff_t)0,SEEK_CUR,f->disc);
+		SFMTXRETURN(f, (Sfoff_t)(-1));
+	}
 
 	/* throw away ungetc data */
 	if(f->disc == _Sfudisc)
@@ -72,9 +94,9 @@ int	type;	/* 0: from org, 1: from here, 2: from end */
 	while(f->flags&SF_STRING)
 	{	SFSTRSIZE(f);
 
-		if(type == 1)
+		if(type == SEEK_CUR)
 			r = p + (f->next - f->data);
-		else if(type == 2)
+		else if(type == SEEK_END)
 			r = p + f->extent;
 		else	r = p;
 
@@ -88,7 +110,7 @@ int	type;	/* 0: from org, 1: from here, 2: from end */
 		}
 
 		/* check exception handler, note that this may pop stream */
-		if(SFSK(f,r,0,f->disc) != r)
+		if(SFSK(f,r,SEEK_SET,f->disc) != r)
 		{	p = -1;
 			goto done;
 		}
@@ -100,10 +122,10 @@ int	type;	/* 0: from org, 1: from here, 2: from end */
 
 	if(f->mode&SF_WRITE)
 	{	/* see if we can avoid flushing buffer */
-		if(!hardseek && type < 2 && !(f->flags&SF_APPENDWR) )
+		if(!hardseek && type < SEEK_END && !(f->flags&SF_APPENDWR) )
 		{	s = f->here + (f->next - f->data);
-			r = p + (type == 0 ? 0 : s);
-			if(s == r)
+			r = p + (type == SEEK_SET ? 0 : s);
+			if(r == s)
 			{	p = r;
 				goto done;
 			}
@@ -115,26 +137,27 @@ int	type;	/* 0: from org, 1: from here, 2: from end */
 		}
 	}
 
-	if(type == 2 || (f->mode&SF_WRITE) )
-	{	if((hardseek&SF_PUBLIC) || type == 2)
+	if(type == SEEK_END || (f->mode&SF_WRITE) )
+	{	if((hardseek&SF_PUBLIC) || type == SEEK_END)
 			p = SFSK(f, p, type, f->disc);
 		else
-		{	r = p + (type == 1 ? f->here : 0);
-			p = (hardseek || r != f->here) ? SFSK(f, r, 0, f->disc) : r;
+		{	r = p + (type == SEEK_CUR ? f->here : 0);
+			p = (hardseek || r != f->here) ? SFSK(f,r,SEEK_SET,f->disc) : r;
 		}
 		if(p >= 0)
 			newpos(f,p);
+
 		goto done;
 	}
 
-	/* must be a read stream */
+	/* if get here, must be a read stream */
 	s = f->here - (f->endb - f->next);
-	r = p + (type == 1 ? s : 0);
+	r = p + (type == SEEK_CUR ? s : 0);
 	if(r <= f->here && r >= (f->here - (f->endb-f->data)) )
-	{	if((hardseek || (type == 1 && p == 0)) )
-		{	if((s = SFSK(f, (Sfoff_t)0, 1, f->disc)) == f->here ||
+	{	if((hardseek || (type == SEEK_CUR && p == 0)) )
+		{	if((s = SFSK(f, (Sfoff_t)0, SEEK_CUR, f->disc)) == f->here ||
 			   (s >= 0 && !(hardseek&SF_PUBLIC) &&
-			    (s = SFSK(f, f->here, 0, f->disc)) == f->here) )
+			    (s = SFSK(f, f->here, SEEK_SET, f->disc)) == f->here) )
 				goto near_done;
 			else if(s < 0)
 			{	p = -1;
@@ -154,7 +177,7 @@ int	type;	/* 0: from org, 1: from here, 2: from end */
 	}
 
 	/* desired position */
-	if((p += type == 1 ? s : 0) < 0)
+	if((p += type == SEEK_CUR ? s : 0) < 0)
 		goto done;
 
 #ifdef MAP_TYPE
@@ -174,43 +197,59 @@ int	type;	/* 0: from org, 1: from here, 2: from end */
 	}
 #endif
 
+	b = f->endb - f->data;	/* amount of buffered data */
+	c = f->next - f->data;	/* amount of data consumed */
+
+	if(b > 0)
+	{	/* gradually reduce wastage */
+		if(b <= SF_GRAIN)
+			f->iosz = SF_GRAIN;
+		else
+		{	c *= 2;
+			a = c + 3*(b-c)/4;
+			a = ((a + SF_GRAIN-1)/SF_GRAIN)*SF_GRAIN;
+
+			b = ((b + SF_GRAIN-1)/SF_GRAIN)*SF_GRAIN;
+
+			f->iosz = a < b ? a : c < b/2 ? b/2 : b;
+		}
+	}
+	/* else, believe previous setting of f->iosz */
+
+	if(f->iosz >= f->size)
+		f->iosz = 0;
+
 	/* buffer is now considered empty */
 	f->next = f->endr = f->endb = f->data;
 
-	/* small backseeks often come in bunches, so align with buffer */
-	if(f->size <= SF_PAGE || (p < s && (s-p) <= f->size) )
-		a = f->size;
-	/* otherwise, align with page size */
-	else	a = SF_PAGE;
+	/* small backseeks often come in bunches, so seek back as far as possible */
+	if(p < f->lpos && f->size > SF_GRAIN && (p + SF_GRAIN) > s)
+	{	if((r = s - f->size) < 0)
+			r = 0;
+	}
+	else
+	{	r = p;
 
-	/* d is amount of buffered space that must remain after 'p' is aligned */
-	if((d = s-p) <= 0 || d >= (Sfoff_t)f->size) /* forward seek or long backseek */
-		d = f->size/2;
-	if(d > SF_GRAIN)
-		d = SF_GRAIN;
+		/* seeking around and wasting data, be conservative */
+		if(f->iosz > 0 && (p > f->lpos || p < f->lpos-f->size) )
+			f->bits |= SF_JUSTSEEK;
+	}
 
-	/* align only if we believe there is enough buffered data to read */
-	if(p >= f->extent || (f->flags&SF_RDWR) == SF_RDWR ||
-	   (p - (r = (p/a)*a)) >= ((Sfoff_t)f->size)-d )
-		r = p;
-
-	if((hardseek || r != f->here) && (f->here = SFSK(f,r,0,f->disc)) != r)
-	{	if(r != p) /* the rounded seek failed, now try to just get to p */
-			f->here = SFSK(f,p,0,f->disc);
+	if((hardseek || r != f->here) && (f->here = SFSK(f,r,SEEK_SET,f->disc)) != r)
+	{	if(r < p) /* now try to just get to p */
+			f->here = SFSK(f,p,SEEK_SET,f->disc);
 		if(f->here != p)
 			p = -1;
 		goto done;
 	}
 
 	if(r < p) /* read to cover p */
-	{	if((f->size-a) < SF_GRAIN)
-			a = f->size;
-		(void)SFRD(f, f->data, a, f->disc);
+	{	(void)SFRD(f, f->data, f->size, f->disc);
 		if(p <= f->here && p >= (f->here - (f->endb - f->data)) )
-			f->next = f->endb - (int)(f->here-p);
+			f->next = f->endb - (size_t)(f->here-p);
 		else /* recover from read failure by just seeking to p */
 		{	f->next = f->endb = f->data;
-			if((f->here = SFSK(f,p,0,f->disc)) != p)
+			if((f->here = SFSK(f,p,SEEK_SET,f->disc)) != p)
 				p = -1;
 		}
 	}
@@ -221,12 +260,11 @@ done :
 		f->here = 0;
 	}
 
-	if(p >= 0)
-		f->bits |= SF_JUSTSEEK;
+	f->lpos = p;
 
 	SFOPEN(f,local);
 
 	if(mustsync)
 		sfsync(f);
-	return p;
+	SFMTXRETURN(f, p);
 }

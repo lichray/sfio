@@ -5,16 +5,16 @@
 */
 
 #if __STD_C
-long ftell(reg FILE* fp)
+long ftell(reg FILE* f)
 #else
-long ftell(fp)
-reg FILE*	fp;
+long ftell(f)
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1L;
-	_stdclrerr(fp,sp);
-	return (long)sfseek(sp, (Sfoff_t)0, SEEK_CUR|SF_SHARE);
+
+	return (long)sfseek(sf, (Sfoff_t)0, SEEK_CUR|SF_SHARE);
 }

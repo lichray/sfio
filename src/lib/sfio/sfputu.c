@@ -2,7 +2,7 @@
 
 /*	Write out an unsigned long value in a portable format.
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -18,8 +18,10 @@ Sfulong_t	v;	/* the unsigned value to be written */
 	reg ssize_t	n, p;
 	uchar		c[N_ARRAY];
 
+	SFMTXSTART(f, -1);
+
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
-		return -1;
+		SFMTXRETURN(f, -1);
 	SFLOCK(f,0);
 
 	/* code v as integers in base SF_UBASE */
@@ -47,5 +49,5 @@ Sfulong_t	v;	/* the unsigned value to be written */
 	}
 
 	SFOPEN(f,0);
-	return (int)n;
+	SFMTXRETURN(f, (int)n);
 }

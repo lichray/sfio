@@ -13,17 +13,13 @@ va_list args;           /* arg list if argf == 0 */
 #endif
 {
 	reg int		rv;
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(stdin)))
+	if(!(sf = SFSTREAM(stdin)))
 		return -1;
-	_stdclrerr(stdin,sp);
-	if((rv = sfvscanf(sp,form,args)) <= 0)
-	{	if(sfeof(sp))
-			_stdeof(stdin);
-		if(sferror(sp))
-			_stderr(stdin);
-	}
+
+	if((rv = sfvscanf(sf,form,args)) <= 0)
+		_stdseterr(stdin,sf);
 
 	return rv;
 }

@@ -3,7 +3,7 @@
 /*	Convert a Sfdouble_t value represented in an ASCII format into
 **	the internal Sfdouble_t representation.
 **
-**	Written by David Korn and Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #define BATCH	(2*sizeof(int))	/* accumulate this many digits at a time */

@@ -21,14 +21,14 @@ Sfdisc_t*	disc;
 
 Sfdisc_t	Disc = {readf, (Sfwrite_f)0, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
 
-main()
+MAIN()
 {
 	Sfio_t*	f;
 	int	i;
 	char*	s;
 	char	buf[1024], rbuf[128*1024];
 
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w")) )
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "w")) )
 		terror("Opening to write\n");
 
 	for(i = 0; i < sizeof(buf); ++i)
@@ -39,7 +39,7 @@ main()
 			terror("Write error\n");
 	sfclose(f);
 
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "r")) )
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "r")) )
 		terror("Opening to read\n");
 	sfsetbuf(f,rbuf,sizeof(rbuf));
 
@@ -55,7 +55,5 @@ main()
 	if(Read != 1024*sizeof(buf) )
 		terror("Count=%d Read=%d\n", Count, Read);
 
-	rmkpv();
-
-	return 0;
+	TSTRETURN(0);
 }

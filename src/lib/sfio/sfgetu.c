@@ -2,13 +2,13 @@
 
 /*	Read an unsigned long value coded in a portable format.
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo
 */
 
 #if __STD_C
-Sfulong_t _sfgetu(reg Sfio_t* f)
+Sfulong_t sfgetu(reg Sfio_t* f)
 #else
-Sfulong_t _sfgetu(f)
+Sfulong_t sfgetu(f)
 reg Sfio_t*	f;
 #endif
 {
@@ -16,16 +16,17 @@ reg Sfio_t*	f;
 	reg uchar	*s, *ends, c;
 	reg int		p;
 
+	SFMTXSTART(f, (Sfulong_t)(-1));
+
 	if(f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0)
-		return (ulong)(-1L);
+		SFMTXRETURN(f, (Sfulong_t)(-1));
 
 	SFLOCK(f,0);
 
-	v = SFUVALUE(f->val);
-	for(;;)
+	for(v = 0;;)
 	{	if(SFRPEEK(f,s,p) <= 0)
 		{	f->flags |= SF_ERROR;
-			v = (ulong)(-1L);
+			v = (Sfulong_t)(-1);
 			goto done;
 		}
 		for(ends = s+p; s < ends;)
@@ -40,5 +41,5 @@ reg Sfio_t*	f;
 	}
 done:
 	SFOPEN(f,0);
-	return v;
+	SFMTXRETURN(f, v);
 }

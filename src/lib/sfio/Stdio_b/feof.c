@@ -5,15 +5,24 @@
 */
 
 #if __STD_C
-int feof(FILE* fp)
+int feof(FILE* f)
 #else
-int feof(fp)
-FILE*	fp;
+int feof(f)
+FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 	
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-	return sfeof(sp);
+
+	_stdseterr(f,sf);
+	return sfeof(sf);
 }
+
+#if _lib_feof_unlocked && !_done_feof_unlocked && !defined(feof)
+#define _done_feof_unlocked	1
+#define feof	feof_unlocked
+#include	"feof.c"
+#undef feof
+#endif

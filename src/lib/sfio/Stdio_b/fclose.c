@@ -5,20 +5,19 @@
 */
 
 #if __STD_C
-int fclose(reg FILE* fp)
+int fclose(reg FILE* f)
 #else
-int fclose(fp)
-reg FILE*	fp;
+int fclose(f)
+FILE*	f;
 #endif
 {
 	reg int		rv;
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
 
-	_stdclrerr(fp,sp);
-	if((rv = sfclose(sp)) >= 0)
-		_stdclose(fp);
+	if((rv = sfclose(sf)) >= 0 && f != stdin && f != stdout && f != stderr)
+		free(f);
 	return rv;
 }

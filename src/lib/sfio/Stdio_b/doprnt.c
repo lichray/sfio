@@ -6,22 +6,21 @@
 */
 
 #if __STD_C
-int _doprnt(const char* form, va_list args, FILE* fp)
+int _doprnt(const char* form, va_list args, FILE* f)
 #else
-int _doprnt(form,args,fp)
+int _doprnt(form,args,f)
 char*	form;          /* format to use */
 va_list args;           /* arg list if argf == 0 */
-FILE*	fp;
+FILE*	f;
 #endif
 {
 	reg int		rv;
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)) )
 		return -1;
 
-	_stdclrerr(fp,sp);
-	if((rv = sfvprintf(sp,form,args)) < 0)
-		_stderr(fp);
+	if((rv = sfvprintf(sf,form,args)) < 0)
+		_stdseterr(f,sf);
 	return rv;
 }

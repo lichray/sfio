@@ -6,27 +6,27 @@
 */
 
 #if __STD_C
-int fflush(reg FILE* fp)
+int fflush(reg FILE* f)
 #else
-int fflush(fp)
-reg FILE*	fp;
+int fflush(f)
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!fp)
+	if(!f)
 		return sfsync(NIL(Sfio_t*));
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-	_stdclrerr(fp,sp);
 
-#if _xopen_stdio
-	(void)sfseek(sp, (Sfoff_t)0, SEEK_CUR|SF_PUBLIC);
-#else
-	(void)sfseek(sp, (Sfoff_t)0, SEEK_CUR);
-#endif
+	(void)sfseek(sf, (Sfoff_t)0, SEEK_CUR|SF_PUBLIC);
 
-	if(sfsync(sp) < 0 || sfpurge(sp) < 0)
-		return -1;
-	else	return 0;
+	return (sfsync(sf) < 0 || sfpurge(sf) < 0) ? -1 : 0;
 }
+
+#if _lib_fflush_unlocked && !_done_fflush_unlocked && !defined(fflush)
+#define _done_fflush_unlocked	1
+#define fflush	fflush_unlocked
+#include	"fflush.c"
+#undef fflush
+#endif

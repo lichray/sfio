@@ -1,7 +1,7 @@
 #include	"sftest.h"
 
 
-main()
+MAIN()
 {
 	int	i, n, k;
 	Sfoff_t	o;
@@ -9,6 +9,26 @@ main()
 	char	bigbuf[1024*8];
 	int	fd[2];
 	Sfio_t*	f;
+
+	if(!(f = sfopen(0, tstfile(0), "w")) )
+		terror("Opening file to write");
+	if(sfwrite(f,"0123456789",10) != 10 || sfwrite(f,"abcde",5) != 5)
+		terror("Writing data");
+	if(!(f = sfopen(f, tstfile(0), "r")) )
+		terror("Opening file to read");
+	if(!(s = (char*)sfreserve(f,10,0)) )
+		terror("sfreserve failed");
+	if(strncmp(s,"0123456789",10) != 0)
+		terror("Did not get correct data");
+	if((s = (char*)sfreserve(f,10,0)) )
+		terror("sfreserve should not have succeeded");
+	if(sfvalue(f) != 5)
+		terror("sfreserve should have left the right unread record length");
+	if(!(s = (char*)sfreserve(f,0,SF_LASTR)) )
+		terror("sfreserve should have returned last unread record");
+	if(strncmp(s,"abcde",5) != 0)
+		terror("Record has wrong data");
+	sfclose(f);
 
 	sfsetbuf(sfstdout,buf,sizeof(buf));
 	sfset(sfstdout,SF_SHARE|SF_PUBLIC,0);
@@ -20,7 +40,7 @@ main()
 		terror("Wrong reserved pointer\n");
 	sfpurge(sfstdout);
 
-	if(sfopen(sfstdout, Kpv[0],"w") != sfstdout)
+	if(sfopen(sfstdout, tstfile(0),"w") != sfstdout)
 		terror("Opening file\n");
 
 	sfsetbuf(sfstdout,NIL(char*),0);
@@ -50,7 +70,7 @@ main()
 
 	sfsync(sfstdout);
 
-	if(sfopen(sfstdin, Kpv[0],"r") != sfstdin)
+	if(sfopen(sfstdin, tstfile(0),"r") != sfstdin)
 		terror("Opening file2\n");
 	sfsetbuf(sfstdin,NIL(char*),8*sizeof(buf));
 	if(sfsize(sfstdin) != n)
@@ -82,17 +102,17 @@ main()
 		terror("Did not read data2\n");
 	sfsetbuf(sfstdin,NIL(Void_t*),(size_t)SF_UNBOUND);
 
-	if(sfopen(sfstdout, Kpv[0], "w") != sfstdout)
+	if(sfopen(sfstdout, tstfile(0), "w") != sfstdout)
 		terror("Can't open to write\n");
 	for(i = 0; i < 32; ++i)
 	{	for(k = 0; k < sizeof(bigbuf); ++k)
 			bigbuf[k] = '0' + (k+i)%10;
 		if(sfwrite(sfstdout,bigbuf,sizeof(bigbuf)) != sizeof(bigbuf))
-			terror("Writing to %s\n", Kpv[0]);
+			terror("Writing to %s\n", tstfile(0));
 	}
 	sfclose(sfstdout);
 
-	if(sfopen(sfstdin, Kpv[0], "r") != sfstdin)
+	if(sfopen(sfstdin, tstfile(0), "r") != sfstdin)
 		terror("Opening to read\n");
 	sfsetbuf(sfstdin,NIL(Void_t*),8*1024);
 	if(!(s = sfreserve(sfstdin,16*sizeof(bigbuf),0)) )
@@ -103,7 +123,7 @@ main()
 				terror("Wrong data i=%d k=%d\n",i,k);
 	}
 	if((o = sfseek(sfstdin,-15*((Sfoff_t)sizeof(bigbuf)),1)) != sizeof(bigbuf))
-		terror("sfseek failed\n");
+		terror("sfseek failed o=%lld\n", (Sflong_t)o);
 	if(sfread(sfstdin,bigbuf,sizeof(bigbuf)) != sizeof(bigbuf) )
 		terror("sfread failed\n");
 	s = bigbuf;
@@ -129,7 +149,7 @@ main()
 				terror("Wrong data3 i=%d k=%d\n",i,k);
 	}
 
-	if(sfopen(sfstdout, Kpv[0],"w") != sfstdout)
+	if(sfopen(sfstdout, tstfile(0),"w") != sfstdout)
 		terror("Opening for write\n");
 	for(i = 0; i < 100; ++i)
 		bigbuf[i] = 'a';
@@ -137,7 +157,7 @@ main()
 		if(sfwrite(sfstdout,bigbuf,100) != 100)
 			terror("Bad write to file\n");
 	sfsync(sfstdout);
-	if(sfopen(sfstdin, Kpv[0],"r") != sfstdin)
+	if(sfopen(sfstdin, tstfile(0),"r") != sfstdin)
 		terror("Opening for read\n");
 	sfsetbuf(sfstdin,buf,1024);
 	sfset(sfstdin,SF_SHARE,0);
@@ -154,7 +174,7 @@ main()
 	if(n+sfvalue(sfstdin) != sfsize(sfstdout))
 		terror("Wrong reserve size from file\n");
 
-	rmkpv();
+	tstcleanup();
 
 	fd[0] = fd[1] = -1;
 	if(pipe(fd) < 0 || fd[0] < 0 || fd[1] < 0)
@@ -252,5 +272,5 @@ main()
 	if(sfvalue(f) < 16 )
 		terror("hmm\n");
 
-	return 0;
+	TSTRETURN(0);
 }

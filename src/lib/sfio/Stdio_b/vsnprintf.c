@@ -16,3 +16,10 @@ va_list		args;
 {
 	return sfvsprintf(s,n,form,args);
 }
+
+#if _lib___vsnprintf && !done_lib___vsnprintf && !defined(vsnprintf)
+#define done_lib___vsnprintf 1
+#define vsnprintf __vsnprintf
+#include        "vsnprintf.c"
+#endif
+

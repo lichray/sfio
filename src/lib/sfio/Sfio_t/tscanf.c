@@ -1,13 +1,35 @@
 #include	"sftest.h"
-#include	<values.h>
 
-main()
+#if _hdr_values
+#include	<values.h>
+#endif
+
+#if _hdr_math
+#include	<math.h>
+#endif
+
+#if _hdr_float
+#include	<float.h>
+#endif
+
+#if defined(MAXDOUBLE)
+#define	MAXD	MAXDOUBLE
+#endif
+#if !defined(MAXD) && defined(DBL_MAX)
+#define MAXD	DBL_MAX
+#endif
+#if !defined(MAXD)
+#define MAXD	(double)(~((unsigned long)0))
+#endif
+
+MAIN()
 {
 	char	str[8], c[4], cl[8];
 	int	i, j, k, n;
 	float	f;
 	double	d;
 	char*	s;
+	Void_t*	vp;
 	Sfio_t*	sf;
 
 	str[0] = 'x'; str[1] = 0;
@@ -103,7 +125,7 @@ main()
 		terror("Bad return values: f=%.4f d=%.4lf\n",f,d);
 
 	/* test for scanning max double value */
-	s = sfprints("%.14le",MAXDOUBLE);
+	s = sfprints("%.14le",MAXD);
 	if(!s || s[0] < '0' || s[0] > '9')
 		terror("sfprints failed\n");
 	for(i = 0; s[i]; ++i)
@@ -112,7 +134,7 @@ main()
 	if(s[i-1] > '0' && s[i-1] <= '9')
 		s[i-1] -= 1;
 	sfsscanf(s,"%le",&d);
-	if(d > MAXDOUBLE || d < MAXDOUBLE/2)
+	if(d > MAXD || d < MAXD/2)
 		terror("sfscanf of MAXDOUBLE failed\n");
 
 	if(!(sf = sftmp(8*1024)) )
@@ -131,10 +153,29 @@ main()
 		}
 	}
 
+	/* test %p */
+	s = sfprints("%p", sf);
+	sfsscanf(s, "%p", &vp);
+	if(vp != (Void_t*)sf)
+		terror("Wrong pointer scan\n");
+
 	if(sfsscanf("2#1001","%i",&i) != 1 || i != 9)
 		terror("Bad %%i scanning\n");
 	if(sfsscanf("2#1001","%#i%c",&i,c) != 2 || i != 2 || c[0] != '#')
 		terror("Bad %%#i scanning\n");
 
-	return 0;
+	n = -1;
+	if(sfsscanf("12345","%d%n",&k,&n) != 1 || k != 12345 || n != 5)
+		terror("Bad scanning results");
+	n = -1;
+	if(sfsscanf("12345","%d %n",&k,&n) != 1 || k != 12345 || n != 5)
+		terror("Bad scanning results");
+	n = -1;
+	if(sfsscanf("12345 ","%d%n",&k,&n) != 1 || k != 12345 || n != 5)
+		terror("Bad scanning results");
+	n = -1;
+	if(sfsscanf("12345 ","%d %n",&k,&n) != 1 || k != 12345 || n != 6)
+		terror("Bad scanning results");
+
+	TSTRETURN(0);
 }

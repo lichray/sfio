@@ -7,7 +7,7 @@
 	test automatically success.
 */
 
-static	Success = 1;
+static int	Success = 1;
 
 #if __STD_C
 void* mmap(void* addr, size_t size, int x, int y, int z, Sfoff_t offset)
@@ -21,7 +21,7 @@ void* mmap()
 	return (void*)(-1);
 }
 
-main()
+MAIN()
 {
 	Sfio_t*	f;
 	char	buf[1024], buf2[1024], *data;
@@ -34,7 +34,7 @@ main()
 	Success = 0;
 
 	/* our real work */
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0],"w")) )
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0),"w")) )
 		terror("Can't open to write\n");
 
 	for(n = 0; n < sizeof(buf); ++n)
@@ -43,7 +43,7 @@ main()
 	for(n = 0; n < 10; ++n)
 		sfwrite(f,buf,sizeof(buf));
 
-	if(!(f = sfopen(f, Kpv[0],"r")) )
+	if(!(f = sfopen(f, tstfile(0),"r")) )
 		terror("Can't open to read\n");
 
 	for(n = 0; n < 10; ++n)
@@ -53,6 +53,5 @@ main()
 			terror("Get wrong data\n");
 	}
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

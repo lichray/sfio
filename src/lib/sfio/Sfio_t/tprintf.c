@@ -1,7 +1,5 @@
 #include	"sftest.h"
 
-static char	Buf[128];
-
 typedef struct _coord_
 {	int	x;
 	int	y;
@@ -20,15 +18,16 @@ Sffmt_t*	fe;
 {
 	char		type[128];
 	Coord_t*	cp;
+	char*		s;
 
 	if(fe->fmt != 'c')
 		return -1;
 
 	cp = va_arg(fe->args,Coord_t*);
 	memcpy(type,fe->t_str,fe->n_str); type[fe->n_str] = 0;
-	*((char**)v) = sfprints(type,cp->x,cp->y);
+	s = *((char**)v) = sfprints(type,cp->x,cp->y);
 	fe->fmt = 's';
-	fe->size = sfslen();
+	fe->size = strlen(s);
 	fe->flags |= SFFMT_VALUE;
 	return 0;
 }
@@ -85,11 +84,11 @@ Sffmt_t*	fe;
 	case 'b' :
 		fe->fmt = 'd';
 		return 0;
-	case 'z' : /* test return value of extension function */
+	case 'y' : /* test return value of extension function */
 		fe->size = 10;
 		fe->fmt = 's';
 		return 0;
-	case 'Z' : /* terminate format processing */
+	case 'Y' : /* terminate format processing */
 	default :
 		return -1;
 	}
@@ -175,7 +174,7 @@ va_dcl
 	va_end(args);
 }
 
-main()
+MAIN()
 {
 	char	buf1[1024], buf2[1024], *list[4], *s;
 	double	x=0.0051;
@@ -184,8 +183,7 @@ main()
 	Sffmt_t	fe;
 	Sfio_t*	f;
 
-	f = sfopen(NIL(Sfio_t*), Kpv[0], "w+");
-	unlink(Kpv[0]);
+	f = sfopen(NIL(Sfio_t*), tstfile(0), "w+");
 	sfsetbuf(f,buf1,10);
 	sfprintf(f,"%40s\n","0123456789");
 	sfsprintf(buf2,sizeof(buf2),"%40s","0123456789");
@@ -226,7 +224,7 @@ main()
 	fe.extf = abprint;
 	fe.eventf = NIL(Sffmtevent_f);
 	sfsprintf(buf1,sizeof(buf1),"%%sX%%d%..4u %..4d9876543210",-1,-1);
-	sfsprintf(buf2,sizeof(buf2),"%!%%sX%%d%..4a %..4b%z%Zxxx",
+	sfsprintf(buf2,sizeof(buf2),"%!%%sX%%d%..4a %..4b%y%Yxxx",
 			&fe, -1, -1, "9876543210yyyy" );
 	if(strcmp(buf1,buf2) != 0)
 		terror("%%!: Extension function failed1\n");
@@ -272,7 +270,7 @@ main()
 	fe.extf = coordprint;
 	sfsprintf(buf2,sizeof(buf2),"%!%(%d %d)c",&fe,&Coord);
 	if(strcmp(buf1,buf2) != 0)
-		terror("%%()c failed\n");
+		terror("%%()c `%s' != `%s'\n", buf1, buf2);
 
 	sfsprintf(buf1,sizeof(buf1),"%d %d %d %d",1,2,3,4);
 	stkprint(buf2,sizeof(buf2),"%d %d",1,2);
@@ -411,7 +409,7 @@ main()
 	}
 #endif
 
-	i = (int)(~(~((uint)0) >> 1));
+	i = (int)(~(~((unsigned int)0) >> 1));
 	s = sfprints("%d",i);
 	j = atoi(s);
 	if(i != j)
@@ -445,5 +443,26 @@ main()
 	if(strcmp(buf1,buf2) != 0)
 		terror("Justification is wrong\n");
 
-	return 0;
+	/* testing x/open compliant with respect to precision */
+	sfsprintf(buf1, sizeof(buf1),
+		"%.d %.hi %.lo %.f %.e %.g %.g %.g %.g %.g %.s %.d %.hi %.lo|",
+		1345,
+		1234,
+		1234567890,
+		321.7654321,
+		321.7654321,
+		-0.01,
+		0.01,
+		1e-5,
+		1.4,
+		-1.4,
+		"test-string",
+		0,
+		0,
+		0L);
+
+	if(strcmp(buf1,"1345 1234 11145401322 322 3e+02 -0.01 0.01 1e-05 1 -1    |") )
+		terror("Precision not set to zero as required after a dot");
+
+	TSTRETURN(0);
 }

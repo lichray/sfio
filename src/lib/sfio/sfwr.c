@@ -2,7 +2,7 @@
 
 /*	Write with discipline.
 **
-**	Written by Kiem-Phong Vo (02/11/91)
+**	Written by Kiem-Phong Vo.
 */
 
 /* hole preserving writes */
@@ -81,7 +81,7 @@ reg size_t	n;
 		/* seek to a rounded boundary within the hole */
 		if(s >= _Sfpage)
 		{	s = (s/_Sfpage)*_Sfpage;
-			if(SFSK(f,(Sfoff_t)s,1,NIL(Sfdisc_t*)) < 0)
+			if(SFSK(f,(Sfoff_t)s,SEEK_CUR,NIL(Sfdisc_t*)) < 0)
 				break;
 			w += s;
 			n -= s;
@@ -112,22 +112,36 @@ reg Sfdisc_t*	disc;
 {
 	reg ssize_t	w;
 	reg Sfdisc_t*	dc;
-	reg int		local, oerrno, justseek;
+	reg int		local, oerrno;
+
+	SFMTXSTART(f,(ssize_t)(-1));
 
 	GETLOCAL(f,local);
 	if(!local && !(f->bits&SF_DCDOWN)) /* an external user's call */
 	{	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0 )
-			return -1;
+			SFMTXRETURN(f, (ssize_t)(-1));
 		if(f->next > f->data && SFSYNC(f) < 0 )
-			return -1;
+			SFMTXRETURN(f, (ssize_t)(-1));
 	}
 
-	justseek = f->bits&SF_JUSTSEEK; f->bits &= ~SF_JUSTSEEK;
+	/* it may be inefficient for an unseekable stream to be continually
+	   flushed due to SF_LINE. So we turn off SF_LINE after a suitable
+	   number of flushes without an intervening input operations on some
+	   other unseekable devices (see also sfrd()).
+	*/
+#define SFMAXLINEFLUSH	8	/* 1/3 of 24, # of lines in a small tty */
+	if(f->extent < 0 && !(f->bits&(SF_BOTH|SF_KEEPLINE)) && (f->flags&SF_LINE) )
+	{	if(f->getr >= SFMAXLINEFLUSH)
+		{	f->flags &= ~SF_LINE;
+			f->getr = 0;
+		}
+		else	f->getr += 1;
+	}
 
 	for(;;)
 	{	/* stream locked by sfsetfd() */
 		if(!(f->flags&SF_STRING) && f->file < 0)
-			return 0;
+			SFMTXRETURN(f,(ssize_t)0);
 
 		/* clear current error states */
 		f->flags &= ~(SF_EOF|SF_ERROR);
@@ -146,38 +160,33 @@ reg Sfdisc_t*	disc;
 					n = rv;
 				else if(rv < 0)
 				{	f->flags |= SF_ERROR;
-					return rv;
+					SFMTXRETURN(f, rv);
 				}
 			}
 
 			if(f->extent >= 0)
 			{	/* make sure we are at the right place to write */
 				if(f->flags&SF_APPENDWR)
-				{	/* writing at the end of stream */
-					if(f->here != f->extent || (f->flags&SF_SHARE))
-					{	f->here = SFSK(f,(Sfoff_t)0,2,dc);
+				{	if(f->here != f->extent || (f->flags&SF_SHARE))
+					{	f->here = SFSK(f,(Sfoff_t)0,SEEK_END,dc);
 						f->extent = f->here;
 					}
 				}
-				else
-				{	if(f->flags&SF_SHARE)
-					{	if(!(f->flags&SF_PUBLIC))
-							f->here = SFSK(f,f->here,0,dc);
-						else	f->here = SFSK(f,(Sfoff_t)0,1,dc);
-					}
-				}
+				else if((f->flags&SF_SHARE) && !(f->flags&SF_PUBLIC))
+					f->here = SFSK(f,f->here,SEEK_SET,dc);
 			}
 
 			oerrno = errno;
 			errno = 0;
 
 			if(dc && dc->writef)
-				w = SFDCWR(f,buf,n,dc,w);
+			{	SFDCWR(f,buf,n,dc,w);
+			}
 			else if(SFISNULL(f))
 				w = n;
 			else if(f->flags&SF_WHOLE)
 				goto do_write;
-			else if((ssize_t)n >= _Sfpage && !justseek &&
+			else if((ssize_t)n >= _Sfpage &&
 				!(f->flags&(SF_SHARE|SF_APPENDWR)) &&
 				f->here == f->extent && (f->here%_Sfpage) == 0)
 			{	if((w = sfoutput(f,(char*)buf,n)) <= 0)
@@ -195,12 +204,14 @@ reg Sfdisc_t*	disc;
 
 			if(w > 0)
 			{	if(!(f->bits&SF_DCDOWN))
-				{	f->here += w;
+				{	if(f->flags&(SF_APPENDWR|SF_PUBLIC) )
+						f->here = SFSK(f,(Sfoff_t)0,SEEK_CUR,dc);
+					else	f->here += w;
 					if(f->extent >= 0 && f->here > f->extent)
 						f->extent = f->here;
 				}
 
-				return (ssize_t)w;
+				SFMTXRETURN(f, (ssize_t)w);
 			}
 		}
 
@@ -211,13 +222,14 @@ reg Sfdisc_t*	disc;
 		case SF_ECONT :
 			goto do_continue;
 		case SF_EDONE :
-			return local ? 0 : w;
+			w = local ? 0 : w;
+			SFMTXRETURN(f, (ssize_t)w);
 		case SF_EDISC :
 			if(!local && !(f->flags&SF_STRING))
 				goto do_continue;
 			/* else fall thru */
 		case SF_ESTACK :
-			return -1;
+			SFMTXRETURN(f, (ssize_t)(-1));
 		}
 
 	do_continue:

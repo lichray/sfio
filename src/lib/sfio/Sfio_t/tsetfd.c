@@ -1,11 +1,11 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	Sfio_t	*f;
 	int	fd;
 
-	if(!(f = sfopen((Sfio_t*)0,Kpv[0],"w+")))
+	if(!(f = sfopen((Sfio_t*)0,tstfile(0),"w+")))
 		terror("Opening file\n");
 	fd = sffileno(f);
 
@@ -36,6 +36,5 @@ main()
 	if(sfgetc(f) != '2')
 		terror("sfgetc3\n");
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

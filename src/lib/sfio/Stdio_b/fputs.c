@@ -6,21 +6,27 @@
 
 
 #if __STD_C
-int fputs(const char* s, FILE* fp)
+int fputs(const char* s, FILE* f)
 #else
-int fputs(s, fp)
+int fputs(s, f)
 reg char*	s;
-reg FILE*	fp;
+reg FILE*	f;
 #endif
 {
 	reg int		rv;
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
 
-	_stdclrerr(fp,sp);
-	if((rv = sfputr(sp,s,-1)) < 0)
-		_stderr(fp);
+	if((rv = sfputr(sf,s,-1)) < 0)
+		_stdseterr(f,sf);
 	return rv;
 }
+
+#if _lib_fputs_unlocked && !_done_fputs_unlocked && !defined(fputs)
+#define _done_fputs_unlocked	1
+#define fputs	fputs_unlocked
+#include	"fputs.c"
+#undef fputs
+#endif

@@ -6,34 +6,33 @@
 
 
 #if __STD_C
-int setvbuf(reg FILE* fp, char* buf, int flags, size_t size)
+int setvbuf(reg FILE* f, char* buf, int flags, size_t size)
 #else
-int setvbuf(fp, buf, flags, size)
-reg FILE*	fp;
+int setvbuf(f, buf, flags, size)
+reg FILE*	f;
 char*		buf;
 int		flags;
 size_t		size;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-	_stdclrerr(fp,sp);
 
 	if(flags == _IOLBF)
-		sfset(sp,SF_LINE,1);
+		sfset(sf,SF_LINE,1);
 	else if(flags == _IONBF)
-	{	sfsync(sp);
-		sfsetbuf(sp,NIL(Void_t*),0);
-		sfset(sp,SF_LINE,0);
+	{	sfsync(sf);
+		sfsetbuf(sf,NIL(Void_t*),0);
+		sfset(sf,SF_LINE,0);
 	}
 	else if(flags == _IOFBF)
 	{	if(size == 0)
 			size = BUFSIZ;
-		sfsync(sp);
-		sfsetbuf(sp,buf,size);
-		sfset(sp,SF_LINE,0);
+		sfsync(sf);
+		sfsetbuf(sf,buf,size);
+		sfset(sf,SF_LINE,0);
 	}
 	return 0;
 }

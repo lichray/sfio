@@ -2,8 +2,9 @@
 
 /*
 **	Any required functions for process exiting.
-**	Written by Kiem-Phong Vo (05/25/93).
+**	Written by Kiem-Phong Vo
 */
+
 #if PACKAGE_ast
 int	_AST_already_has_them;
 #else
@@ -38,13 +39,22 @@ atexit(exitf)
 void	(*exitf)();
 #endif
 {	Exit_t*	e;
+	int	rv;
+
+	vtmtxlock(_Sfmutex);
 
 	if(!(e = (Exit_t*)malloc(sizeof(Exit_t))) )
-		return -1;
-	e->exitf = exitf;
-	e->next = Exit;
-	Exit = e;
-	return 0;
+		rv = -1;
+	else
+	{	e->exitf = exitf;
+		e->next = Exit;
+		Exit = e;
+		rv = 0;
+	}
+
+	vtmtxunlock(_Sfmutex);
+
+	return rv;
 }
 
 #if _exit_cleanup
@@ -117,9 +127,12 @@ int	options;
 	if(options != 0)
 		return -1;
 
+	vtmtxlock(_Sfmutex);
+
 	for(w = Wait, last = NIL(Waitpid_t*); w; last = w, w = w->next)
 	{	if(pid > 0 && pid != w->pid)
 			continue;
+
 		if(last)
 			last->next = w->next;
 		else	Wait = w->next;
@@ -127,6 +140,8 @@ int	options;
 			*status = w->status;
 		pid = w->pid;
 		free(w);
+
+		vtmtxunlock(_Sfmutex);
 		return pid;
 	}
 
@@ -134,6 +149,8 @@ int	options;
 	{	if(pid <= 0 || id == pid)
 		{	if(status)
 				*status = ps;
+
+			vtmtxunlock(_Sfmutex);
 			return pid;
 		}
 
@@ -146,6 +163,7 @@ int	options;
 		Wait = w;
 	}
 
+	vtmtxunlock(_Sfmutex);
 	return -1;
 }
 

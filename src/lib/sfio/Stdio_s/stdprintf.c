@@ -4,7 +4,7 @@
 
 /*	printf function
 **
-**	Written by Kiem-Phong Vo (12/10/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C

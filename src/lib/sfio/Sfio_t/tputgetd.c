@@ -1,12 +1,12 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	double	f, v;
 	int	i;
 	Sfio_t	*fp;
 
-	if(!(fp = sfopen(NIL(Sfio_t*), Kpv[0], "w+")) )
+	if(!(fp = sfopen(NIL(Sfio_t*), tstfile(0), "w+")) )
 		terror("Can't open temp file\n");
 
 	for(f = 1e-10; f < 1e-10 + 1.; f += .001)
@@ -18,6 +18,5 @@ main()
 		if((v = sfgetd(fp)) != f)
 			terror("Element=%d Input=%f, Expect=%f\n",i,v,f);
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

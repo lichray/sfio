@@ -2,13 +2,13 @@
 
 /*	Convert a floating point value to ASCII
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo
 */
 
-static char	*Inf = "Inf", *Zero = "0";
-#define INTPART		(SF_IDIGITS/2)
-#define INFINITE	((_Sfi = 3), Inf)
-#define ZERO		((_Sfi = 1), Zero)
+static char		*Inf = "Inf", *Zero = "0";
+#define SF_INTPART	(SF_IDIGITS/2)
+#define SF_INFINITE	((_Sfi = 3), Inf)
+#define SF_ZERO		((_Sfi = 1), Zero)
 
 #if __STD_C
 char* _sfcvt(Void_t* dv, int n_digit, int* decpt, int* sign, int format)
@@ -28,7 +28,7 @@ int	format;		/* conversion format		*/
 
 	/* set up local buffer */
 	if(!Buf && !(Buf = (char*)malloc(SF_MAXDIGITS)))
-		return INFINITE;
+		return SF_INFINITE;
 
 	*sign = *decpt = 0;
 
@@ -37,7 +37,7 @@ int	format;		/* conversion format		*/
 	{	Sfdouble_t	dval = *((Sfdouble_t*)dv);
 
 		if(dval == 0.)
-			return ZERO;
+			return SF_ZERO;
 		else if((*sign = (dval < 0.)) )	/* assignment = */
 			dval = -dval;
 
@@ -52,13 +52,13 @@ int	format;		/* conversion format		*/
 				{
 					dval *= _Sfneg10[v];
 					if((n += (1<<v)) >= SF_IDIGITS)
-						return INFINITE;
+						return SF_INFINITE;
 				}
 			} while(dval >= (Sfdouble_t)SF_MAXLONG);
 		}
 		*decpt = (int)n;
 
-		buf = sp = Buf+INTPART;
+		buf = sp = Buf + SF_INTPART;
 		if((v = (int)dval) != 0)
 		{	/* translate the integer part */
 			dval -= (Sfdouble_t)v;
@@ -67,9 +67,9 @@ int	format;		/* conversion format		*/
 
 			n = buf-sp;
 			if((*decpt += (int)n) >= SF_IDIGITS)
-				return INFINITE;
+				return SF_INFINITE;
 			buf = sp;
-			sp = Buf+INTPART;
+			sp = Buf + SF_INTPART;
 		}
 		else	n = 0;
 
@@ -113,7 +113,7 @@ int	format;		/* conversion format		*/
 	{	double	dval = *((double*)dv);
 
 		if(dval == 0.)
-			return ZERO;
+			return SF_ZERO;
 		else if((*sign = (dval < 0.)) )	/* assignment = */
 			dval = -dval;
 
@@ -127,13 +127,13 @@ int	format;		/* conversion format		*/
 				else
 				{	dval *= _Sfneg10[v];
 					if((n += (1<<v)) >= SF_IDIGITS)
-						return INFINITE;
+						return SF_INFINITE;
 				}
 			} while(dval >= (double)SF_MAXLONG);
 		}
 		*decpt = (int)n;
 
-		buf = sp = Buf+INTPART;
+		buf = sp = Buf + SF_INTPART;
 		if((v = (int)dval) != 0)
 		{	/* translate the integer part */
 			dval -= (double)v;
@@ -142,9 +142,9 @@ int	format;		/* conversion format		*/
 
 			n = buf-sp;
 			if((*decpt += (int)n) >= SF_IDIGITS)
-				return INFINITE;
+				return SF_INFINITE;
 			buf = sp;
-			sp = Buf+INTPART;
+			sp = Buf + SF_INTPART;
 		}
 		else	n = 0;
 

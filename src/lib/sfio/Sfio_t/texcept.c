@@ -72,14 +72,14 @@ Sfdisc_t* disc;
 
 static Sfdisc_t	Disc, Disc2;
 
-main()
+MAIN()
 {
 	Sfio_t*	f;
 	char	buf[1024];
 	char	rbuf[4*1024];
 	int	i;
 
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w")) )
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "w")) )
 		terror("Can't open file\n");
 	sfset(f,SF_IOCHECK,1);
 
@@ -113,7 +113,7 @@ main()
 	if(Type != SF_FINAL)
 		terror("Did not get final event\n");
 
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "r")) )
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "r")) )
 		terror("Can't open file\n");
 	Disc2.readf = readfunc;
 	Disc2.exceptf = except3;
@@ -148,7 +148,5 @@ main()
 	if(lseek(i,0,1) != 4)
 		terror("Wrong seek location\n");
 
-	rmkpv();
-
-	return 0;
+	TSTRETURN(0);
 }

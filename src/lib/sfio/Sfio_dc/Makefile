@@ -1,16 +1,15 @@
 # makefile for discipline functions
 #
-# Written by Kiem-Phong Vo (03/18/1998)
-
-INCDIR=	../
+# Written by Kiem-Phong Vo
 
 # Native compiler if building libsfdisc.a for a cross compilation environment
 NC=	cc
 
 # Compiler and flags to use
+LIBTYPE=""
 CXFLAGS=
 CCMODE=	-O
-CCFLAGS= -I. -I$(INCDIR) $(CCMODE) $(CXFLAGS)
+CCFLAGS= -I. -I.. $(CCMODE) $(LIBTYPE) $(CXFLAGS)
 AR=	ar
 CC=	cc
 

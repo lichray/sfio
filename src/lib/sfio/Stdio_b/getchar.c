@@ -13,3 +13,10 @@ int getchar()
 {
 	return fgetc(stdin);
 }
+
+#if _lib_getchar_unlocked && !_done_getchar_unlocked && !defined(getchar)
+#define _done_getchar_unlocked	1
+#define getchar	getchar_unlocked
+#include	"getchar.c"
+#undef getchar
+#endif

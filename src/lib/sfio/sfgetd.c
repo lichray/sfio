@@ -2,7 +2,7 @@
 
 /*	Read a portably coded double value
 **
-**	Written by Kiem-Phong Vo (08/05/90)
+**	Written by Kiem-Phong Vo
 */
 
 #if __STD_C
@@ -16,11 +16,13 @@ Sfio_t*	f;
 	reg int		p, sign, exp;
 	Sfdouble_t	v;
 
+	SFMTXSTART(f,-1.);
+
 	if((sign = sfgetc(f)) < 0 || (exp = (int)sfgetu(f)) < 0)
-		return -1.;
+		SFMTXRETURN(f, -1.);
 
 	if(f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0)
-		return -1.;
+		SFMTXRETURN(f, -1.);
 
 	SFLOCK(f,0);
 
@@ -51,5 +53,5 @@ done:
 		v = -v;
 
 	SFOPEN(f,0);
-	return v;
+	SFMTXRETURN(f, v);
 }

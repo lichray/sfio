@@ -2,7 +2,7 @@
 
 /*	Dealing with $ argument addressing stuffs.
 **
-**	Written by Kiem-Phong Vo (04/04/98)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -220,7 +220,12 @@ int		type;
 			goto loop_flags;
 		case 'h' :
 			size = -1;
-			flags = (flags & ~SFFMT_TYPES) | SFFMT_SHORT;
+			flags &= ~SFFMT_TYPES;
+			if(*form == 'h')
+			{	form += 1;
+				flags |= SFFMT_SSHORT;
+			}
+			else	flags |= SFFMT_SHORT;
 			goto loop_flags;
 		case 'L' :
 			size = -1;
@@ -232,7 +237,12 @@ int		type;
 		{	if((_Sftype[fmt]&(SFFMT_INT|SFFMT_UINT)) || fmt == 'n')
 			{	size =	(flags&SFFMT_LLONG) ? sizeof(Sflong_t) :
 					(flags&SFFMT_LONG) ? sizeof(long) :
-					(flags&SFFMT_SHORT) ? sizeof(short) : -1;
+					(flags&SFFMT_SHORT) ? sizeof(short) :
+					(flags&SFFMT_SSHORT) ? sizeof(char) :
+					(flags&SFFMT_JFLAG) ? sizeof(Sflong_t) :
+					(flags&SFFMT_TFLAG) ? sizeof(ptrdiff_t) :
+					(flags&SFFMT_ZFLAG) ? sizeof(size_t) :
+					-1;
 			}
 			else if(_Sftype[fmt]&SFFMT_FLOAT)
 			{	size = (flags&SFFMT_LDOUBLE) ? sizeof(Sfdouble_t) :
@@ -413,7 +423,7 @@ static int sfcvinit()
 	_Sftype['u'] = _Sftype['o'] = _Sftype['x'] = _Sftype['X'] = SFFMT_UINT;
 	_Sftype['e'] = _Sftype['E'] =
 	_Sftype['g'] = _Sftype['G'] = _Sftype['f'] = SFFMT_FLOAT;
-	_Sftype['s'] = _Sftype['p'] = _Sftype['n'] = _Sftype['!'] = SFFMT_POINTER;
+	_Sftype['s'] = _Sftype['n'] = _Sftype['p'] = _Sftype['!'] = SFFMT_POINTER;
 	_Sftype['c'] = SFFMT_BYTE;
 	_Sftype['['] = SFFMT_CLASS;
 

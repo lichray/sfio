@@ -10,15 +10,14 @@ FILE* tmpfile(void)
 FILE* tmpfile()
 #endif
 {
-	reg Sfio_t*	sp;
-	reg FILE*	fp;
+	reg Sfio_t*	sf;
+	reg FILE*	f;
 
-	if(!(sp = sftmp(0)))
-		return NIL(FILE*);
-	if(!(fp = _stdstream(sp)))
-	{	sfclose(sp);
-		return NIL(FILE*);
-	}
+	if(!(sf = sftmp(0)))
+		f = NIL(FILE*);
+	else if(!(f = _stdstream(sf)))
+		sfclose(sf);
+	else	sf->flags |= SF_MTSAFE;
 
-	return fp;
+	return f;
 }

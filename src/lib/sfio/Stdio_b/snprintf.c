@@ -30,3 +30,9 @@ va_dcl
 
 	return rv;
 }
+
+#if _lib___snprintf && !done_lib___snprintf && !defined(snprintf)
+#define done_lib___snprintf 1
+#define snprintf __snprintf
+#include	"snprintf.c"
+#endif

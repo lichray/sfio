@@ -1,46 +1,35 @@
-#if !STDIO
-#include	"../Stdio_s/stdio.h"
+#if _PACKAGE_ast
 #include	"sftest.h"
+#include 	<stdio.h>
 #else
-
-#include	<stdio.h>
-extern int	unlink(const char*);
-char*		Kpv[4] = { "/tmp/kpvaaa", "/tmp/kpvbbb", "/tmp/kpvccc", 0 };
-static rmkpv()
-{	int	i;
-	for(i = 0; Kpv[i]; ++i)
-		unlink(Kpv[i]);
-}
-
-static int	Line = -1;
-#ifdef __LINE__
-#define terror	Line=__LINE__,t_error
-#endif
-void t_error(char* s)
-{	rmkpv();
-	fprintf(stderr, "Line %d: %s\n", Line, s);
-	exit(-1);
-}
+#include	"sftest.h"
+#include	"../Stdio_s/stdio.h"
 #endif
 
 /* test compliance of certain stdio behaviors */
-main()
+MAIN()
 {
-#if _xopen_stdio
 	FILE	*f, *f2;
 	long	s1, s2;
 	int	i, k, fd;
 	char	buf[128*1024], rbuf[1024], *sp;
 
+	if(argc > 1)
+	{	if(sfwrite(sfstdout,argv[1],strlen(argv[1])) != strlen(argv[1]))
+			terror("Can't write to stdout");
+		sfsync(sfstdout);
+		return 0;
+	}
+
 	/* test for shared streams and seek behavior */
-	if(!(f = fopen(Kpv[0],"w+")) )
+	if(!(f = fopen(tstfile(0),"w+")) )
 		terror("Opening file to read&write");
 
 	/* change stdout to a dup of fileno(f) */
 	fd = dup(1); close(1); dup(fileno(f));
 
 	/* write something to the dup file descriptor */
-	system("echo 0123456789");
+	system(sfprints("%s 0123456789", argv[0]));
 
 	/* change stdout back */
 	close(1); dup(fd); close(fd);
@@ -94,7 +83,7 @@ main()
 	if(rbuf[i-5] != '\n')
 		terror("Bad data: did not get new-line");
 	if((s1 = ftell(f)) != 1010)
-		terror("Bad location in f");
+		terror("Bad location in f: s1=%lld", (Sflong_t)s1);
 
 	fseek(f, 0L, SEEK_CUR); /* switch mode so we can write */
 	if(fputc('x',f) < 0)
@@ -102,12 +91,12 @@ main()
 	if(fflush(f) < 0)
 		terror("fflush failed");
 	if((s1 = ftell(f)) != 1011)
-		terror("Bad tell location in f");
+		terror("Bad location in f: s1=%lld", (Sflong_t)s1);
 	fseek(f, -1L, SEEK_CUR); /* set the seek location in the file descriptor */
 
 	fflush(f2); /* assuming POSIX conformance and to set seek location to 1010 */
 	if((s2 = ftell(f2)) != 1010)
-		terror("Bad tell2 location in f2");
+		terror("Bad location in f2: s2=%lld", (Sflong_t)s2);
 
 	fread(rbuf, 10, 1, f2);
 	if(rbuf[0] != 'x')
@@ -118,8 +107,5 @@ main()
 	if(rbuf[i] != '\n')
 		terror("Did not get new-line");
 
-	rmkpv();
-#endif
-
-	return 0;
+	TSTRETURN(0);
 }

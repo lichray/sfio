@@ -13,12 +13,12 @@ reg char*	str;
 #endif
 {
 	reg int		rv;
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(stdout)))
+	if(!(sf = SFSTREAM(stdout)))
 		return -1;
-	_stdclrerr(stdout,sp);
+
 	if((rv = sfputr(sfstdout,str,'\n')) < 0)
-		_stderr(stdout);
+		_stdseterr(stdout,sf);
 	return rv;	
 }

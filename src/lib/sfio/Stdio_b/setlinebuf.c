@@ -6,17 +6,17 @@
 
 
 #if __STD_C
-int setlinebuf(reg FILE* fp)
+int setlinebuf(reg FILE* f)
 #else
-int setlinebuf(fp)
-reg FILE*	fp;
+int setlinebuf(f)
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-	_stdclrerr(fp,sp);
-	sfset(sp,SF_LINE,1);
+
+	sfset(sf,SF_LINE,1);
 	return(0);
 }

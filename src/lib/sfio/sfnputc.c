@@ -2,7 +2,7 @@
 
 /*	Write out a character n times
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -19,9 +19,11 @@ reg size_t	n;	/* number of time to repeat */
 	uchar		buf[128];
 	reg int		local;
 
+	SFMTXSTART(f,-1);
+
 	GETLOCAL(f,local);
 	if(SFMODE(f,local) != SF_WRITE && _sfmode(f,SF_WRITE,local) < 0)
-		return -1;
+		SFMTXRETURN(f, -1);
 
 	SFLOCK(f,local);
 
@@ -53,5 +55,5 @@ reg size_t	n;	/* number of time to repeat */
 	}
 done :
 	SFOPEN(f,local);
-	return w;
+	SFMTXRETURN(f, w);
 }

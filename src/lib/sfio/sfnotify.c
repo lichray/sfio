@@ -3,7 +3,7 @@
 
 /*	Set the function to be called when a stream is opened or closed
 **
-**	Written by Kiem-Phong Vo (01/06/91)
+**	Written by Kiem-Phong Vo.
 */
 #if __STD_C
 int sfnotify(void (*notify)(Sfio_t*, int, int))

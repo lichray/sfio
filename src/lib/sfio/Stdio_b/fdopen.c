@@ -12,41 +12,21 @@ int	fd;
 char*	mode;
 #endif
 {
-	reg Sfio_t*	sp;
-	reg FILE*	fp;
-	reg int		flags = 0;
+	reg Sfio_t*	sf;
+	reg FILE*	f;
+	int		flags, uflag;
 
-	while(1) switch(*mode++)
-	{
-	case 0:
-		goto e_mode;
-	case 'r':
-		flags = SF_READ;
-		break;
-	case 'w':
-		flags = SF_WRITE;
-		break;
-	case 'a':
-		flags = SF_WRITE|SF_APPENDWR;
-		break;
-	case '+':
-		flags = SF_READ|SF_WRITE;
-		break;
-	case 'b':
-		break;
-	default:
+	if((flags = _sftype(mode,NIL(int*),&uflag)) == 0)
 		return NIL(FILE*);
-	}
-e_mode :
-	if(!flags)
-		return NIL(FILE*);
+	if(!uflag)
+		flags |= SF_MTSAFE;
 
-	if(!(sp = sfnew(NIL(Sfio_t*), NIL(Void_t*), (size_t)SF_UNBOUND, fd, flags)))
+	if(!(sf = sfnew(NIL(Sfio_t*), NIL(Void_t*), (size_t)SF_UNBOUND, fd, flags)))
 		return NIL(FILE*);
-	if(!(fp = _stdstream(sp)))
-	{	sfclose(sp);
+	if(!(f = _stdstream(sf)))
+	{	sfclose(sf);
 		return NIL(FILE*);
 	}
 
-	return(fp);
+	return(f);
 }

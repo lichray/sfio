@@ -6,17 +6,17 @@
 
 
 #if __STD_C
-void setbuf(reg FILE* fp, char* buf)
+void setbuf(reg FILE* f, char* buf)
 #else
-void setbuf(fp,buf)
-reg FILE*	fp;
+void setbuf(f,buf)
+reg FILE*	f;
 char*		buf;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return;
-	_stdclrerr(fp,sp);
-	(void)sfsetbuf(sp,(Void_t*)buf,BUFSIZ);
+
+	(void)sfsetbuf(sf,(Void_t*)buf,BUFSIZ);
 }

@@ -6,12 +6,19 @@
 
 
 #if __STD_C
-int putc(int c, FILE* fp)
+int putc(int c, FILE* f)
 #else
-int putc(c, fp)
+int putc(c, f)
 reg int		c;
-reg FILE*	fp;
+reg FILE*	f;
 #endif
 {
-	return fputc(c,fp);
+	return fputc(c,f);
 }
+
+#if _lib_putc_unlocked && !_done_putc_unlocked && !defined(putc)
+#define _done_putc_unlocked	1
+#define putc	putc_unlocked
+#include	"putc.c"
+#undef putc
+#endif

@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	Sfio_t*	ip;
 	Sfio_t*	op;
@@ -8,7 +8,7 @@ main()
 
 	if(!(ip = sfopen((Sfio_t*)0, "/dev/null", "r")))
 		terror("/dev/null read open\n");
-	if(!(op = sfopen((Sfio_t*)0, Kpv[0], "w")))
+	if(!(op = sfopen((Sfio_t*)0, tstfile(0), "w")))
 		terror("Write open\n");
 
 	n = (int)sfmove(ip, op, SF_UNBOUND, -1);
@@ -30,7 +30,5 @@ main()
 	if(sfclose(op))
 		terror("sfclose(op)\n");
 
-	rmkpv();
-
-	return 0;
+	TSTRETURN(0);
 }

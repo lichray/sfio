@@ -1,15 +1,53 @@
 #include	"sftest.h"
 
 #if __STD_C
-main(int argc, char** argv)
+static ssize_t discread(Sfio_t* f, void* buf, size_t n, Sfdisc_t* disc)
 #else
-main(argc, argv)
-int     argc;
-char    **argv;
+static ssize_t discread(f, buf, n, disc)
+Sfio_t*		f;
+Void_t*		buf;
+size_t		n;
+Sfdisc_t*	disc;
 #endif
 {
+	return sfrd(f, buf, n, disc);
+}
+
+#if __STD_C
+static ssize_t discwrite(Sfio_t* f, const void* buf, size_t n, Sfdisc_t* disc)
+#else
+static ssize_t discwrite(f, buf, n, disc)
+Sfio_t*		f;
+Void_t*		buf;
+size_t		n;
+Sfdisc_t*	disc;
+#endif
+{
+	return sfwr(f, buf, n, disc);
+}
+
+#if __STD_C
+static Sfoff_t discseek(Sfio_t* f, Sfoff_t offset, int type, Sfdisc_t* disc)
+#else
+static ssize_t discseek(f, offset, type, disc)
+Sfio_t*		f;
+Sfoff_t		offset;
+int		type
+Sfdisc_t*	disc;
+#endif
+{
+	return (Sfoff_t)(-1);	/* pretend that stream is unseekable */
+}
+
+Sfdisc_t	Disc1 = { discread, discwrite };
+Sfdisc_t	Disc2 = { discread, discwrite };
+Sfdisc_t	Disc3 = { discread, discwrite };
+
+MAIN()
+{
 	Sfio_t*	f;
-	char*		s;
+	char*	s;
+	int	i;
 
 	if(argc > 1)
         {       /* coprocess only */
@@ -45,5 +83,55 @@ char    **argv;
 
 	sfclose(f);
 
-	return 0;
+	/* the below tests to see if stream position is correct when
+	   multiple disciplines are put on a stream.
+	*/
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "w")))
+		terror("Opening file to write");
+	sfdisc(f,&Disc1);
+	sfdisc(f,&Disc2);
+	sfdisc(f,&Disc3);
+
+	for(i = 0; i < 100; ++i)
+	{	if(sfputr(f, "123456789", '\n') != 10)
+			terror("Can't write out strings");
+		sfsync(f);
+		if(sftell(f) != (Sfoff_t)((i+1)*10) )
+			terror("Wrong position");
+	}
+	sfclose(f);
+
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "r")))
+		terror("Opening file to read");
+	sfdisc(f,&Disc1);
+	sfdisc(f,&Disc2);
+	sfdisc(f,&Disc3);
+
+	for(i = 0; i < 100; ++i)
+	{	if(!(s = sfgetr(f, '\n', 1)) )
+			terror("Can't read string");
+		if(strcmp(s,"123456789") != 0)
+			terror("Wrong string");
+		if(sftell(f) != (Sfoff_t)((i+1)*10) )
+			terror("Wrong position");
+	}
+	sfclose(f);
+
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "r")))
+		terror("Opening file to read");
+	Disc1.seekf = discseek; sfdisc(f,&Disc1);
+	Disc2.seekf = discseek; sfdisc(f,&Disc2);
+	Disc3.seekf = discseek; sfdisc(f,&Disc3);
+
+	for(i = 0; i < 100; ++i)
+	{	if(!(s = sfgetr(f, '\n', 1)) )
+			terror("Can't read string");
+		if(strcmp(s,"123456789") != 0)
+			terror("Wrong string");
+		if(sftell(f) != (Sfoff_t)((i+1)*10) )
+			terror("Wrong position");
+	}
+	sfclose(f);
+
+	TSTRETURN(0);
 }

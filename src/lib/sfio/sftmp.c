@@ -6,7 +6,7 @@
 **	The temp file creation sequence is somewhat convoluted so that
 **	pool/stack/discipline will work correctly.
 **
-**	Written by David Korn and Kiem-Phong Vo (12/10/90)
+**	Written by David Korn and Kiem-Phong Vo.
 */
 
 #if _tmp_rmfail	
@@ -49,7 +49,9 @@ Sfdisc_t*	disc;
 		return -1;
 
 	if(type == SF_CLOSE)
-	{	for(last = NIL(File_t*), ff = File; ff; last = ff, ff = ff->next)
+	{
+		vtmtxlock(_Sfmutex);
+		for(last = NIL(File_t*), ff = File; ff; last = ff, ff = ff->next)
 			if(ff->f == f)
 				break;
 		if(ff)
@@ -66,6 +68,7 @@ Sfdisc_t*	disc;
 
 			free((Void_t*)ff);
 		}
+		vtmtxunlock(_Sfmutex);
 	}
 
 	return 0;
@@ -78,10 +81,12 @@ static void _rmfiles()
 #endif
 {	reg File_t	*ff, *next;
 
+	vtmtxlock(_Sfmutex);
 	for(ff = File; ff; ff = next)
 	{	next = ff->next;
 		_tmprmfile(ff->f, SF_CLOSE, NIL(Void_t*), ff->f->disc);
 	}
+	vtmtxunlock(_Sfmutex);
 }
 
 static Sfdisc_t	Rmdisc =
@@ -105,10 +110,12 @@ char*	file;
 
 	if(!(ff = (File_t*)malloc(sizeof(File_t)+strlen(file))) )
 		return -1;
+	vtmtxlock(_Sfmutex);
 	ff->f = f;
 	strcpy(ff->name,file);
 	ff->next = File;
 	File = ff;
+	vtmtxunlock(_Sfmutex);
 
 #else	/* can remove now */
 	while(remove(file) < 0 && errno == EINTR)
@@ -284,7 +291,7 @@ Sfdisc_t*	disc;
 	notifyf = _Sfnotify;
 
 	/* try to create the temp file */
-	SFCLEAR(&newf);
+	SFCLEAR(&newf,NIL(Vtmutex_t*));
 	newf.flags = SF_STATIC;
 	newf.mode = SF_AVAIL;
 
@@ -299,6 +306,12 @@ Sfdisc_t*	disc;
 	if(!sf)
 		return -1;
 
+	if(newf.mutex) /* don't need a mutex for this stream */
+	{	vtmtxclrlock(newf.mutex);
+		vtmtxclose(newf.mutex);
+		newf.mutex = NIL(Vtmutex_t*);
+	}
+
 	/* make sure that new stream has the same mode */
 	if((m = f->flags&(SF_READ|SF_WRITE)) != (SF_READ|SF_WRITE))
 		sfset(sf, ((~m)&(SF_READ|SF_WRITE)), 0);
@@ -309,6 +322,10 @@ Sfdisc_t*	disc;
 	memcpy((Void_t*)f, (Void_t*)sf, sizeof(Sfio_t));
 	f->push = savf.push;
 	f->pool = savf.pool;
+	f->rsrv = savf.rsrv;
+	f->proc = savf.proc;
+	f->mutex = savf.mutex;
+	f->stdio = savf.stdio;
 
 	if(savf.data)
 	{	SFSTRSIZE(&savf);

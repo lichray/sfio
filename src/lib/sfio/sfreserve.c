@@ -2,36 +2,54 @@
 
 /*	Reserve a segment of data or buffer.
 **
-**	Written by Kiem-Phong Vo (01/15/93).
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
-Void_t* sfreserve(reg Sfio_t* f, ssize_t size, int lock)
+Void_t* sfreserve(reg Sfio_t* f, ssize_t size, int type)
 #else
-Void_t* sfreserve(f,size,lock)
+Void_t* sfreserve(f,size,type)
 reg Sfio_t*	f;	/* file to peek */
 ssize_t		size;	/* size of peek */
-int		lock;	/* >0 to lock stream and not advance pointer */
+int		type;	/* LOCKR: lock stream, LASTR: last record */
 #endif
 {
 	reg ssize_t	n, sz;
-	reg Sfrsrv_t*	frs;
+	reg Sfrsrv_t*	rsrv;
+	reg Void_t*	data;
 	reg int		mode;
 
+	SFMTXSTART(f,NIL(Void_t*));
+
 	/* initialize io states */
-	frs = NIL(Sfrsrv_t*);
+	rsrv = NIL(Sfrsrv_t*);
 	_Sfi = f->val = -1;
 
-	if((sz = size) == 0 && lock != 0)
+	/* return the last record */
+	if(type == SF_LASTR )
+	{	if((rsrv = f->rsrv) && (n = -rsrv->slen) > 0)
+		{	rsrv->slen = 0;
+			_Sfi = f->val = n;
+			SFMTXRETURN(f, (Void_t*)rsrv->data);
+		}
+		else	SFMTXRETURN(f, NIL(Void_t*));
+	}
+
+	if(type > 0 && !(type == SF_LOCKR || type == 1) )
+		SFMTXRETURN(f, NIL(Void_t*));
+
+	if((sz = size) == 0 && type != 0)
 	{	/* only return the current status and possibly lock stream */
 		if((f->mode&SF_RDWR) != f->mode && _sfmode(f,0,0) < 0)
-			return NIL(Void_t*);
+			SFMTXRETURN(f, NIL(Void_t*));
 
 		SFLOCK(f,0);
 		if((n = f->endb - f->next) < 0)
 			n = 0;
-		if(lock > 0 && !f->data)
-			frs = _sfrsrv(f,0);
+
+		if(!f->data && type > 0)
+			rsrv = _sfrsrv(f,0);
+
 		goto done;
 	}
 	if(sz < 0)
@@ -58,7 +76,7 @@ int		lock;	/* >0 to lock stream and not advance pointer */
 		/* do a buffer refill or flush */
 		if(f->mode&SF_WRITE)
 			(void)SFFLSBUF(f, -1);
-		else if(lock > 0 && f->extent < 0 && (f->flags&SF_SHARE) )
+		else if(type > 0 && f->extent < 0 && (f->flags&SF_SHARE) )
 		{	if(n == 0) /* peek-read only if there is no buffered data */
 			{	f->mode |= SF_RV;
 				(void)SFFILBUF(f, sz == 0 ? -1 : (sz-n) );
@@ -93,34 +111,13 @@ int		lock;	/* >0 to lock stream and not advance pointer */
 			}
 		}
 		else if(f->mode&SF_WRITE)
-		{	if(lock > 0 && (frs = _sfrsrv(f,sz)) )
+		{	if(type > 0 && (rsrv = _sfrsrv(f,sz)) )
 				n = sz;
 		}
-		else if(lock <= 0 && f->extent >= 0 && (frs = _sfrsrv(f,sz)) )
-		{	reg Sfio_t*	push;
-
-			/* avoid stack popping */
-			push = f->push; f->push = NIL(Sfio_t*);
-
-			if((n = SFREAD(f,(Void_t*)frs->data,sz)) < sz )
-			{	if(n <= 0)
-					n = f->endb - f->next;
-				else
-				{	if((f->bits&SF_MMAP) || n > f->size )
-					{	(void)SFSEEK(f,(Sfoff_t)(-n),1);
-						n = (size_t)(f->extent - f->here) +
-							(f->endb - f->next);
-					}
-					else
-					{	memcpy((Void_t*)f->data,
-							(Void_t*)frs->data,n);
-						f->endb = (f->next = f->data) + n;
-					}
-				}
-				frs = NIL(Sfrsrv_t*);
-			}
-
-			f->push = push;
+		else /*if(f->mode&SF_READ)*/
+		{	if(type <= 0 && (rsrv = _sfrsrv(f,sz)) &&
+			   (n = SFREAD(f,(Void_t*)rsrv->data,sz)) < sz)
+				rsrv->slen = -n;
 		}
 	}
 
@@ -130,20 +127,17 @@ done:
 
 	SFOPEN(f,0);
 
-	if((sz > 0 && n < sz) || (n == 0 && lock <= 0) )
-		return NIL(Void_t*);
-	else
-	{	reg Void_t* rsrv = frs ? (Void_t*)frs->data : (Void_t*)f->next;
+	if((sz > 0 && n < sz) || (n == 0 && type <= 0) )
+		SFMTXRETURN(f, NIL(Void_t*));
 
-		if(rsrv)
-		{	if(lock > 0)
-			{	f->mode |= SF_PEEK;
-				f->endr = f->endw = f->data;
-			}
-			else if(rsrv == (Void_t*)f->next)
-				f->next += (size >= 0 ? size : n);
+	if((data = rsrv ? (Void_t*)rsrv->data : (Void_t*)f->next) )
+	{	if(type > 0)
+		{	f->mode |= SF_PEEK;
+			f->endr = f->endw = f->data;
 		}
-
-		return rsrv;
+		else if(data == (Void_t*)f->next)
+			f->next += (size >= 0 ? size : n);
 	}
+
+	SFMTXRETURN(f, data);
 }

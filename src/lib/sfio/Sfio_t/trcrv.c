@@ -15,7 +15,7 @@ Sfdisc_t* disc;
 
 Sfdisc_t Disc = {myread, NIL(Sfwrite_f), NIL(Sfseek_f), NIL(Sfexcept_f)};
 
-main()
+MAIN()
 {
 	int	fd[2];
 
@@ -42,5 +42,5 @@ main()
 	if(sfstdin->endb > sfstdin->next)
 		terror("sfgetr reads too much2\n");
 
-	return 0;
+	TSTRETURN(0);
 }

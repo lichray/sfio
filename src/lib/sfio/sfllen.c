@@ -2,7 +2,7 @@
 
 /*	Get size of a long value coded in a portable format
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo
 */
 #if __STD_C
 int _sfllen(Sflong_t v)

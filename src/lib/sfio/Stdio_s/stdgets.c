@@ -3,7 +3,7 @@
 
 /*	Read a line into a buffer.
 **
-**	Written by Kiem-Phong Vo (10/15/91)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -19,8 +19,10 @@ int		isgets;	/* gets(), not fgets() */
 	reg int		p;
 	reg uchar	*is, *ps;
 
+	SFMTXSTART(f, NIL(char*));
+
 	if(n <= 0 || !us || (f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0))
-		return NIL(char*);
+		SFMTXRETURN(f, NIL(char*));
 
 	SFLOCK(f,0);
 
@@ -79,5 +81,5 @@ int		isgets;	/* gets(), not fgets() */
 	else	*is = '\0';
 
 	SFOPEN(f,0);
-	return us;
+	SFMTXRETURN(f, us);
 }

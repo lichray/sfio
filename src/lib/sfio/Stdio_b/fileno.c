@@ -5,15 +5,22 @@
 */
 
 #if __STD_C
-int fileno(FILE* fp)
+int fileno(FILE* f)
 #else
-int fileno(fp)
-FILE*	fp;
+int fileno(f)
+FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 	
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-	return sffileno(sp);
+	return sffileno(sf);
 }
+
+#if _lib_fileno_unlocked && !_done_fileno_unlocked && !defined(fileno)
+#define _done_fileno_unlocked	1
+#define fileno	fileno_unlocked
+#include	"fileno.c"
+#undef fileno
+#endif

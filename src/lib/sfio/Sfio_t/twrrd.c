@@ -1,7 +1,7 @@
 #include	"sftest.h"
 
 
-main()
+MAIN()
 {
 	int	i;
 	char	wbuf[1023];
@@ -32,5 +32,5 @@ main()
 			terror("Unmatched record\n");
 	}
 
-	return 0;
+	TSTRETURN(0);
 }

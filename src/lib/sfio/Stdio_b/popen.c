@@ -13,15 +13,19 @@ char*	string;
 char*	mode;
 #endif
 {
-	reg Sfio_t*	sp;
-	reg FILE*	fp;
+	reg Sfio_t*	sf;
+	reg FILE*	f;
 
-	if(!(sp = sfpopen((Sfio_t*)(-1), string, mode)))
-		return NIL(FILE*);
-	if(!(fp = _stdstream(sp)))
-	{	sfclose(sp);
-		return NIL(FILE*);
+	if(!(sf = sfpopen((Sfio_t*)(-1), string, mode)))
+		f = NIL(FILE*);
+	else if(!(f = _stdstream(sf)))
+		sfclose(sf);
+	else
+	{	int	uflag;
+		_sftype(mode, NIL(int*), &uflag);
+		if(!uflag)
+			sf->flags |= SF_MTSAFE;
 	}
 
-	return(fp);
+	return(f);
 }

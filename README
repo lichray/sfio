@@ -8,6 +8,7 @@ Standard directories:
 
 Package directories:
 	./src/lib/sfio
+	./src/lib/vthread
 
 Before building a package, you should change your shell PATH variable
 to include "./bin" so that the program "iffe" would be available

@@ -10,17 +10,12 @@ FILBUF(f)
 	reg Sfio_t*	sf;
 	reg int		rv;
 
-	if(!(sf = _sfstream(f)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
 
-	_stdclrerr(f,sf);
 	if((rv = sfgetc(sf)) < 0)
-	{	if(sfeof(sf))
-			_stdeof(f);
-		if(sferror(sf))
-			_stderr(f);
-	}
-	else
+		_stdseterr(f,sf);
+	else if(!(sf->flags&SF_MTSAFE) )
 	{
 #if _FILE_readptr	/* Linux-stdio */
 #if _under_flow && !_u_flow	/* __underflow does not bump pointer */
@@ -48,10 +43,10 @@ FILBUF(f)
 #endif
 
 #if _FILE_readptr || _FILE_cnt || _FILE_r
-		_Sfstdio = _sfstdio;
 		sf->mode |= SF_STDIO;
 		sf->endr = sf->endw = sf->data;
 #endif
+		SETSYNC(f);
 	}
 
 	return(rv);

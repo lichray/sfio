@@ -4,7 +4,7 @@
 **	Ready streams are moved to front of array but retain the
 **	same relative order.
 **
-**	Written by Kiem-Phong Vo (06/18/92).
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C

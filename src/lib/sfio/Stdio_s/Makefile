@@ -1,18 +1,24 @@
 # makefile for stdio-source compatibility code
 #
-# Written by Kiem-Phong Vo (4/24/91)
+# Written by Kiem-Phong Vo
 
 # Compiler and flags to use
+LIBTYPE=""
 AR=	ar
 CC=	cc
 CXFLAGS=
 CCMODE=	-O
-CCFLAGS= -I.. $(CCMODE) $(CXFLAGS)
+CCFLAGS= -I. -I.. $(CCMODE) $(LIBTYPE) $(CXFLAGS)
 
-SRCS=	stdgets.c stdopen.c stdprintf.c stdscanf.c stdsprintf.c stdvbuf.c \
-	stdputc.c stdgetc.c
-OBJS=	stdgets.o stdopen.o stdprintf.o stdscanf.o stdsprintf.o stdvbuf.o \
-	stdputc.o stdgetc.o
+SRCS=	stdfgetc.c stdfprintf.c stdfputc.c stdfscanf.c stdgetc.c stdgets.c \
+	stdgetw.c stdfdopen.c stdprintf.c stdputc.c stdputw.c stdscanf.c \
+	stdsprintf.c stdsetvbuf.c stdfopen.c stdfreopen.c stdpopen.c stdtmpfile.c \
+	stdfwrite.c stdfread.c
+
+OBJS=	stdfgetc.o stdfprintf.o stdfputc.o stdfscanf.o stdgetc.o stdgets.o \
+	stdgetw.o stdfdopen.o stdprintf.o stdputc.o stdputw.o stdscanf.o \
+	stdsprintf.o stdsetvbuf.o stdfopen.o stdfreopen.o stdpopen.o stdtmpfile.o \
+	stdfwrite.o stdfread.o
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $*.c

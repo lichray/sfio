@@ -6,21 +6,18 @@
 
 
 #if __STD_C
-void rewind(reg FILE* fp)
+void rewind(reg FILE* f)
 #else
-void rewind(fp)
-reg FILE*	fp;
+void rewind(f)
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return;
-	_stdclrerr(fp,sp);
 
-#if _xopen_stdio
-	(void)sfseek(sp, (Sfoff_t)0, 0|SF_SHARE);
-#else
-	(void)sfseek(sp, (Sfoff_t)0, 0);
-#endif
+	(void)sfseek(sf, (Sfoff_t)0, 0|SF_SHARE);
+
+	clearerr(f);
 }

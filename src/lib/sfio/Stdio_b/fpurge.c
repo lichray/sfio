@@ -6,18 +6,16 @@
 
 
 #if __STD_C
-int fpurge(reg FILE* fp)
+int fpurge(reg FILE* f)
 #else
-int fpurge(fp)
-reg FILE*	fp;
+int fpurge(f)
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
 
-	_stdclrerr(fp,sp);
-
-	return sfpurge(sp);
+	return sfpurge(sf);
 }

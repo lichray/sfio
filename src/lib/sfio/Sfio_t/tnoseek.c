@@ -35,7 +35,7 @@ Sfdisc_t*	disc;
 
 Sfdisc_t seekable = { (Sfread_f)0, discwrite, discseek, (Sfexcept_f)0 };
 
-main()
+MAIN()
 {
 	char	buf[1024];
 
@@ -56,5 +56,5 @@ main()
 	if(buffer != buf || size != 8 || count != 1)
 		terror("Wrong calls to write\n");
 
-	return 0;
+	TSTRETURN(0);
 }

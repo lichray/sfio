@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	Sfio_t	*f;
 	int	n;
@@ -96,5 +96,5 @@ main()
 	if(!sfeof(f))
 		terror("Didn't get eof\n");
 
-	return 0;
+	TSTRETURN(0);
 }

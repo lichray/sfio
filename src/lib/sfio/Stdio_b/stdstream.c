@@ -7,59 +7,84 @@
 /* symbol to force loading of this file */
 int	_Stdio_load = 1;
 
-/* mapping between sfio and stdio */
-typedef struct _sfstdmap_s	Sfstdmap_t;
-struct _sfstdmap_s
-{	FILE*		f;
-	Sfio_t*		sf;
-	Sfstdmap_t*	next;
-};
-static Sfstdmap_t*	Map = NIL(Sfstdmap_t*);
 
 /* synchronizing sfio and stdio buffer pointers */
 #if __STD_C
-int _sfstdio(reg Sfio_t* sf)
+static int _sfstdsync(Sfio_t* sf)
 #else
-int _sfstdio(sf)
-reg Sfio_t*	sf;
+static int _sfstdsync(sf)
+Sfio_t*	sf;
 #endif
 {
 	FILE*	f;
 
-	if(!(f = _stdstream(sf)))
+	if(!(f = (FILE*)sf->stdio) )
 		return -1;
 
+	SFMTXLOCK(sf);
+
+	if(MUSTSYNC(f))
+	{
 #if _FILE_readptr
-	if(f->std_readptr >= sf->next && f->std_readptr <= sf->endb)
-		sf->next = f->std_readptr;
-	f->std_readptr = f->std_readend = NIL(uchar*);
+		if(f->std_readptr >= sf->next && f->std_readptr <= sf->endb)
+			sf->next = f->std_readptr;
+		f->std_readptr = f->std_readend = NIL(uchar*);
 #endif
 #if _FILE_writeptr
-	if(f->std_writeptr >= sf->next && f->std_writeptr <= sf->endb)
-		sf->next = f->std_writeptr;
-	f->std_writeptr = f->std_writeend = NIL(uchar*);
+		if(f->std_writeptr >= sf->next && f->std_writeptr <= sf->endb)
+			sf->next = f->std_writeptr;
+		f->std_writeptr = f->std_writeend = NIL(uchar*);
 #endif
 #if _FILE_cnt || _FILE_r || _FILE_w
-	if(f->std_ptr >= sf->next && f->std_ptr <= sf->endb)
-		sf->next = f->std_ptr;
-	f->std_ptr = NIL(uchar*);
+		if(f->std_ptr >= sf->next && f->std_ptr <= sf->endb)
+			sf->next = f->std_ptr;
+		f->std_ptr = NIL(uchar*);
 #endif
 #if _FILE_cnt
-	f->std_cnt = 0;
+		f->std_cnt = 0;
 #endif
 #if _FILE_r
-	f->std_r = 0;
+		f->std_r = 0;
 #endif
 #if _FILE_w
-	f->std_w = 0;
+		f->std_w = 0;
 #endif
 
 #if _FILE_readptr || _FILE_writeptr || _FILE_cnt || _FILE_w || _FILE_r
-	if((sf->mode &= ~SF_STDIO) == SF_READ)
-		sf->endr = sf->endb;
-	else if(sf->mode == SF_WRITE && !(sf->flags&SF_LINE) )
-		sf->endw = sf->endb;
+		if((sf->mode &= ~SF_STDIO) == SF_READ)
+			sf->endr = sf->endb;
+		else if(sf->mode == SF_WRITE && !(sf->flags&SF_LINE) )
+			sf->endw = sf->endb;
 #endif
+		CLRSYNC(f);
+	}
+
+	SFMTXUNLOCK(sf);
+
+	return 0;
+}
+
+
+/* initializing the mapping between standard streams */
+#define STDINIT()	(sfstdin->stdio ? 0 : _stdinit())
+static int _stdinit()
+{
+	vtmtxlock(_Sfmutex);
+
+	if(!sfstdin->stdio)
+	{	_Sfstdsync = _sfstdsync;
+
+		sfstdin->stdio = stdin;
+		sfstdout->stdio = stdout;
+		sfstdout->stdio = stderr;
+#if _has_std_sf
+		stdin->std_sf = sfstdin;
+		stdout->std_sf = sfstdout;
+		stderr->std_sf = sfstderr;
+#endif
+	}
+
+	vtmtxunlock(_Sfmutex);
 
 	return 0;
 }
@@ -72,38 +97,51 @@ Sfio_t* _sfstream(reg FILE* f)
 Sfio_t* _sfstream(f)
 reg FILE*	f;
 #endif
-{	reg Sfstdmap_t*	m;
-	reg Sfstdmap_t*	p;
+{
 	reg Sfio_t*	sf;
+	reg Sfpool_t*	p;
+	reg int		n;
 
-	if(!f)
-		return NIL(Sfio_t*);
+	STDINIT();
 
 	sf = NIL(Sfio_t*);
-	if(f == stdin)
-		sf = sfstdin;
-	else if(f == stdout)
-		sf = sfstdout;
-	else if(f == stderr)
-		sf = sfstderr;
-	else for(p = NIL(Sfstdmap_t*), m = Map; m; p = m, m = m->next)
-	{	if(m->f != f)
-			continue;
-
-		/* found */
-		if(p)
-		{	/* move-to-front heuristic */
-			p->next = m->next;
-			m->next = Map;
-			Map = m;
+	if(f)
+	{
+#if _has_std_sf
+		sf = f->std_sf;
+#endif
+		vtmtxlock(_Sfmutex);
+		if(!sf)	/* slow search for sf */
+		{	if(f == stdin)
+				sf = sfstdin;
+			else if(f == stdout)
+				sf = sfstdout;
+			else if(f == stderr)
+				sf = sfstderr;
+			else
+			{	for(p = &_Sfpool; p && !sf; p = p->next)
+					for(n = p->n_sf-1; n >= 0 && !sf; --n)
+						if(p->sf[n]->stdio == (Void_t*)f)
+							sf = p->sf[n];
+			}
 		}
-		sf = m->sf;
-		break;
+		vtmtxunlock(_Sfmutex);
 	}
 
-	/* synchronize the data pointers */
-	if(sf)
-		_sfstdio(sf);
+	if(sf)	/* synchronize data pointers */
+	{	_sfstdsync(sf);
+		if(!OKSF(sf))
+		{	int	rv, flags;
+
+			flags = sf->flags; sf->flags |= SF_SHARE|SF_PUBLIC;
+			rv = _sfmode(sf,0,0);
+			sf->flags = flags;
+
+			if(rv < 0)
+				sfclrlock(sf);
+		}
+		_stdclrerr(f);
+	}
 
 	return sf;
 }
@@ -116,40 +154,17 @@ FILE* _stdstream(sf)
 reg Sfio_t*	sf;
 #endif
 {	reg FILE*	f;
-	reg Sfstdmap_t*	m;
-	reg Sfstdmap_t*	p;
+
+	STDINIT();
 
 	if(!sf)
 		return NIL(FILE*);
-	else if(sf == sfstdin)
-		return stdin;
-	else if(sf == sfstdout)
-		return stdout;
-	else if(sf == sfstderr)
-		return stderr;
 
-	for(p = NIL(Sfstdmap_t*), m = Map; m; p = m, m = m->next)
-	{	if(m->sf != sf)
-			continue;
-
-		if(p) /* move-to-front heuristic */
-		{	p->next = m->next;
-			m->next = Map;
-			Map = m;
-		}
-		return m->f;
-	}
-
-	/* create a new one */
-	if(!(f = (FILE*)malloc(sizeof(FILE))) )
+	if(!(f = sf->stdio) && !(f = (FILE*)malloc(sizeof(FILE))) )
 		return NIL(FILE*);
 	memclear(f,sizeof(FILE));
 
-	if(!(m = (Sfstdmap_t*)malloc(sizeof(Sfstdmap_t))) )
-	{	free((Void_t*)f);
-		return NIL(FILE*);
-	}
-	memclear(m,sizeof(Sfstdmap_t));
+	SFMTXLOCK(sf);
 
 #if _FILE_flag || _FILE_flags
 	f->std_flag =	((sf->flags&SF_EOF) ? _IOEOF : 0) |
@@ -159,39 +174,16 @@ reg Sfio_t*	sf;
 	f->std_file = sffileno(sf);
 #endif
 
-	m->f = f;
-	m->sf = sf;
-	m->next = Map;
-	Map = m;
+	/* mapping between corresponding streams */
+	sf->stdio = (Void_t*)f;
+#if _has_std_sf
+	f->std_sf = sf;
+#endif
+
+	SFMTXUNLOCK(sf);
 
 	return f;
 }
-
-/* close the map structure of a FILE stream */
-#if __STD_C
-void _stdclose(FILE* f)
-#else
-void _stdclose(f)
-reg FILE*	f;
-#endif
-{	reg Sfstdmap_t*	m;
-	reg Sfstdmap_t*	p;
-
-	for(p = NIL(Sfstdmap_t*), m = Map; m; p = m, m = m->next)
-	{	if(m->f != f)
-			continue;
-
-		if(p)
-			p->next = m->next;
-		else	Map = m->next;
-
-		free((Void_t*)f);
-		free((Void_t*)m);
-
-		return;
-	}
-}
-
 
 /* The following functions are never called from the application code.
    They are here to force loading of all compatibility functions and
@@ -291,4 +283,17 @@ void __stdiold()
 	FORCE(fpurge);
 	FORCE(fsetpos);
 	FORCE(fgetpos);
+
+	FORCE(flockfile);
+	FORCE(ftrylockfile);
+	FORCE(funlockfile);
+
+	FORCE(snprintf);
+	FORCE(vsnprintf);
+#if _lib___snprintf
+	FORCE(__snprintf);
+#endif
+#if _lib___vsnprintf
+	FORCE(__vsnprintf);
+#endif
 }

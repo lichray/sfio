@@ -6,21 +6,20 @@
 
 
 #if __STD_C
-int putw( int c, FILE* fp)
+int putw( int c, FILE* f)
 #else
-int putw(c, fp)
+int putw(c, f)
 int		c;
-reg FILE*	fp;
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-	_stdclrerr(fp,sp);
-	if(sfwrite(sp,(char*)(&c),sizeof(int)) <= 0)
-	{	_stderr(fp);
-		return(1);
-	}
-	return(0);
+
+	if(sfwrite(sf,(char*)(&c),sizeof(int)) <= 0)
+		_stdseterr(f,sf);
+
+	return sferror(sf);
 }

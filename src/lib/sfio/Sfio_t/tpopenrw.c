@@ -1,21 +1,23 @@
 #include	"sftest.h"
 
-#if __STD_C
-main(int argc, char** argv)
-#else
-main(argc, argv)
-int	argc;
-char	**argv;
-#endif
+MAIN()
 {
-	Sfio_t	*f;
+	Sfio_t*	f;
 	char	buf[1024], *s;
 	int	n;
+#ifdef DEBUG
+	Sfio_t*	logf = sfopen(0,"LOG","a"); sfsetbuf(logf,NIL(Void_t*),0);
+#endif
 
 	if(argc > 1)
 	{	/* coprocess only */
-		while(s = sfreserve(sfstdin,-1,0))
-			sfwrite(sfstdout,s,sfvalue(sfstdin));
+		while((s = sfreserve(sfstdin,-1,0)) )
+		{
+#ifdef DEBUG
+			sfwrite(logf, s, sfvalue(sfstdin));
+#endif
+			sfwrite(sfstdout, s, sfvalue(sfstdin));
+		}
 		return 0;
 	}
 
@@ -31,24 +33,28 @@ char	**argv;
 			terror("Input=%s, Expect=%s\n",s,buf);
 	}
 
-	sfputr(f,"123456789",'\n');
-	sfsync(f);
-	sleep(1);
-	if(!(s = sfreserve(f,-1,1)) || sfvalue(f) != 10)
+	if(sfputr(f,"123456789",'\n') != 10)
+		terror("Bad write");
+
+	if(sfread(f,buf,3) != 3)
 		terror("Did not get data back\n");
-	if(strncmp(s,"123456789\n",10) != 0)
+	if(strncmp(s,"123",3) != 0)
 		terror("Wrong data\n");
-	s[0] = s[1] = s[2] = '0';
-	if(sfwrite(f,s,3) != 3 || sfputc(f,'\n') != '\n')
+
+	if(sfwrite(f,"aaa",3) != 3 || sfputc(f,'\n') != '\n')
 		terror("Fail on write\n");
+
 	if(!(s = sfgetr(f,'\n',1)) )
-		terror("Lost data\n"); 
+		terror("Should have gotten 456789\n"); 
 	if(strcmp(s,"456789") != 0)
 		terror("Wrong data2\n");
+
 	if(!(s = sfgetr(f,'\n',1)) )
-		terror("Lost data2\n"); 
-	if(strcmp(s,"000") != 0)
+		terror("Should have gotten aaa\n"); 
+	if(strcmp(s,"aaa") != 0)
 		terror("Wrong data3\n");
+
+	sfclose(f);
 	
-	return 0;
+	TSTRETURN(0);
 }

@@ -5,15 +5,24 @@
 */
 
 #if __STD_C
-int ferror(FILE* fp)
+int ferror(FILE* f)
 #else
-int ferror(fp)
-FILE*	fp;
+int ferror(f)
+FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 	
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-	return sferror(sp);
+
+	_stdseterr(f,sf);
+	return sferror(sf);
 }
+
+#if _lib_ferror_unlocked && _done_ferror_unlocked && !defined(ferror)
+#define _done_ferror_unlocked	1
+#define ferror	ferror_unlocked
+#include	"ferror.c"
+#undef ferror
+#endif

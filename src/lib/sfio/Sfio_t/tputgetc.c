@@ -1,7 +1,7 @@
 #include	"sftest.h"
 
 
-main()
+MAIN()
 {	Sfio_t	*f;
 	int	i, c;
 
@@ -18,5 +18,5 @@ main()
 		if((c = sfgetc(f)) != ((i%26)+'a'))
 			terror("Input=%#o, Expect=%c\n",c,(i%26)+'a');
 
-	return 0;
+	TSTRETURN(0);
 }

@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	Sfio_t*	f;
 	char*	s;
@@ -40,5 +40,5 @@ main()
 	if(!(s = sfgetr(f,0,-1)) || strcmp(s,"333") != 0)
 		terror("sfgetr failed in getting last partial record\n");
 
-	return 0;
+	TSTRETURN(0);
 }

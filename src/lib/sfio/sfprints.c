@@ -4,7 +4,7 @@
 **	This function allocates space as necessary to store the string.
 **	This avoids overflow problems typical with sprintf() in stdio.
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C

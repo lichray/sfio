@@ -2,7 +2,7 @@
 
 /*	The engine for formatting data
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #define HIGHBITI	(~((~((uint)0)) >> 1))
@@ -79,9 +79,11 @@ va_list	args;		/* arg list if !argf	*/
 
 	SFCVINIT();	/* initialize conversion tables */
 
+	SFMTXSTART(f,-1);
+
 	/* make sure stream is in write mode and buffer is not NULL */
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
-		return -1;
+		SFMTXRETURN(f, -1);
 
 	SFLOCK(f,0);
 
@@ -209,16 +211,35 @@ loop_fmt :
 			goto loop_flags;
 
 		case '.' :
-			if((dot += 1) == 2)
-				base = 0; /* for %s,%c */
+			dot += 1;
+			if(dot == 1)
+			{	/* so base can be defined without setting precis */
+				if(*form != '.')
+					precis = 0;
+			}
+			else if(dot == 2)
+			{	base = 0; /* for %s,%c */
+				if(*form == 'c' || *form == 's')
+					goto loop_flags;
+				if(*form && !isalnum(*form) &&
+				   (form[1] == 'c' || form[1] == 's') )
+				{	if(*form == '*')
+						goto do_star;
+					else
+					{	base = *form++;
+						goto loop_flags;
+					}
+				}
+			}
+
 			if(isdigit(*form) )
 			{	fmt = *form++;
 				goto dot_size;
 			}
 			else if(*form != '*')
 				goto loop_flags;
-			else	form += 1; /* fall thru for '*' */
-
+		do_star:
+			form += 1; /* fall thru for '*' */
 		case '*' :
 			form = (*_Sffmtintf)(form,&n);
 			if(*form == '$')
@@ -311,11 +332,29 @@ loop_fmt :
 			goto loop_flags;
 		case 'h' :
 			size = -1;
-			flags = (flags & ~SFFMT_TYPES) | SFFMT_SHORT;
+			flags &= ~SFFMT_TYPES;
+			if(*form == 'h')
+			{	form += 1;
+				flags |= SFFMT_SSHORT;
+			}
+			else	flags |= SFFMT_SHORT;
 			goto loop_flags;
 		case 'L' :
 			size = -1;
 			flags = (flags & ~SFFMT_TYPES) | SFFMT_LDOUBLE;
+			goto loop_flags;
+
+		case 'j' :
+			size = -1;
+			flags = (flags&~SFFMT_TYPES) | SFFMT_JFLAG;
+			goto loop_flags;
+		case 'z' :
+			size = -1;
+			flags = (flags&~SFFMT_TYPES) | SFFMT_ZFLAG;
+			goto loop_flags;
+		case 't' :
+			size = -1;
+			flags = (flags&~SFFMT_TYPES) | SFFMT_TFLAG;
 			goto loop_flags;
 		}
 
@@ -324,7 +363,12 @@ loop_fmt :
 		{	if((_Sftype[fmt]&(SFFMT_INT|SFFMT_UINT)) || fmt == 'n')
 			{	size =	(flags&SFFMT_LLONG) ? sizeof(Sflong_t) :
 					(flags&SFFMT_LONG) ? sizeof(long) :
-					(flags&SFFMT_SHORT) ? sizeof(short) : -1;
+					(flags&SFFMT_SHORT) ? sizeof(short) :
+					(flags&SFFMT_SSHORT) ? sizeof(char) :
+					(flags&SFFMT_JFLAG) ? sizeof(Sflong_t) :
+					(flags&SFFMT_TFLAG) ? sizeof(ptrdiff_t) :
+					(flags&SFFMT_ZFLAG) ? sizeof(size_t) :
+					-1;
 			}
 			else if(_Sftype[fmt]&SFFMT_FLOAT)
 			{	size = (flags&SFFMT_LDOUBLE) ? sizeof(Sfdouble_t) :
@@ -415,7 +459,7 @@ loop_fmt :
 				fmstk->ft = ft = argv.ft;
 			}
 			else			/* stack a new environment */
-			{	if(!FMTALLOC(fm))
+			{	if(!(fm = (Fmt_t*)malloc(sizeof(Fmt_t))) )
 					goto done;
 
 				if(argv.ft->form)
@@ -517,6 +561,8 @@ loop_fmt :
 			else if(sizeof(short) < sizeof(int) &&
 				FMTCMP(size,short,Sflong_t) )
 				*((short*)argv.vp) = (short)n_output;
+			else if(size == sizeof(char) )
+				*((char*)argv.vp) = (char)n_output;
 			else	*((int*)argv.vp) = (int)n_output;
 
 			continue;
@@ -601,13 +647,26 @@ loop_fmt :
 			if(sizeof(short) < sizeof(int) && FMTCMP(size,short,Sflong_t))
 			{	if(ft && ft->extf && (ft->flags&SFFMT_VALUE) )
 				{	if(fmt == 'd')
-						v = (int)argv.h;
+						v = (int)((short)argv.h);
 					else	v = (int)((ushort)argv.h);
 				}
 				else
 				{	if(fmt == 'd')
-						v = (int)argv.i;
-					else	v = (int)(ushort)argv.i;
+						v = (int)((short)argv.i);
+					else	v = (int)((ushort)argv.i);
+				}
+				goto int_cvt;
+			}
+			else if(size == sizeof(char))
+			{	if(ft && ft->extf && (ft->flags&SFFMT_VALUE) )
+				{	if(fmt == 'd')
+						v = (int)((char)argv.c);
+					else	v = (int)((uchar)argv.c);
+				}
+				else
+				{	if(fmt == 'd')
+						v = (int)((char)argv.i);
+					else	v = (int)((uchar)argv.i);
 				}
 				goto int_cvt;
 			}
@@ -950,7 +1009,7 @@ pop_fmt:
 			fp = fm->fp;
 		}
 		ft = fm->ft;
-		FMTFREE(fm);
+		free(fm);
 		if(form && form[0])
 			goto loop_fmt;
 	}
@@ -962,7 +1021,7 @@ done:
 	{	if(fm->eventf)
 			(*fm->eventf)(f,SF_FINAL,NIL(Void_t*),fm->ft);
 		fmstk = fm->next;
-		FMTFREE(fm);
+		free(fm);
 	}
 
 	SFEND(f);
@@ -978,5 +1037,5 @@ done:
 	else	f->next += n;
 
 	SFOPEN(f,0);
-	return n_output;
+	SFMTXRETURN(f, n_output);
 }

@@ -2,7 +2,7 @@
 
 /*	Test for /dev/null and hole-preserving code */
 
-main()
+MAIN()
 {
 	Sfio_t*	null;
 	Sfio_t*	f;
@@ -14,11 +14,8 @@ main()
 
 	sfsetbuf(null,NIL(char*),(size_t)SF_UNBOUND);
 
-	if(!SFISNULL(null) )
-		terror("Not /dev/null?");
-
-	if(!(f = sfopen(NIL(Sfio_t*), Kpv[0], "w+")) )
-		terror("Creating %s", Kpv[0]);
+	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "w+")) )
+		terror("Creating %s", tstfile(0));
 	sfwrite(f,"1234",4);
 	sfseek(f,(Sfoff_t)1,0);
 	sfsync(f);
@@ -36,8 +33,8 @@ main()
 	for(k = sizeof(buf)/4; k < sizeof(buf)/2; ++k) /* make a big hole */
 		buf[k] = 0;
 
-	if(!(f = sfopen(f, Kpv[0], "w+")) )
-		terror("Creating %s", Kpv[0]);
+	if(!(f = sfopen(f, tstfile(0), "w+")) )
+		terror("Creating %s", tstfile(0));
 	n = sizeof(buf)-127;
 	if(sfwrite(f,buf,n) != n)
 		terror("Writing large buffer");
@@ -48,6 +45,5 @@ main()
 		if(b[k] != buf[k])
 			terror("Bad data");
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

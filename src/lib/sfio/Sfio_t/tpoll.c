@@ -1,12 +1,6 @@
 #include	"sftest.h"
 
-#if __STD_C
-main(int argc, char** argv)
-#else
-main(argc, argv)
-int     argc;
-char    **argv;
-#endif
+MAIN()
 {
 	Sfio_t	*str, *fr, *fw, *sf[2];
 	int	c;
@@ -69,5 +63,5 @@ char    **argv;
 	if(sfpoll(&fr,1,1000) != 1)
 		terror("Data should be available\n");
 
-	return 0;
+	TSTRETURN(0);
 }

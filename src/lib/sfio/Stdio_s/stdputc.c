@@ -10,5 +10,5 @@ int	c;
 FILE*	f;
 #endif
 {
-	return __sf_fputc(c,f);
+	return _std_putc(c,f);
 }

@@ -3,7 +3,7 @@
 /*	Write a buffer out to a file descriptor or
 **	extending a buffer for a SF_STRING stream.
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo
 */
 
 #if __STD_C
@@ -20,12 +20,14 @@ reg int		c;	/* if c>=0, c is also written out */
 	reg int		local, isall;
 	int		inpc = c;
 
+	SFMTXSTART(f,-1);
+
 	GETLOCAL(f,local);
 
 	for(;; f->mode &= ~SF_LOCK)
 	{	/* check stream mode */
 		if(SFMODE(f,local) != SF_WRITE && _sfmode(f,SF_WRITE,local) < 0)
-			return -1;
+			SFMTXRETURN(f, -1);
 		SFLOCK(f,local);
 
 		/* current data extent */
@@ -41,7 +43,7 @@ reg int		c;	/* if c>=0, c is also written out */
 				n = f->next - (data = f->data);
 			else
 			{	SFOPEN(f,local);
-				return -1;
+				SFMTXRETURN(f, -1);
 			}
 		}
 
@@ -78,12 +80,16 @@ reg int		c;	/* if c>=0, c is also written out */
 		}
 		else if(w == 0)
 		{	SFOPEN(f,local);
-			return -1;
+			SFMTXRETURN(f, -1);
 		}
 		else if(c < 0)
 			break;
 	}
 
 	SFOPEN(f,local);
-	return inpc < 0 ? (f->endb-f->next) : inpc;
+
+	if(inpc < 0)
+		inpc = f->endb-f->next;
+
+	SFMTXRETURN(f,inpc);
 }

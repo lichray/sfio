@@ -1,36 +1,33 @@
 #include	"sftest.h"
 #include	<signal.h>
 
-main()
+MAIN()
 {
 	Sfio_t	*f;
 	char	*s, *endos, *os = "one\ntwo\nthree\n";
 	int	n;
+	void(* handler)_ARG_((int));
 
-	if(!(f = sfpopen((Sfio_t*)0, sfprints("cat > %s",Kpv[0]), "w")))
+	if(argc > 1)
+	{	sfmove(sfstdin,sfstdout,(Sfoff_t)(-1),-1);
+		return 0;
+	}
+
+	if(!(f = sfpopen((Sfio_t*)0, sfprints("%s -p > %s", argv[0], tstfile(0)), "w")))
 		terror("Opening for write\n");
 	if(sfwrite(f,os,strlen(os)) != (ssize_t)strlen(os))
 		terror("Writing\n");
 
 #ifdef SIGPIPE
-	{	void(* handler)_ARG_((int));
-		if((handler = signal(SIGPIPE,SIG_DFL)) == SIG_DFL)
-			terror("Wrong signal handler\n");
-		signal(SIGPIPE,handler);
-	}
+	if((handler = signal(SIGPIPE,SIG_DFL)) == SIG_DFL)
+		terror("Wrong signal handler\n");
+	if((handler = signal(SIGPIPE,handler)) != SIG_DFL)
+		terror("Weird signal handling");
 #endif
 
 	sfclose(f);
 
-#ifdef SIGPIPE
-	{	void(* handler)_ARG_((int));
-		if((handler = signal(SIGPIPE,SIG_DFL)) != SIG_DFL)
-			terror("Wrong signal handler2\n");
-		signal(SIGPIPE,handler);
-	}
-#endif
-
-	if(!(f = sfpopen((Sfio_t*)0, sfprints("cat < %s",Kpv[0]), "r")))
+	if(!(f = sfpopen((Sfio_t*)0, sfprints("%s -p < %s", argv[0], tstfile(0)), "r")))
 		terror("Opening for read\n");
 	sleep(1);
 
@@ -47,6 +44,5 @@ main()
 	if(os != endos)
 		terror("Does not match all data, left=%s\n",os);
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

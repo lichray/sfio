@@ -1,12 +1,12 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	Sfio_t*	f1;
 	Sfio_t* f2;
 	char*	s;
 
-	if(!(f1 = sfopen(NIL(Sfio_t*), Kpv[0],"w+")) )
+	if(!(f1 = sfopen(NIL(Sfio_t*), tstfile(0),"w+")) )
 		terror("Can't open file\n");
 	if(sfwrite(f1,"0123456789\n",11) != 11)
 		terror("Can't write to file\n");
@@ -25,12 +25,11 @@ main()
 	if(!sfstack(sfstdout,f1) )
 		terror("Failed stacking f1\n");
 
-	if(!(f2 = sfopen(NIL(Sfio_t*), Kpv[0], "r")) )
+	if(!(f2 = sfopen(NIL(Sfio_t*), tstfile(0), "r")) )
 		terror("Can't open for read\n");
 
 	if(sfswap(f1,f2) != NIL(Sfio_t*) )
 		terror("sfswap should have failed\n");
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

@@ -1,13 +1,14 @@
-# makefile for libstdio.a
+# makefile for libstdio.a and libstdio-mt.a
 #
-# Written by Kiem-Phong Vo (4/24/91)
+# Written by Kiem-Phong Vo
 
 # Compiler and flags to use
+LIBTYPE=""
 AR=	ar
 CC=	cc
 CXFLAGS=
 CCMODE=	-O
-CCFLAGS= -I.. $(CCMODE) $(CXFLAGS)
+CCFLAGS= -I. -I.. $(CCMODE) $(LIBTYPE) $(CXFLAGS)
 BINDIR= ../../../../bin
 
 SRCS=	doprnt.c doscan.c fclose.c fdopen.c fflush.c fgetc.c fgets.c filbuf.c \
@@ -17,7 +18,7 @@ SRCS=	doprnt.c doscan.c fclose.c fdopen.c fflush.c fgetc.c fgets.c filbuf.c \
 	setlinebuf.c setvbuf.c sprintf.c sscanf.c stdextern.c stdstream.c \
 	tmpfile.c ungetc.c vfprintf.c vfscanf.c vprintf.c vscanf.c vsprintf.c \
 	vsscanf.c fileno.c feof.c ferror.c clearerr.c fpurge.c fgetpos.c fsetpos.c \
-	cleanup.c vsnprintf.c snprintf.c
+	cleanup.c vsnprintf.c snprintf.c flockfile.c ftrylockfile.c funlockfile.c
 
 OBJS=	doprnt.o doscan.o fclose.o fdopen.o fflush.o fgetc.o fgets.o filbuf.o \
 	flsbuf.o fopen.o fprintf.o fputc.o fputs.o fread.o freopen.o fscanf.o \
@@ -26,22 +27,25 @@ OBJS=	doprnt.o doscan.o fclose.o fdopen.o fflush.o fgetc.o fgets.o filbuf.o \
 	setlinebuf.o setvbuf.o sprintf.o sscanf.o stdextern.o stdstream.o \
 	tmpfile.o ungetc.o vfprintf.o vfscanf.o vprintf.o vscanf.o vsprintf.o \
 	vsscanf.o fileno.o feof.o ferror.o clearerr.o fpurge.o fsetpos.o fgetpos.o \
-	cleanup.o vsnprintf.o snprintf.o
+	cleanup.o vsnprintf.o snprintf.o flockfile.o ftrylockfile.o funlockfile.o
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $*.c
 
-libstdio.a: FEATURE/stdio must $(OBJS)
+libstdio.a: sfstdio.h $(OBJS)
 	$(AR) cr libstdio.a $(OBJS)
-	-(ranlib libstdio.a; rm sfstdio.h; exit 0) >/dev/null 2>&1
+	-(ranlib libstdio.a; exit 0) >/dev/null 2>&1
 
-FEATURE/stdio: features/stdio
-	$(BINDIR)/iffe set cc $(CC) $(CCMODE) $(CXFLAGS) : run features/stdio
+libstdio-mt.a: sfstdio.h $(OBJS)
+	$(AR) cr libstdio-mt.a $(OBJS)
+	-(ranlib libstdio-mt.a; exit 0) >/dev/null 2>&1
 
-must:
-	./sfstdhdr.sh $(CC)
-	$(CC) -I.. sfstdio.c -o sfstdgen >/dev/null 2>&1
-	./sfstdgen > sfstdio.h; rm sfstdgen sfstdhdr.h
+sfstdio.h: Sfstdio.c Sfstdhdr.sh
+	./Sfstdhdr.sh $(CC)
+	$(CC) -I. -I.. Sfstdio.c -o Sfstdgen
+	./Sfstdgen > sfstdio.h
+	-(rm Sfstdgen sfstdhdr.h $(OBJS) libstdio.a libstdio-mt.a; exit 0) >/dev/null 2>&1
 
 clean:
-	-(rm $(OBJS) FEATURE/stdio sfstdgen sfstdhdr.h libstdio.a sfstdio.h; exit 0) >/dev/null 2>&1
+	-(rm $(OBJS) Sfstdgen sfstdhdr.h; exit 0) >/dev/null 2>&1
+	-(rm libstdio.a libstdio-mt.a sfstdio.h; exit 0) >/dev/null 2>&1

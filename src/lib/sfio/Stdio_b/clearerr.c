@@ -6,15 +6,23 @@
 */
 
 #if __STD_C
-int clearerr(FILE* fp)
+void clearerr(FILE* f)
 #else
-int clearerr(fp)
-FILE*	fp;
+void clearerr(f)
+FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 	
-	if(!(sp = _sfstream(fp)))
-		return -1;
-	return _stdclrerr(fp,sp);
+	if((sf = SFSTREAM(f)) )
+	{	sfclrlock(sf);
+		_stdclrerr(f);
+	}
 }
+
+#if _lib_clearerr_unlocked && !_done_clearerr_unlocked && !defined(clearerr)
+#define _done_clearerr_unlocked	1
+#define clearerr	clearerr_unlocked
+#include		"clearerr.c"
+#undef clearerr
+#endif

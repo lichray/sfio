@@ -6,40 +6,35 @@
 
 
 #if __STD_C
-int fseek(reg FILE* fp, long offset, int whence)
+int fseek(FILE* f, long offset, int whence)
 #else
-int fseek(fp,offset,whence)
-reg FILE*	fp;
+int fseek(f,offset,whence)
+reg FILE*	f;
 reg long	offset;
 reg int		whence;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return -1;
-	_stdclrerr(fp,sp);
 
 	/* ready for either read or write */
 #if _FILE_cnt
-	fp->std_cnt = 0;
+	f->std_cnt = 0;
 #endif
 #if _FILE_r
-	fp->std_r = 0;
+	f->std_r = 0;
 #endif
 #if _FILE_w
-	fp->std_w = 0;
+	f->std_w = 0;
 #endif
 #if _FILE_readptr
-	fp->std_readptr = fp->std_readend = NIL(uchar*);
+	f->std_readptr = f->std_readend = NIL(uchar*);
 #endif
 #if _FILE_writeptr
-	fp->std_writeptr = fp->std_writeend = NIL(uchar*);
+	f->std_writeptr = f->std_writeend = NIL(uchar*);
 #endif
 
-#if _xopen_stdio
-	return sfseek(sp, (Sfoff_t)offset, whence|SF_SHARE) < (Sfoff_t)0 ? -1 : 0;
-#else
-	return sfseek(sp, (Sfoff_t)offset, whence) < (Sfoff_t)0 ? -1 : 0;
-#endif
+	return sfseek(sf, (Sfoff_t)offset, whence|SF_SHARE) < (Sfoff_t)0 ? -1 : 0;
 }

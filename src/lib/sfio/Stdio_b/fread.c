@@ -5,29 +5,32 @@
 */
 
 #if __STD_C
-size_t fread(void* buf, size_t size, size_t nmem, reg FILE* fp)
+size_t fread(Void_t* buf, size_t esize, size_t nelts, reg FILE* f)
 #else
-size_t fread(buf,size,nmem,fp)
-reg char*	buf;
-reg size_t	size;
-reg size_t	nmem;
-reg FILE*	fp;
+size_t fread(buf,esize,nelts,f)
+reg Void_t*	buf;
+reg size_t	esize;
+reg size_t	nelts;
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 	reg ssize_t	rv;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return 0;
 
-	_stdclrerr(fp,sp);
-	if((rv = sfread(sp,buf,size*nmem)) > 0)
-		return rv/size;
+	if((rv = sfread(sf,buf,esize*nelts)) >= 0)
+		return rv/esize;
 	else
-	{	if(sfeof(sp))
-			_stdeof(fp);
-		if(sferror(sp))
-			_stderr(fp);
+	{	_stdseterr(f,sf);
 		return 0;
 	}
 }
+
+#if _lib_fread_unlocked && !_done_fread_unlocked && !defined(fread)
+#define _done_fread_unlocked	1
+#define fread	fread_unlocked
+#include	"fread.c"
+#undef fread
+#endif

@@ -2,7 +2,7 @@
 
 /*	Write data out to the file system
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -16,21 +16,20 @@ reg size_t	n;	/* number of bytes. 		*/
 {
 	reg uchar	*s, *begs, *next;
 	reg ssize_t	w;
-	reg int		local, justseek;
+	reg int		local;
+
+	SFMTXSTART(f,(ssize_t)(-1));
 
 	GETLOCAL(f,local);
-	justseek = f->bits&SF_JUSTSEEK; f->bits &= ~SF_JUSTSEEK;
 
 	/* release peek lock */
 	if(f->mode&SF_PEEK)
 	{	if(!(f->mode&SF_WRITE) && (f->flags&SF_RDWR) != SF_RDWR)
-			return -1;
+			SFMTXRETURN(f, (ssize_t)(-1));
 
-		if((uchar*)buf != f->next)
-		{	reg Sfrsrv_t*	frs = _sfrsrv(f,0);
-			if((uchar*)buf != frs->data)
-				return -1;
-		}
+		if((uchar*)buf != f->next &&
+		   (!f->rsrv || f->rsrv->data != (uchar*)buf) )
+			SFMTXRETURN(f, (ssize_t)(-1));
 
 		f->mode &= ~SF_PEEK;
 
@@ -54,7 +53,7 @@ reg size_t	n;	/* number of bytes. 		*/
 			f->here += n;
 		}
 
-		if((f->mode&SF_READ) && (f->bits&SF_PROCESS))
+		if((f->mode&SF_READ) && f->proc)
 			f->next += n;
 	}
 
@@ -62,44 +61,50 @@ reg size_t	n;	/* number of bytes. 		*/
 	for(;; f->mode &= ~SF_LOCK)
 	{	/* check stream mode */
 		if(SFMODE(f,local) != SF_WRITE && _sfmode(f,SF_WRITE,local) < 0 )
-			return s > begs ? s-begs : -1;
-
-		if(n <= 0)
-			break;
+		{	w = s > begs ? s-begs : -1;
+			SFMTXRETURN(f,w);
+		}
 
 		SFLOCK(f,local);
 
 		w = f->endb - f->next;
-		if(f->next == s) /* fast write after sfreserve */	
-		{	if(w > (ssize_t)n )
+
+		if(s == f->next) /* after sfreserve */
+		{	if(w > (ssize_t)n)
 				w = (ssize_t)n;
 			f->next = (s += w);
 			n -= w;
 			break;
 		}
-		else if((w > 0 && w < (ssize_t)n && (f->flags&SF_WHOLE) ) ||
-			(w == 0 && (f->next > f->data || (f->flags&SF_STRING)) ) )
-		{	if(SFFLSBUF(f,-1) < 0)
-				break;
-			w = f->endb - f->next;
+
+		/* attempt to create space in buffer */
+		if(w == 0 || ((f->flags&SF_WHOLE) && w < (ssize_t)n) )
+		{	if(f->flags&SF_STRING) /* extend buffer */
+			{	(void)SFWR(f, s, n-w, f->disc);
+				if((w = f->endb - f->next) < (ssize_t)n)
+					break;
+			}
+			else if(f->next > f->data)
+			{	(void)SFFLSBUF(f, -1);
+				if((w = f->endb - f->next) < (ssize_t)n &&
+				   (f->flags&SF_WHOLE) && f->next > f->data )
+					break;
+			}
 		}
 
-		if(!(f->flags&SF_STRING) && f->next == f->data &&
-		   ((ssize_t)n >= f->size ||
-		    ((f->flags&SF_WHOLE) && (ssize_t)n > w) ||
-		    (justseek && SFUNBUFFER(f,n)) ) )
-		{	if((w = SFWR(f,s,n,f->disc)) <= 0)
+		if(!(f->flags&SF_STRING) && f->next == f->data && SFDIRECT(f,n) )
+		{	/* bypass buffering */
+			if((w = SFWR(f,s,n,f->disc)) <= 0 )
 				break;
-			s += w;
 		}
 		else
 		{	if(w > (ssize_t)n)
 				w = (ssize_t)n;
-			next = f->next;
-			MEMCPY(next,s,w);
-			f->next = next;
+			memcpy(f->next, s, w);
+			f->next += w;
 		}
 
+		s += w;
 		if((n -= w) <= 0)
 			break;
 	}
@@ -126,5 +131,6 @@ reg size_t	n;	/* number of bytes. 		*/
 
 	SFOPEN(f,local);
 
-	return s-begs;
+	w = s-begs;
+	SFMTXRETURN(f,w);
 }

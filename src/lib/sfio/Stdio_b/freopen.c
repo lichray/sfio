@@ -6,44 +6,47 @@
 
 
 #if __STD_C
-FILE* freopen(char*name, const char* mode, reg FILE* fp)
+FILE* freopen(char*name, const char* mode, reg FILE* f)
 #else
-FILE* freopen(name,mode,fp)
+FILE* freopen(name,mode,f)
 reg char*	name;
 reg char*	mode;
-reg FILE*	fp;
+reg FILE*	f;
 #endif
 {
-	reg Sfio_t*	sp;
+	Sfio_t*	sf;
 
-	if(!(sp = _sfstream(fp)))
+	if(!(sf = SFSTREAM(f)))
 		return NIL(FILE*);
-
-	_stdclrerr(fp,sp);
-	if(!sfopen(sp, name, mode))
+	else if(!(sf = sfopen(sf, name, mode)) )
 		return NIL(FILE*);
-
+	else
+	{	int	uflag;
+		_sftype(mode, NIL(int*), &uflag);	
+		if(!uflag) 
+			sf->flags |= SF_MTSAFE;
 #if _FILE_cnt
-	fp->std_cnt = 0;
+		f->std_cnt = 0;
 #endif
 #if _FILE_r
-	fp->std_r = 0;
+		f->std_r = 0;
 #endif
 #if _FILE_w
-	fp->std_w = 0;
+		f->std_w = 0;
 #endif
 #if _FILE_readptr
-	fp->std_readptr = fp->std_readend = NIL(uchar*);
+		f->std_readptr = f->std_readend = NIL(uchar*);
 #endif
 #if _FILE_writeptr
-	fp->std_writeptr = fp->std_writeend = NIL(uchar*);
+		f->std_writeptr = f->std_writeend = NIL(uchar*);
 #endif
 #if _FILE_flag
-	fp->std_flag = 0;
+		f->std_flag = 0;
 #endif
 #if _FILE_file
-	fp->std_file = sffileno(sp);
+		f->std_file = sffileno(sf);
 #endif
+	}
 
-	return fp;
+	return f;
 }

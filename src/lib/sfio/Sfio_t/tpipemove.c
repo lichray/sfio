@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	int	fd[2];
 	Sfio_t	*fr, *fw;
@@ -15,9 +15,9 @@ main()
 		terror("Can't open pipe streams\n");
 	sfset(fr,SF_SHARE,1);
 
-	if(sfopen(sfstdout,Kpv[0],"w") != sfstdout)
+	if(sfopen(sfstdout,tstfile(0),"w") != sfstdout)
 		terror("Can't open for write\n");
-	if(sfopen(sfstdin,Kpv[0],"r") != sfstdin)
+	if(sfopen(sfstdin,tstfile(0),"r") != sfstdin)
 		terror("Can't open for read\n");
 
 	for(n = 0; n < 100; ++n)
@@ -35,6 +35,5 @@ main()
 			terror("Wrong data\n");
 	}
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

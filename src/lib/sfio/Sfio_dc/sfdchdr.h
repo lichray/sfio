@@ -1,1 +1,2 @@
-#include	"../sfhdr.h"
+#include	"sfhdr.h"
+#include	<sfdisc.h>

@@ -2,7 +2,7 @@
 
 /*	Read n bytes from a stream into a buffer
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -14,9 +14,11 @@ Void_t*		buf;	/* buffer to read into		*/
 reg size_t	n;	/* number of bytes to be read. 	*/
 #endif
 {
-	reg uchar	*s, *begs, *next;
+	reg uchar	*s, *begs;
 	reg ssize_t	r;
 	reg int		local, justseek;
+
+	SFMTXSTART(f,-1);
 
 	GETLOCAL(f,local);
 	justseek = f->bits&SF_JUSTSEEK; f->bits &= ~SF_JUSTSEEK;
@@ -24,20 +26,18 @@ reg size_t	n;	/* number of bytes to be read. 	*/
 	/* release peek lock */
 	if(f->mode&SF_PEEK)
 	{	if(!(f->mode&SF_READ) )
-			return -1;
+			SFMTXRETURN(f, -1);
 
 		if(f->mode&SF_GETR)
-		{	if(((uchar*)buf + f->val) != f->next)
-			{	Sfrsrv_t* frs;
-				if(!(frs = _sfrsrv(f,0)) || frs->data != (uchar*)buf)
-					return -1;
-			}
+		{	if(((uchar*)buf + f->val) != f->next &&
+			   (!f->rsrv || f->rsrv->data != (uchar*)buf) )
+				SFMTXRETURN(f, -1);
 			f->mode &= ~SF_PEEK;
-			return 0;
+			SFMTXRETURN(f, 0);
 		}
 		else
 		{	if((uchar*)buf != f->next)
-				return -1;
+				SFMTXRETURN(f, -1);
 			f->mode &= ~SF_PEEK;
 			if(f->mode&SF_PKRD)
 			{	/* actually read the data now */
@@ -49,7 +49,7 @@ reg size_t	n;	/* number of bytes to be read. 	*/
 			}
 			f->next += n;
 			f->endr = f->endb;
-			return n;
+			SFMTXRETURN(f, n);
 		}
 	}
 
@@ -57,59 +57,58 @@ reg size_t	n;	/* number of bytes to be read. 	*/
 	for(;; f->mode &= ~SF_LOCK)
 	{	/* check stream mode */
 		if(SFMODE(f,local) != SF_READ && _sfmode(f,SF_READ,local) < 0)
-			return s > begs ? s-begs : -1;
-
-		if(n <= 0)
-			break;
+		{	n = s > begs ? s-begs : -1;
+			SFMTXRETURN(f, n);
+		}
 
 		SFLOCK(f,local);
 
-		/* determine current amount of buffered data */
-		if((r = f->endb - f->next) > (ssize_t)n)
-			r = n;
-
-		if(r > 0)
-		{	/* copy buffered data */
-			if((next = f->next) == s)
-				f->next += r;
-			else
-			{	MEMCPY(s,next,r);
-				f->next = next;
-			}
-			if((n -= r) <= 0)
-				break;
+		if((r = f->endb - f->next) > 0) /* has buffered data */
+		{	if(r > (ssize_t)n)
+				r = (ssize_t)n;
+			if(s != f->next)
+				memcpy(s, f->next, r);
+			f->next += r;
+			s += r;
+			n -= r;
 		}
-		else if((f->flags&SF_STRING) || (f->bits&SF_MMAP) )
+
+		if(n <= 0)	/* all done */
+			break;
+
+		/* refill buffer */
+		if((f->flags&SF_STRING) || (f->bits&SF_MMAP) )
 		{	if(SFFILBUF(f,-1) <= 0)
 				break;
 		}
 		else
-		{	/* reset buffer before refilling */
-			f->next = f->endb = f->data;
+		{	f->next = f->endb = f->data;
 
-			if(justseek) /* limit buffer filling */
-			{	if(SFUNBUFFER(f,n) ||
-				   (r = (n/SF_GRAIN + 1)*SF_GRAIN) > f->size )
-					r = (ssize_t)n;
-			}
-			else if(((f->flags&SF_SHARE) && f->extent < 0) ||
-				(f->extent >= 0 && (f->here+n) >= f->extent) ||
-				(r = f->size) <= (ssize_t)n)
-					r = (ssize_t)n;
+			/* cases where exact IO is desirable */
+			if(SFDIRECT(f,n) ||
+			   (f->extent <  0 && (f->flags&SF_SHARE) ) ||
+			   (f->extent >= 0 && (f->here+n) >= f->extent ) )
+				r = (ssize_t)n;
+			else if(justseek && n <= f->iosz && f->iosz <= f->size)
+				r = f->iosz;	/* limit buffering */
+			else	r = f->size;	/* full buffering */
 
-			if(r != (ssize_t)n) /* fill stream buffer, then copy */
-				r = SFRD(f,f->next,r,f->disc);
-			else if((r = SFRD(f,s,r,f->disc)) > 0) /* user buffer */
-			{	s += r;
-				if((n -= r) <= 0)
+			/* if read almost full size, then just do it direct */
+			if(r > (ssize_t)n && (r - r/8) <= (ssize_t)n)
+				r = (ssize_t)n;
+
+			if(r == (ssize_t)n) /* read directly to user's buffer */
+			{	if((r = SFRD(f,s,r,f->disc)) >= 0)
+				{	s += r;
 					break;
+				}
 			}
-			
-			if(r == 0) /* must be eof */
+			else if(SFRD(f,f->next,r,f->disc) == 0) /* eof */
 				break;
 		}
 	}
 
 	SFOPEN(f,local);
-	return s-begs;
+	r = s-begs;
+	SFMTXRETURN(f, r);
 }

@@ -9,7 +9,7 @@
 
 /*	Read/Peek a record from an unseekable device
 **
-**	Written by Kiem-Phong Vo (03/25/93)
+**	Written by Kiem-Phong Vo.
 */
 
 #define STREAM_PEEK	001
@@ -113,6 +113,9 @@ int	action;	/* >0: peeking, if rc>=0, get action records,
 #if _lib_select
 			if(r == -2)
 			{
+#if _hpux_threads && vt_threaded
+#define fd_set	int
+#endif
 				fd_set		rd;
 				struct timeval	tmb, *tmp;
 				FD_ZERO(&rd);

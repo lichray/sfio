@@ -5,7 +5,7 @@
 **	otherwise, f is isolated from its pool. flag can be one of
 **	0 or SF_SHARE.
 **
-**	Written by Kiem-Phong Vo (6/27/90).
+**	Written by Kiem-Phong Vo.
 */
 
 /* Note that we do not free the space for a pool once it is allocated.
@@ -14,15 +14,19 @@
 ** reused in newpool().
 */
 #if __STD_C
-static void delpool(reg Sfpool_t* p)
+static int delpool(reg Sfpool_t* p)
 #else
-static void delpool(p)
+static int delpool(p)
 reg Sfpool_t*	p;
 #endif
 {
+	POOLMTXSTART(p);
+
 	if(p->s_sf && p->sf != p->array)
 		free((Void_t*)p->sf);
 	p->mode = SF_AVAIL;
+
+	POOLMTXRETURN(p,0);
 }
 
 #if __STD_C
@@ -34,12 +38,8 @@ reg int	mode;
 {
 	reg Sfpool_t	*p, *last = &_Sfpool;
 
-	if(last->mode&SF_LOCK)
-		return NIL(Sfpool_t*);
-	last->mode |= SF_LOCK;
-
 	/* look to see if there is a free pool */
-	for(p = last->next; p; last = p, p = p->next)
+	for(last = &_Sfpool, p = last->next; p; last = p, p = p->next)
 	{	if(p->mode == SF_AVAIL )
 		{	p->mode = 0;
 			break;
@@ -47,20 +47,30 @@ reg int	mode;
 	}
 
 	if(!p)
-	{	if(!(p = (Sfpool_t*) malloc(sizeof(Sfpool_t))) )
-			goto done;
-		p->next = NIL(Sfpool_t*);
+	{	POOLMTXLOCK(last);
+
+		if(!(p = (Sfpool_t*) malloc(sizeof(Sfpool_t))) )
+		{	POOLMTXUNLOCK(last);
+			return NIL(Sfpool_t*);
+		}
+
+		vtmtxopen(&p->mutex, VT_INIT); /* initialize mutex */
+
+		p->mode = 0;
 		p->n_sf = 0;
+		p->next = NIL(Sfpool_t*);
 		last->next = p;
+
+		POOLMTXUNLOCK(last);
 	}
+
+	POOLMTXSTART(p);
 
 	p->mode = mode&SF_SHARE;
 	p->s_sf = sizeof(p->array)/sizeof(p->array[0]);
 	p->sf = p->array;
 
-done:
-	_Sfpool.mode &= ~SF_LOCK;
-	return p;
+	POOLMTXRETURN(p,p);
 }
 
 /* move a stream to head */
@@ -77,15 +87,16 @@ int		n;	/* current position in pool	*/
 	reg ssize_t	k, w, v;
 	reg int		rv;
 
+	POOLMTXSTART(p);
+
 	if(n == 0)
-		return 0;
+		POOLMTXRETURN(p,0);
 
 	head = p->sf[0];
-	if(SFFROZEN(head) || (p->mode&SF_LOCK) )
-		return -1;
+	if(SFFROZEN(head) )
+		POOLMTXRETURN(p,-1);
 
 	SFLOCK(head,0);
-	p->mode |= SF_LOCK;
 	rv = -1;
 
 	if(!(p->mode&SF_SHARE) )
@@ -129,9 +140,9 @@ int		n;	/* current position in pool	*/
 	rv = 0;
 
 done:
-	head->mode &= ~SF_LOCK;	/* partially unlock because it's no longer head */
-	p->mode &= ~SF_LOCK;
-	return rv;
+	head->mode &= ~SF_LOCK; /* partially unlock because it's no longer head */
+
+	POOLMTXRETURN(p,rv);
 }
 
 /* delete a stream from its pool */
@@ -144,9 +155,7 @@ Sfio_t*		f;	/* the stream		*/
 int		n;	/* position in pool	*/
 #endif
 {
-	if(p->mode&SF_LOCK)
-		return -1;
-	p->mode |= SF_LOCK;
+	POOLMTXSTART(p);
 
 	p->n_sf -= 1;
 	for(; n < p->n_sf; ++n)
@@ -184,8 +193,7 @@ int		n;	/* position in pool	*/
 	}
 
 done:
-	p->mode &= ~SF_LOCK;
-	return 0;
+	POOLMTXRETURN(p,0);
 }
 
 #if __STD_C
@@ -237,21 +245,34 @@ reg int		mode;
 	}
 
 	if(f)	/* check for permissions */
-	{	if((f->mode&SF_RDWR) != f->mode && _sfmode(f,0,0) < 0)
+	{	SFMTXLOCK(f);
+		if((f->mode&SF_RDWR) != f->mode && _sfmode(f,0,0) < 0)
+		{	SFMTXUNLOCK(f);
 			return NIL(Sfio_t*);
+		}
 		if(f->disc == _Sfudisc)
 			(void)sfclose((*_Sfstack)(f,NIL(Sfio_t*)));
 	}
 	if(pf)
-	{	if((pf->mode&SF_RDWR) != pf->mode && _sfmode(pf,0,0) < 0)
+	{	SFMTXLOCK(pf);
+		if((pf->mode&SF_RDWR) != pf->mode && _sfmode(pf,0,0) < 0)
+		{	if(f)
+				SFMTXUNLOCK(f);
+			SFMTXUNLOCK(pf);
 			return NIL(Sfio_t*);
+		}
 		if(pf->disc == _Sfudisc)
 			(void)sfclose((*_Sfstack)(pf,NIL(Sfio_t*)));
 	}
 
 	/* f already in the same pool with pf */
 	if(f == pf || (pf && f->pool == pf->pool && f->pool != &_Sfpool) )
+	{	if(f)
+			SFMTXUNLOCK(f);
+		if(pf)
+			SFMTXUNLOCK(pf);
 		return pf;
+	}
 
 	/* lock streams before internal manipulations */
 	rv = NIL(Sfio_t*);
@@ -264,8 +285,9 @@ reg int		mode;
 		   _sfpmove(f,-1) < 0 || _sfsetpool(f) < 0)
 			goto done;
 
-		if(p->n_sf > 0 && !SFFROZEN(p->sf[0]) )
-			rv = p->sf[0];	/* return head of pool */
+		if((p = f->pool) == &_Sfpool || p->n_sf <= 0)
+			rv = f;
+		else	rv = p->sf[0];	/* return head of pool */
 		goto done;
 	}
 
@@ -307,8 +329,12 @@ reg int		mode;
 
 done:
 	if(f)
-		SFOPEN(f,0);
+	{	SFOPEN(f,0);
+		SFMTXUNLOCK(f);
+	}
 	if(pf)
-		SFOPEN(pf,0);
+	{	SFOPEN(pf,0);
+		SFMTXUNLOCK(pf);
+	}
 	return rv;
 }

@@ -8,16 +8,28 @@ This directory hierarchy has the source of Sfio, the Safe/Fast I/O library.
 ./Stdio_s:	the source level <stdio> compatibility package.
 ./Stdio_b:	the binary level <stdio> compatibility package.
 ./Sfio_dc:	a collection of functions to create useful disciplines.
-./Sfio_t:	a set of regression tests - executable with "runtest".
+./Sfio_t:	a set of regression tests for the Sfio library.
+./Stdio_t:	a set of regression tests for certain Stdio behaviors and
+		for the compatibility packages.
 
 SOFTWARE CONSTRUCTION:
 
-There are two make files, Makefile for Glenn Fowler's nmake and
-makefile for old make.  The build procedure is based on the
-iffe language for automatic configuration. An iffe interpreter
-and its manual pages are included in this code distribution.
-See the files in ./features for examples of iffe probes to generate
-configuration parameters.
+The build procedure is based on the iffe language for automatic
+configuration. An iffe interpreter and its manual pages are included in
+this code distribution. See the files in ./features for examples of iffe
+probes to generate configuration parameters.
+
+Two sets of libraries will be built:
+	libsfio.a and libstdio.a: for uni-threaded applications, and
+	libsfio-mt.a and libstdio-mt.a: for multi-threaded applications.
+
+Depending on the local platform, an application using the multi-threaded
+libraries may need to specify a thread library for linkage. For example,
+below are the known requirements for a few popular platforms:
+
+	Irix, Linux, Solaris systems:	-lpthread
+	Hpux:				-lcma
+	BSD:				none
 
 SFIO DISCIPLINES:
 

@@ -1,5 +1,9 @@
 #include	"sfhdr.h"
 
+/*	Create a coprocess.
+**	Written by Kiem-Phong Vo.
+*/
+
 #if _PACKAGE_ast
 #include	<proc.h>
 #else
@@ -120,7 +124,7 @@ char*	mode;		/* mode of the stream */
 	reg int		bits;
 	char*		av[4];
 
-	if (!command || !command[0] || !(sflags = _sftype(mode, NiL)))
+	if (!command || !command[0] || !(sflags = _sftype(mode, NiL, NiL)))
 		return 0;
 
 	if(f == (Sfio_t*)(-1))
@@ -153,8 +157,8 @@ char*	mode;		/* mode of the stream */
 	procfree(proc);
 	return f;
 #else
-	reg int		pid, pkeep, ckeep, sflags;
-	int		bits, parent[2], child[2];
+	reg int		pid, fd, pkeep, ckeep, sflags;
+	int		stdio, parent[2], child[2];
 	Sfio_t		sf;
 
 	/* set shell meta characters */
@@ -168,7 +172,7 @@ char*	mode;		/* mode of the stream */
 		Path = _sfgetpath("PATH");
 
 	/* sanity check */
-	if(!command || !command[0] || !(sflags = _sftype(mode,NIL(int*))))
+	if(!command || !command[0] || !(sflags = _sftype(mode,NIL(int*),NIL(int*))))
 		return NIL(Sfio_t*);
 
 	/* make pipes */
@@ -185,23 +189,27 @@ char*	mode;		/* mode of the stream */
 			{ pkeep = READ; ckeep = WRITE; }
 		else	{ pkeep = WRITE; ckeep = READ; }
 
-		if(f == (Sfio_t*)(-1) )
-		{	bits = SF_STDIO;
+		if(f == (Sfio_t*)(-1))
+		{	/* stdio compatibility mode */
 			f = NIL(Sfio_t*);
+			stdio = 1;
 		}
-		else	bits = 0;
+		else	stdio = 0;
 
 		/* make the streams */
 		if(!(f = sfnew(f,NIL(Void_t*),(size_t)SF_UNBOUND,parent[pkeep],sflags)))
 			goto error;
 		CLOSE(parent[!pkeep]);
+		SETCLOEXEC(parent[pkeep]);
 
 		if((sflags&SF_RDWR) == SF_RDWR)
-			CLOSE(child[!ckeep]);
+		{	CLOSE(child[!ckeep]);
+			SETCLOEXEC(child[ckeep]);
+		}
 
 		/* save process info */
-		f->bits |= bits;
-		if(_sfpopen(f,(sflags&SF_RDWR) == SF_RDWR ? child[ckeep] : -1,pid) < 0)
+		fd = (sflags&SF_RDWR) == SF_RDWR ? child[ckeep] : -1;
+		if(_sfpopen(f,fd,pid,stdio) < 0)
 		{	(void)sfclose(f);
 			goto error;
 		}
@@ -209,8 +217,6 @@ char*	mode;		/* mode of the stream */
 		return f;
 
 	case 0 :	/* in child process */
-		(void)_sfpclose(NIL(Sfio_t*));
-
 		/* determine what to keep */
 		if(sflags&SF_READ)
 			{ pkeep = WRITE; ckeep = READ; }
@@ -222,7 +228,7 @@ char*	mode;		/* mode of the stream */
 			CLOSE(child[!ckeep]);
 
 		/* use sfsetfd to make these descriptors the std-ones */
-		SFCLEAR(&sf);
+		SFCLEAR(&sf,NIL(Vtmutex_t*));
 
 		/* must be careful so not to close something useful */
 		if((sflags&SF_RDWR) == SF_RDWR && pkeep == child[ckeep])

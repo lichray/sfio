@@ -2,7 +2,7 @@
 
 /*	Read formated data from a stream
 **
-**	Written by Kiem-Phong Vo (06/27/90)
+**	Written by Kiem-Phong Vo.
 */
 
 #if __STD_C
@@ -45,8 +45,9 @@ va_list	args;
 		return -1;
 
 	/* make a fake stream */
-	SFCLEAR(&f);
+	SFCLEAR(&f,NIL(Vtmutex_t*));
 	f.flags = SF_STRING|SF_READ;
+	f.bits = SF_PRIVATE;
 	f.mode = SF_READ;
 	f.size = strlen((char*)s);
 	f.data = f.next = f.endw = (uchar*)s;

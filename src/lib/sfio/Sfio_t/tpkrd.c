@@ -14,7 +14,7 @@ int	sig;
 		terror("Writing to pipe\n");
 }
 
-main()
+MAIN()
 {
 	char*	s;
 	char	buf[1024];
@@ -39,5 +39,6 @@ main()
 
 	if(!(s = sfgetr(sfstdin,'\n',1)) || strcmp(s,"56789") != 0)
 		terror("Expecting 56789\n");
-	return 0;
+
+	TSTRETURN(0);
 }

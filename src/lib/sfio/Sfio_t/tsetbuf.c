@@ -1,8 +1,19 @@
 #include	"sftest.h"
+#ifdef SF_APPEND
+#undef SF_APPEND
+#endif
+
+#if _hdr_stat
+#include	<stat.h>
+#endif
+#if _sys_stat
+#include	<sys/stat.h>
+#endif
+
 
 Sfdisc_t Disc;
 
-main()
+MAIN()
 {
 	int	n, fd;
 	Sfio_t	*f;
@@ -21,7 +32,7 @@ main()
 	if(sfpurge(sfstdout) < 0)
 		terror("Purging sfstdout\n");
 
-	if((fd = creat(Kpv[0],0666)) < 0)
+	if((fd = creat(tstfile(0),0666)) < 0)
 		terror("Creating file\n");
 
 	if(write(fd,buf,sizeof(buf)) != sizeof(buf))
@@ -67,6 +78,5 @@ main()
 		terror("sfreserve3 returns the wrong value\n");
 	sfwrite(f,s,0);
 
-	rmkpv();
-	return 0;
+	TSTRETURN(0);
 }

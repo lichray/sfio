@@ -5,22 +5,17 @@
 */
 
 #if __STD_C
-int fsetpos(reg FILE* fp, reg fpos_t* pos)
+int fsetpos(reg FILE* f, reg fpos_t* pos)
 #else
-int fsetpos(fp, pos)
-reg FILE*	fp;
+int fsetpos(f, pos)
+reg FILE*	f;
 reg fpos_t*	pos;
 #endif
 {
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 
-	if(!pos || *pos < 0 || !(sp = _sfstream(fp)))
+	if(!pos || *pos < 0 || !(sf = SFSTREAM(f)))
 		return -1;
-	_stdclrerr(fp,sp);
 
-#if _xopen_stdio
-	return (fpos_t)sfseek(sp, (Sfoff_t)(*pos), SEEK_SET|SF_SHARE) == *pos ? 0 : -1;
-#else
-	return (fpos_t)sfseek(sp, (Sfoff_t)(*pos), SEEK_SET) == *pos ? 0 : -1;
-#endif
+	return (fpos_t)sfseek(sf, (Sfoff_t)(*pos), SEEK_SET|SF_SHARE) == *pos ? 0 : -1;
 }

@@ -1,6 +1,6 @@
 #include	"sftest.h"
 
-main()
+MAIN()
 {
 	Sfio_t	*f;
 	char	*str, *alpha, *s;
@@ -66,5 +66,5 @@ main()
 	if(!(s = sfgetr(f,'\n',1)) || strcmp(s,"0123456789") != 0)
 		terror("Did not get 0123456789\n");
 
-	return 0;
+	TSTRETURN(0);
 }

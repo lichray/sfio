@@ -11,6 +11,7 @@ hdr math
 lib qfrexp
 lib qldexp
 
+hdr unistd
 hdr values
 hdr floatingpoint
 hdr float
@@ -255,10 +256,10 @@ tst	output{
 
 		unlink(file);
 	
-		if(4*mmtm <= 3*rdtm)
-			printf("#define _mmap_worthy	2	/* mmap is great! */\\n");
-		else if(4*mmtm <= 5*rdtm)
-			printf("#define _mmap_worthy	1	/* mmap is good! */\\n");
+		if(4*mmtm <= 3*rdtm)		/* mmap is great! */
+			printf("#define _mmap_worthy	2	\n");
+		else if(4*mmtm <= 5*rdtm)	/* mmap is good	*/
+			printf("#define _mmap_worthy	1	\n");
 	
 		return 0;
 	}

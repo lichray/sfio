@@ -13,7 +13,7 @@ va_dcl
 {
 	va_list		args;
 	reg int		rv;
-	reg Sfio_t*	sp;
+	reg Sfio_t*	sf;
 #if __STD_C
 	va_start(args,form);
 #else
@@ -22,15 +22,13 @@ va_dcl
 	form = va_arg(args,char*);
 #endif
 
-	if(!(sp = _sfstream(stdout)))
+	if(!(sf = SFSTREAM(stdout)))
 		return -1;
-	_stdclrerr(stdout,sp);
 
-	rv = sfvprintf(sp,form,args);
+	if((rv = sfvprintf(sf,form,args)) < 0)
+		_stdseterr(stdout,sf);
 
 	va_end(args);
 
-	if(rv < 0)
-		_stderr(stdout);
 	return rv;
 }

@@ -6,11 +6,11 @@
 
 
 #if __STD_C
-int pclose(reg FILE* fp)
+int pclose(reg FILE* f)
 #else
-int pclose(fp)
-reg FILE*	fp;
+int pclose(f)
+reg FILE*	f;
 #endif
 {
-	return fclose(fp);
+	return fclose(f);
 }
