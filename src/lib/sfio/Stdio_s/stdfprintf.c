@@ -27,7 +27,7 @@ va_dcl
 	form = va_arg(args,char*);
 #endif
 
-	rv = sfvprintf(f,form,args);
+	rv = (f && form) ? sfvprintf(f,form,args) : -1;
 
 	va_end(args);
 

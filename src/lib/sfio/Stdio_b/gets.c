@@ -14,7 +14,7 @@ char*	buf;
 	reg Sfio_t*	sf;
 	reg char*	rv;
 
-	if(!(sf = SFSTREAM(stdin)))
+	if(!buf || !(sf = _sfstream(stdin)))
 		return NIL(char*);
 
 	if(!(rv = _stdgets(sf,buf,BUFSIZ,1)))

@@ -132,10 +132,9 @@ char*	type;
 
 int main()
 {
-	int	map, sync, pos, gap, s, n_init;
+	int	pos, gap, s;
 	Field_t	*list, *f;
-	Field_t	field[16];
-	char*	inits[16];
+	Field_t	field[64];
 
 	/* construct the order list of the fields of interest */
 	list = NIL(Field_t*);
@@ -241,14 +240,19 @@ int main()
 #endif
 
 	/* output standard protection */
-	printf("#ifndef	_SFBINARY_H\n");
-	printf("#define	_SFBINARY_H\t1\n\n");
+	printf("#ifndef	_SFSTDIO_H\n");
+	printf("#define	_SFSTDIO_H\t1\n\n");
 
-	printf("extern int\t_Stdio_load;\n\n");
+	printf("#include \"no_stdio.h\"\n\n");
 
-#ifdef NAME_iob
+	printf("extern int\t_Stdstream;\n\n");
+	printf("extern int\t_Stdextern;\n\n");
+
+#if defined(NAME_iob) || _msft_iob
+#if !_msft_iob
 	if(strcmp(NAME_iob,"_iob") != 0)
 		printf("#define _iob	%s\n",NAME_iob);
+#endif
 	printf("#define _do_iob	1\n\n");
 #endif
 
@@ -385,151 +389,93 @@ int main()
 #endif
 	printf("#define _NFILE	%d\n\n", N_FILE);
 
-	/* now get what we need from sfio */
-	printf("typedef struct _std_s\tFILE;\n");
-	printf("#include\t\"sfhdr.h\"\n");
-	printf("#include\t\"FEATURE/stdio\"\n");
-	printf("#undef\tFILE\n");
+	printf("/* preventing FILE to be defined in silly places */\n");
+	printf("#define\t_FILE_DEFINED\t1\t/* Windows */\n");
+	printf("#define\t_FILEDEFED\t1\t/* SUNOS5.8 */\n\n");
 
-#ifndef _siz_fpos_t
-	printf("#define fpos_t	long\n");
-#else
-	if(_siz_fpos_t == sizeof(int))
-		printf("#define fpos_t	int\n");
-	else if(_siz_fpos_t == sizeof(long))
-		printf("#define fpos_t	long\n");
+	printf("#undef\tFILE\n");
+	printf("typedef struct _std_s\tFILE;\n\n");
+
+	/* now get what we need from sfio */
+	printf("#include\t\"sfhdr.h\"\n");
+	printf("#include\t\"FEATURE/stdio\"\n\n");
+
+#ifdef _siz_fpos_t
+	if(_siz_fpos_t == sizeof(short))
+		printf("#define stdfpos_t	short\n");
+	else if(_siz_fpos_t == sizeof(int))
+		printf("#define stdfpos_t	int\n");
 #if _typ_long_long
 	else if(_siz_fpos_t == sizeof(long long))
-		printf("#define fpos_t	long long\n");
+		printf("#define stdfpos_t	long long\n");
 #endif
-	else	printf("#define fpos_t	long\n");
+	else
+#endif /*_siz_fpos_t*/
+		printf("#define stdfpos_t	long\n");
+	printf("\n");
+
+#ifdef _siz_off_t
+	if(_siz_off_t == sizeof(short))
+		printf("#define stdoff_t	short\n");
+	else if(_siz_off_t == sizeof(int))
+		printf("#define stdoff_t	int\n");
+#if _typ_long_long
+	else if(_siz_off_t == sizeof(long long))
+		printf("#define stdoff_t	long long\n");
 #endif
+	else
+#endif /*_siz_off_t*/
+		printf("#define stdoff_t	long\n");
+	printf("\n");
 
 	/* output FILE structure */
 	printf("\nstruct _std_s\n{\n");
-	n_init = gap = pos = map = sync = 0;
+	gap = pos = 0;
 	for(f = list; f; f = f->next)
-	{	if((s = f->offset - pos) > 0)
-		{	if(!map && s >= sizeof(Void_t*) && (pos % sizeof(Void_t*)) == 0)
-			{	/* a field mapping FILE -> Sfio_t */
-				map = 1;
-				fldprint(f->size,"std_sf","Sfio_t*");
-				inits[n_init++] = "0";
-
-				if((s -= sizeof(Void_t*)) > 0)
-					goto do_sync;
-			}
-			else if(map && !sync)
-			{	/* a field to tell if FILE&Sfio_t must be syned */
-			do_sync:
-				printf("\tuchar\tstd_sync[%d];\n",s);
-				sync = 1;
-				inits[n_init++] = "{0}";
-			}
-			else /* fill the gap */
-			{	printf("\tuchar\tstd_gap%d[%d];\n",gap++,s);
-				inits[n_init++] = "{0}";
-			}
-		}
+	{	if((s = f->offset - pos) > 0) /* fill the gap */
+			printf("\tuchar\tstd_gap%d[%d];\n",gap++,s);
 
 		switch(f->type)
 		{
 		case STD_CNT :
 			fldprint(f->size,"std_cnt",NIL(char*));
-			inits[n_init++] = "0";
 			break;
 		case STD_R :
 			fldprint(f->size,"std_r",NIL(char*));
-			inits[n_init++] = "0";
 			break;
 		case STD_W :
 			fldprint(f->size,"std_w",NIL(char*));
-			inits[n_init++] = "0";
 			break;
 		case STD_PTR :
 			fldprint(f->size,"std_ptr","uchar*");
-			inits[n_init++] = "(uchar*)0";
 			break;
 		case STD_FLAG :
 			fldprint(f->size,"std_flag",NIL(char*));
-			inits[n_init++] = "0";
 			break;
 		case STD_FILE :
 			fldprint(f->size,"std_file",NIL(char*));
-			inits[n_init++] = "(n)";
 			break;
 		case STD_READPTR :
 			fldprint(f->size,"std_readptr","uchar*");
-			inits[n_init++] = "(uchar*)0";
 			break;
 		case STD_READEND :
 			fldprint(f->size,"std_readend","uchar*");
-			inits[n_init++] = "(uchar*)0";
 			break;
 		case STD_WRITEPTR :
 			fldprint(f->size,"std_writeptr","uchar*");
-			inits[n_init++] = "(uchar*)0";
 			break;
 		case STD_WRITEEND :
 			fldprint(f->size,"std_writeend","uchar*");
-			inits[n_init++] = "(uchar*)0";
 			break;
 		}
 
 		pos = f->size+f->offset;
 	}
 
-	if((s = sizeof(FILE) - pos) > 0 &&
-	   !map && s >= sizeof(Void_t*) && (pos % sizeof(Void_t*)) == 0)
-	{	map = 1;
-		fldprint(0,"std_sf","Sfio_t*");
-		inits[n_init++] = "0";
-		pos += sizeof(Void_t*);
-	}
-
-	if((s = sizeof(FILE) - pos) > 0)
-	{	if(!sync)
-		{	sync = 1;
-			printf("\tuchar\tstd_sync[%d];\n",s);
-			inits[n_init++] = "{0}";
-		}
-		else
-		{	printf("\tuchar\tstd_gap%d[%d];\n",gap++,s);
-			inits[n_init++] = "{0}";
-		}
-	}
+	if((s = sizeof(FILE) - pos) > 0) /* last gap */	
+		printf("\tuchar\tstd_gap%d[%d];\n",gap++,s);
 
 	printf("};\n\n");
-
-	if(sync)
-	{	printf("#define MUSTSYNC(fp)\t(fp->std_sync[0] == 1)\n");
-		printf("#define SETSYNC(fp)\t(fp->std_sync[0] = 1)\n");
-		printf("#define CLRSYNC(fp)\t(fp->std_sync[0] = 0)\n\n");
-	}
-	else
-	{	printf("#define MUSTSYNC(fp)\t(1)\n");
-		printf("#define SETSYNC(fp)\t(1)\n");
-		printf("#define CLRSYNC(fp)\t(1)\n\n");
-	}
-
-	if(map)
-	{	printf("#define _has_std_sf\t1\n");
-		printf("#define OKF(fp)\t(((fp)->std_flag & (_IOERR|_IOEOF)) == 0 )\n");
-		printf("#define OKSF(sf)\t((sf) && ((sf)->mode&SF_RDWR)==(sf)->mode)\n");
-		printf("#define SFSTREAM(fp)\t");
-		printf("((!MUSTSYNC(fp) && OKF(fp) && OKSF(fp->std_sf) ) ? ");
-		printf(		"fp->std_sf : _sfstream(fp) )\n\n");
-	}
-	else
-	{	printf("#define _has_std_sf\t0\n");
-		printf("#define SFSTREAM(fp)\t_sfstream(fp)\n\n");
-	}
-
-	/* output the init macro */
-	printf("#define _STDIO_INIT(n)\t{");
-	for(s = 0; s < n_init-1; ++s)
-		printf("%s, ",inits[s]);
-	printf("%s}\n\n",inits[s]);
 
 	/* default values for a few typical stdio constants */
 #ifndef BUFSIZ
@@ -599,11 +545,11 @@ int main()
 #	define _IOFBF	0
 #endif
 	printf("#define BUFSIZ\t\t%d\n",BUFSIZ);
-	printf("#define _IOERR\t\t%d\n",_IOERR);
-	printf("#define _IOEOF\t\t%d\n",_IOEOF);
-	printf("#define _IONBF\t\t%d\n",_IONBF);
-	printf("#define _IOLBF\t\t%d\n",_IOLBF);
-	printf("#define _IOFBF\t\t%d\n\n",_IOFBF);
+	printf("#define _IOERR\t\t%#o\n",_IOERR);
+	printf("#define _IOEOF\t\t%#o\n",_IOEOF);
+	printf("#define _IONBF\t\t%#o\n",_IONBF);
+	printf("#define _IOLBF\t\t%#o\n",_IOLBF);
+	printf("#define _IOFBF\t\t%#o\n\n",_IOFBF);
 
 #ifdef std_flag
 	printf("#define _seteof(fp)\t((fp)->std_flag |= _IOEOF)\n");
@@ -617,69 +563,69 @@ int main()
 	printf("#define _stdseterr(fp,sp)\t(0)\n\n");
 #endif
 
-	printf("#if __cplusplus\n");
-	printf("extern \"C\" {\n");
-	printf("#endif\n");
-	printf("#if _BLD_SFIO && defined(__EXPORT__)\n");
+	printf("\n_BEGIN_EXTERNS_\n\n");
+	printf("#if _BLD_sfio && defined(__EXPORT__)\n");
 	printf("#define extern\t__EXPORT__\n");
 	printf("#endif\n");
 
 
-#if defined(NAME_iob)
+#if defined(NAME_iob) || _msft_iob
 #define _have_streams	1
-	printf("\nextern FILE	_iob[];\n");
-	printf("#define stdfile(n)\t((FILE*)(((char*)(&_iob[0]))+(n)*%d))\n",
-		sizeof(FILE));
-	printf("#define stdin	stdfile(0)\n");
-	printf("#define stdout	stdfile(1)\n");
-	printf("#define stderr	stdfile(2)\n\n");
+#if _msft_iob
+	printf("\n#define _iob		(__p__iob())\n");
+	printf("_CRTIMP extern FILE * __cdecl __p__iob(void);\n\n");
+#else
+	printf("\nextern FILE		_iob[];\n");
+#endif
+	printf("#define stdin		(&(_iob[0]))\n");
+	printf("#define stdout		(&(_iob[1]))\n");
+	printf("#define stderr		(&(_iob[2]))\n\n");
 #endif
 
 #if defined(NAME_sf) && !_have_streams
 #define _have_streams	1
-	printf("\nextern FILE	_sf[];\n");
-	printf("#define stdfile(n)\t((FILE*)(((char*)(&_sf[0]))+(n)*%d))\n",
-		sizeof(FILE));
-	printf("#define stdin	stdfile(0)\n");
-	printf("#define stdout	stdfile(1)\n");
-	printf("#define stderr	stdfile(2)\n\n");
+	printf("\nextern FILE		_sf[];\n");
+	printf("#define stdin		(&(_sf[0]))\n");
+	printf("#define stdout		(&(_sf[1]))\n");
+	printf("#define stderr		(&(_sf[2]))\n\n");
 #endif
 
 #if defined(NAME_swbuf) && defined(NAME_srget) && !_have_streams
 #define _have_streams	1
-	printf("\nextern FILE	__sstdin, __sstdout, __sstderr;\n");
-	printf("#define stdin	(&__sstdin)\n");
-	printf("#define stdout	(&__sstdout)\n");
-	printf("#define stderr	(&__sstderr)\n\n");
+	printf("\nextern FILE		__sstdin, __sstdout, __sstderr;\n");
+	printf("#define stdin		(&__sstdin)\n");
+	printf("#define stdout		(&__sstdout)\n");
+	printf("#define stderr		(&__sstderr)\n\n");
 #endif
 
 /* Linux varieties */
 #if SELF_stdin && !_have_streams
 #define _have_streams	1
 	printf("#define _do_self_stdin\t1\n");
-	printf("\nextern FILE	*stdin, *stdout, *stderr;\n\n");
+	printf("\nextern FILE		*stdin, *stdout, *stderr;\n\n");
 #endif
 
 #if AMPERSAND_IO_stdin && !_have_streams
 #define _have_streams	1
 	printf("#define _do_ampersand_stdin\t1\n");
-	printf("\nextern FILE	_IO_stdin_, _IO_stdout_, _IO_stderr_;\n");
-	printf("#define stdin	(&_IO_stdin_)\n");
-	printf("#define stdout	(&_IO_stdout_)\n");
-	printf("#define stderr	(&_IO_stderr_)\n\n");
+	printf("\nextern FILE		_IO_stdin_, _IO_stdout_, _IO_stderr_;\n");
+	printf("#define stdin		(&_IO_stdin_)\n");
+	printf("#define stdout		(&_IO_stdout_)\n");
+	printf("#define stderr		(&_IO_stderr_)\n\n");
 #endif
 
 #if STAR_IO_stdin && !_have_streams
 #define _have_streams	1
 	printf("#define _do_star_stdin\t1\n");
-	printf("\nextern FILE	*_IO_stdin_, *_IO_stdout_, *_IO_stderr_;\n");
-	printf("#define stdin	_IO_stdin_\n");
-	printf("#define stdout	_IO_stdout_\n");
-	printf("#define stderr	_IO_stderr_\n\n");
+	printf("\nextern FILE		*_IO_stdin_, *_IO_stdout_, *_IO_stderr_;\n");
+	printf("#define stdin		_IO_stdin_\n");
+	printf("#define stdout		_IO_stdout_\n");
+	printf("#define stderr		_IO_stderr_\n\n");
 #endif
 
+	printf("extern void\t\t_sfunmap _ARG_((FILE*));\n");
 	printf("extern Sfio_t*\t\t_sfstream _ARG_((FILE*));\n");
-	printf("extern FILE*\t\t_stdstream _ARG_((Sfio_t*));\n");
+	printf("extern FILE*\t\t_stdstream _ARG_((Sfio_t*, FILE*));\n");
 	printf("extern char*\t\t_stdgets _ARG_((Sfio_t*,char*,int,int));\n");
 	printf("extern void\t\tclearerr _ARG_((FILE*));\n");
 	printf("extern int\t\t_doprnt _ARG_((const char*, va_list, FILE*));\n");
@@ -710,8 +656,8 @@ int main()
 	printf("extern int\t\tfscanf _ARG_((FILE*, const char* , ...));\n");
 	printf("extern int\t\tfseek _ARG_((FILE*, long , int));\n");
 	printf("extern long\t\tftell _ARG_((FILE*));\n");
-	printf("extern int\t\tfgetpos _ARG_((FILE*,fpos_t*));\n");
-	printf("extern int\t\tfsetpos _ARG_((FILE*,fpos_t*));\n");
+	printf("extern int\t\tfgetpos _ARG_((FILE*,stdfpos_t*));\n");
+	printf("extern int\t\tfsetpos _ARG_((FILE*,stdfpos_t*));\n");
 	printf("extern int\t\tfpurge _ARG_((FILE*));\n");
 	printf("extern size_t\t\tfwrite _ARG_((const void*, size_t, size_t, FILE*));\n");
 	printf("extern int\t\tgetc _ARG_((FILE*));\n");
@@ -749,11 +695,9 @@ int main()
 	printf("extern int\t\t__snprintf _ARG_((char*, int, const char*, ...));\n");
 	printf("extern int\t\t__vsnprintf _ARG_((char*, int, const char*, va_list));\n");
 
-	printf("#if __cplusplus\n");
-	printf("}\n");
-	printf("#endif\n\n");
+	printf("\n_END_EXTERNS_\n");
 
-	printf("#endif /* _SFBINARY_H */\n");
+	printf("\n#endif /* _SFSTDIO_H */\n");
 
 	return 0;
 }

@@ -30,5 +30,5 @@ MAIN()
 			terror("Bad getc: expect %d, get %d\n", i, c);
 	}
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

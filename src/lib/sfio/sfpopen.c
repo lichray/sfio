@@ -64,7 +64,8 @@ char*	argcmd;
 		/* make this into a C string */
 		while(s[0] && !isspace(s[0]))
 			s += 1;
-		*s++ = 0;
+		if(!s[0])
+			*s++ = 0;
 	}
 	if(n == 0)
 		goto do_interp;

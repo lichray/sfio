@@ -48,7 +48,7 @@ reg size_t	size;	/* buffer size, -1 for default size */
 	reg Sfdisc_t*	disc;
 	reg ssize_t	osize, blksize;
 	reg int		oflags, init, okmmap, local;
-	Stat_t		st;
+	sfstat_t	st;
 
 	SFONCE();
 

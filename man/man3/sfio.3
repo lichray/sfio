@@ -1,4 +1,4 @@
-.TH SFIO 3 "15 May 2000"
+.TH SFIO 3 "01 August 2001"
 .SH NAME
 \fBsfio\fR \- safe/fast string/file input/output
 .SH SYNOPSIS
@@ -54,7 +54,7 @@ SFIO_VERSION
 SF_STRING
 SF_READ
 SF_WRITE
-SF_APPEND
+SF_APPENDWR (SF_APPEND)
 SF_LINE
 SF_SHARE
 SF_PUBLIC
@@ -175,7 +175,7 @@ SF_NEW
 SF_READ
 SF_WRITE
 SF_SEEK
-SF_CLOSE
+SF_CLOSING (SF_CLOSE)
 SF_DPUSH
 SF_DPOP
 SF_DPOLL
@@ -192,6 +192,7 @@ SF_EVENT
 .Ss "STREAM CONTROL"
 .nf
 .ft 5
+int        sfresize(Sfio_t* f, Sfoff_t size);
 int        sfset(Sfio_t* f, int flags, int i);
 int        sfsetfd(Sfio_t* f, int fd);
 Sfio_t*    sfstack(Sfio_t* base, Sfio_t* top);
@@ -363,9 +364,9 @@ Following are the flags:
 \f5SF_STRING\fP:
 The stream is memory-based.
 .Tp
-\f5SF_READ\fP, \f5SF_WRITE\fP, \f5SF_APPEND\fP:
+\f5SF_READ\fP, \f5SF_WRITE\fP, \f5SF_APPENDWR\fP (\f5SF_APPEND\fP):
 Flags \f5SF_READ\fP and \f5SF_WRITE\fP indicate readability and writability.
-Flag \f5SF_APPEND\fP asserts that the stream is a file opened in append mode
+Flag \f5SF_APPENDWR\fP asserts that the stream is a file opened in append mode
 (see \f5open(2)\fP and \f5fcntl(2)\fP)
 so that data is always output at the end of file.
 On systems without direct support for append mode,
@@ -588,7 +589,7 @@ are synchronized before closing (see \f5sfsync()\fP).
 If \f5f\fP has disciplines,
 their exception handlers will be called twice.
 The first exception handler call has the \f5type\fP argument as one of
-\f5SF_CLOSE\fP or \f5SF_NEW\fP (see \f5sfdisc()\fP.)
+\f5SF_CLOSING\fP or \f5SF_NEW\fP (see \f5sfdisc()\fP.)
 The latter, \f5SF_NEW\fP is used when a stream is being closed via \f5sfnew()\fP
 so that it can be renewed.
 The second call uses \f5type\fP as \f5SF_FINAL\fP
@@ -1550,6 +1551,12 @@ can be performed on them without blocking.
 This is useful for multiplexing I/O over a set of streams.
 If a stream has a discipline, the exception function may be called
 before and after the stream is polled (see \f5sfdisc()\fP for details).
+After a successful \f5sfpoll()\fP call,
+for each ready stream \f5f\fP, \f5sfvalue(f)\fP returns
+a bit combination of \f5SF_READ\fP and \f5SF_WRITE\fP to tell which I/O
+mode is available. If \f5SF_READ\fP is available, an attempt to read
+a byte will not block. If \f5SF_WRITE\fP is available,
+an attempt to flush will not block.
 \f5sfpoll()\fP returns the number of ready streams or \f5-1\fP on failure.
 .Tp
 \f5flist\fP and \f5n\fP:
@@ -1558,7 +1565,7 @@ Upon return, ready streams are moved to the front
 of \f5flist\fP in the same relative order.
 .Tp
 \f5timeout\fP:
-This defines an ellapse time in milliseconds
+This defines an elapse time in milliseconds
 to wait to see if any stream is ready for I/O.
 If \f5timeout\fP is negative, \f5sfpoll()\fP will block until some stream become ready.
 Note that \f5SF_STRING\fP and normal file streams never block
@@ -1566,7 +1573,7 @@ and are always ready for I/O.
 If a stream with discipline is being polled and
 its readiness is as yet undetermined (e.g., empty buffer,)
 the discipline exception function will be called with \f5SF_DPOLL\fP
-before normal actions are taken.
+before querying the operating system.
 
 .Ss "  Sfio_t* sfpool(Sfio_t* f, Sfio_t* poolf, int mode)"
 This function manipulates pools of streams.
@@ -1670,6 +1677,8 @@ The on-going operation shall terminate.
 \f5>0\fP:
 If the event was raised due to an I/O error,
 the error has been repaired and the on-going operation shall continue normally.
+For some events, e.g., \f5SF_DPOLL\fP, the return value may also have
+additional meanings.
 .Tp
 \f5=0\fP:
 The on-going operation performs default actions with respect to the raised event.
@@ -1708,10 +1717,10 @@ is the return value from the failed operation.
 \f5SF_SEEK\fP:
 This event is raised when a seek operation fails.
 .Tp
-\f5SF_NEW\fP, \f5SF_CLOSE\fP, \f5SF_FINAL\fP:
+\f5SF_NEW\fP, \f5SF_CLOSING\fP (\f5SF_CLOSE\fP), \f5SF_FINAL\fP:
 These events are raised during a stream closing.
 \f5SF_NEW\fP is raised for a stream about to be closed to be renewed (see \f5sfnew()\fP).
-\f5SF_CLOSE\fP is raised for a stream about to be closed.
+\f5SF_CLOSING\fP is raised for a stream about to be closed.
 \f5SF_FINAL\fP is raised after a stream has been closed and before
 its space is to be destroyed (see \f5sfclose()\fP).
 For these events, a non-zero return value from \f5(*exceptf)()\fP causes
@@ -1734,17 +1743,17 @@ This event is raised by
 \f5sfpoll()\fP to see if the stream is ready for I/O.
 \f5*((int*)value)\fP indicates a time-out interval to wait.
 A negative return value from the exception function means blocking.
-A positive return value means non-blocking.
 A zero return value means that \f5sfpoll()\fP should
-query the stream file descriptor using default methods.
+query the underlying file descriptor.
+A positive return value means non-blocking. In addition,
+this value will be a bit combination of \f5SF_READ\fP and \f5SF_WRITE\fP
+to indicate what I/O modes are ready.
 .Tp
 \f5SF_READY\fP:
-This event is raised by \f5sfpoll()\fP for each ready stream
-after they are determined.
-A negative return value from the exeption handler causes \f5sfpoll()\fP
-to return immediately with the same return value.
-A positive return value causes \f5sfpoll()\fP to retry polling
-the whole set of streams.
+This event is raised by \f5sfpoll()\fP for each ready stream.
+The third argument to the event handler is an integer composed with
+the two bits \f5SF_READ\fP and \f5SF_WRITE\fP to indicate which
+I/O modes are ready.
 .Tp
 \f5SF_SYNC\fP, \f5SF_PURGE\fP:
 If \f5SF_IOCHECK\fP is set,
@@ -1782,6 +1791,13 @@ or the value returned by the exception handler.
 .PP
 .Ss "STREAM CONTROL"
 .PP
+.Ss "  int sfresize(Sfio_t* f, Sfoff_t size)"
+This function resizes the stream \f5f\P so that its extent is \f5size\fP.
+If the stream corresponds to a file, the file size is set to \f5size\fP
+via the system call \f5ftruncate()\fP.
+When a stream is made larger, the new data space is filled with zero's.
+\f5sfresize()\fP returns \f50\fP on success and a negative value on failure.
+
 .Ss "  int sfset(Sfio_t* f, int flags, int set)"
 This function sets control flags for the stream \f5f\fP.
 It returns the previous set of flags or \f50\fP on error.
@@ -1910,7 +1926,7 @@ Argument \f5type\fP indicates the reason for the call:
 \f5SF_NEW\fP:
 \f5f\fP is being opened and \f5file\fP is the underlying file descriptor.
 .Tp
-\f5SF_CLOSE\fP:
+\f5SF_CLOSING\fP (\f5SF_CLOSE\fP):
 \f5f\fP and \f5file\fP are being closed.
 .Tp
 \f5SF_SETFD\fP:
@@ -2177,6 +2193,25 @@ The library is now thread-safe. This is based largely on Posix pthread mutexes.
 .PP
 The functions \f5sfgetm()\fP and \f5sfputm()\fP were added to encode
 unsigned integer values with known ranges.
+.PP
+The flag \f5SF_APPEND\fP is identical to \f5SF_APPENDWR\fP.
+However it conflicts with a different token of the same name
+defined in the system header \f5stat.h\fP of BSDI Unix systems.
+On such systems, we shall not define \f5SF_APPEND\fP and this
+symbol may be removed in a future release.
+.PP
+Similarly, the exception \f5SF_CLOSE\fP is identical to \f5SF_CLOSING\fP.
+However it conflicts with a different token of the same name
+defined in the system header \f5socket.h\fP of AIX Unix systems.
+On such systems, we shall not define \f5SF_CLOSE\fP and this
+symbol may be removed in a future release.
+.PP
+The printing and scanning functions were extended to handle multibyte characters
+and to conform to the C99 standard.
+.PP
+The function \f5sfpoll()\fP was rehauled to make it useful
+for writing servers that must commnunicate with multiple streams
+without blocking.
 
 .SH AUTHORS
 Kiem-Phong Vo, kpv@research.att.com,

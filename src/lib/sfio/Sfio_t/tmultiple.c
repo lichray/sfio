@@ -27,7 +27,7 @@ MAIN()
 			if(!(s = sfgetr(f,'\n',1)) || strcmp(s,"Line3") != 0)
 				terror("Coprocess move did not get Line3\n");
 		}
-		exit(0);
+		TSTEXIT(0);
 	}
 
 	if(sfopen(sfstdout, tstfile(0), "w") != sfstdout )
@@ -46,7 +46,7 @@ MAIN()
 		terror("Did not get Line1 for sfgetr\n");
 	sfsync(sfstdin);
 	system(sfprints("%s -r",argv[0]));
-	sfseek(sfstdin,(Sfoff_t)lseek(sffileno(sfstdin),0L,1),0);
+	sfseek(sfstdin, (Sfoff_t)lseek(sffileno(sfstdin), (off_t)0, 1), 0);
 	if(!(s = sfgetr(sfstdin,'\n',1)) || strcmp(s,"Line4") != 0)
 		terror("Did not get Line4 for sfgetr\n");
 
@@ -57,7 +57,7 @@ MAIN()
 		terror("Did not get Line1 for sfmove\n");
 	sfsync(sfstdin);
 	system(sfprints("%s -m",argv[0]));
-	sfseek(sfstdin,(Sfoff_t)lseek(sffileno(sfstdin),0L,1),0);
+	sfseek(sfstdin, (Sfoff_t)lseek(sffileno(sfstdin), (off_t)0, 1), 0);
 	if(!(s = sfgetr(sfstdin,'\n',1)) || strcmp(s,"Line4") != 0)
 		terror("Did not get Line4 for sfmove\n");
 
@@ -69,10 +69,10 @@ MAIN()
 		terror("Did not get Line1 for head\n");
 	sfsync(sfstdin);
 	system("head -2 > /dev/null"); /* for testing the head program */
-	sfseek(sfstdin,(Sfoff_t)lseek(sffileno(sfstdin),0L,1),0);
+	sfseek(sfstdin, (Sfoff_t)lseek(sffileno(sfstdin), (off_t)0, 1), 0);
 	if(!(s = sfgetr(sfstdin,'\n',1)) || strcmp(s,"Line4") != 0)
 		terror("Did not get Line4 for head\n");
 #endif
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -44,5 +44,5 @@ MAIN()
 	if(os != endos)
 		terror("Does not match all data, left=%s\n",os);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

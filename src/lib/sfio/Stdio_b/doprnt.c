@@ -1,7 +1,7 @@
 #define _in_doprnt	1
 #include	"sfstdio.h"
 
-/*	The internal printf engine.
+/*	The internal printf engine in older stdios.
 **	Written by Kiem-Phong Vo.
 */
 
@@ -17,7 +17,7 @@ FILE*	f;
 	reg int		rv;
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)) )
+	if(!(sf = _sfstream(f)) )
 		return -1;
 
 	if((rv = sfvprintf(sf,form,args)) < 0)

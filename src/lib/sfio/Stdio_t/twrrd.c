@@ -29,5 +29,5 @@ MAIN()
 			terror("Unmatched record\n");
 	}
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

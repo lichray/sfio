@@ -8,5 +8,5 @@ int _stdfgetc(f)
 FILE*	f;
 #endif
 {
-	return sfgetc(f);
+	return f ? sfgetc(f) : -1;
 }

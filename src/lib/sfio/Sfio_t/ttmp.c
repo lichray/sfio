@@ -26,6 +26,14 @@ MAIN()
 	Sfoff_t	pos;
 	Sfoff_t	nxt;
 	int	pid;
+	char	buf[1024*1024];
+
+	/* test to see if transforming to file is ok with sfwrite */
+	memset(buf,1,sizeof(buf));
+	if(!(f = sftmp(1024)) )
+		terror("sftmp failed\n");
+	if((siz = sfwrite(f,buf,sizeof(buf))) != sizeof(buf))
+		terror("sfwrite failed with siz=%d",siz);
 
 	/* ast ed does this */
 	if (!(f = sftmp(SF_BUFSIZE)))
@@ -122,5 +130,5 @@ MAIN()
 	if(pid != 0)
 		wait(&pid);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

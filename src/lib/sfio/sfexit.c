@@ -76,9 +76,9 @@ _cleanup()
 
 /* in this case, we have to redefine exit() itself */
 #if __STD_C
-exit(int type)
+void exit(int type)
 #else
-exit(type)
+void exit(type)
 int	type;
 #endif
 {
@@ -86,7 +86,6 @@ int	type;
 	for(e = Exit; e; e = e->next)
 		(*e->exitf)();
 	_exit(type);
-	return type;
 }
 #endif /* _exit_cleanup */
 

@@ -1,7 +1,7 @@
 #define _in_doscan	1
 #include	"sfstdio.h"
 
-/*	The internal scanf engine.
+/*	The internal scanf engine in older stdios.
 **	Written by Kiem-Phong Vo
 */
 
@@ -17,7 +17,7 @@ va_list args;	/* arg list if argf == 0 */
 	reg int		rv;
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	if((rv = sfvscanf(sf,form,args)) <= 0)

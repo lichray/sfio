@@ -16,7 +16,7 @@ size_t		size;
 {
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	sfsetbuf(sf,(Void_t*)buf, buf ? size : 0);

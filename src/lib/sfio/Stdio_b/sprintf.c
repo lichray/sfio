@@ -23,7 +23,7 @@ va_dcl
 	form = va_arg(args,char*);
 #endif
 
-	rv = s ? sfvsprintf(s,SF_BUFSIZE,form,args) : -1;
+	rv = (s && form) ? sfvsprintf(s,SF_MAXINT,form,args) : -1;
 	va_end(args);
 
 	return rv;

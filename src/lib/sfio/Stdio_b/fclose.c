@@ -14,10 +14,13 @@ FILE*	f;
 	reg int		rv;
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	if((rv = sfclose(sf)) >= 0 && f != stdin && f != stdout && f != stderr)
+	{	_sfunmap(f); /* remove the FILE to Sfio_t map */
 		free(f);
+	}
+
 	return rv;
 }

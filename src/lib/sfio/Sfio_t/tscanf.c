@@ -177,5 +177,5 @@ MAIN()
 	if(sfsscanf("12345 ","%d %n",&k,&n) != 1 || k != 12345 || n != 6)
 		terror("Bad scanning results");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -56,5 +56,5 @@ MAIN()
 
 	sfclose(f);
 	
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

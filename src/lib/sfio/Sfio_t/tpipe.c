@@ -8,7 +8,7 @@ void alrmf(sig)
 int	sig;
 #endif
 {
-	terror("Alarm went off\n");
+	terror("Blocking somewhere until alarm went off\n");
 }
 
 MAIN()
@@ -92,5 +92,23 @@ MAIN()
 	if(strncmp(s,"0123456789",10) != 0)
 		terror("Bad peek str %s\n",s);
 
-	TSTRETURN(0);
+	/* test for handling pipe error */
+	if(pipe(fd) < 0)
+		terror("Can't create pipe");
+	close(fd[0]);
+	if(!(fw = sfnew(NIL(Sfio_t*),NIL(Void_t*),sizeof(buf),fd[1],SF_WRITE)) )
+		terror("Can't open stream");
+	signal(SIGPIPE,SIG_IGN); /* avoid dying by sigpipe */
+
+	for(i = 0; i < sizeof(buf); ++i)
+		buf[i] = 'a';
+	buf[sizeof(buf)-1] = 0;
+	for(i = 0; i < 3; ++i)
+	{	signal(SIGALRM,alrmf); /* do this to avoid infinite loop */
+		alarm(4);
+		sfprintf(fw, "%s\n", buf); /* this should not block */
+		alarm(0);
+	}
+
+	TSTEXIT(0);
 }

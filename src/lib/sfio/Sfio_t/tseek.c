@@ -65,7 +65,7 @@ MAIN()
 	two = (Sfoff_t)lseek(sffileno(f), (off_t)0, 2);
 	if(one != two)
 		terror("seeking1\n");
-	if(sfseek(f,(Sfoff_t)(-1),2) != (Sfoff_t)lseek(sffileno(f), (off_t)(-1),2))
+	if(sfseek(f,(Sfoff_t)(-1),2) != (Sfoff_t)lseek(sffileno(f), (off_t)(-1), 2))
 		terror("seeking2\n");
 
 	if(!(f = sfopen(f,tstfile(0),"w")))
@@ -131,5 +131,5 @@ MAIN()
 	if(Bufcount != 10)
 		terror("Bad buffer filling count");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

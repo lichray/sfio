@@ -56,5 +56,5 @@ MAIN()
 	if(buffer != buf || size != 8 || count != 1)
 		terror("Wrong calls to write\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -16,7 +16,7 @@ FILE*	f;
 	reg Sfio_t*	sf;
 	reg char*	rv;
 
-	if(!(sf = SFSTREAM(f)) )
+	if(!buf || !(sf = _sfstream(f)) )
 		return NIL(char*);
 	if(!(rv = _stdgets(sf,buf,n,0)))
 		_stdseterr(f,sf);

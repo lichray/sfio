@@ -1,26 +1,46 @@
 This directory contains the following:
 
 Standard directories:
-	./bin
-	./lib
-	./man
-	./include
+	./bin		for generated executables
+	./include	for package header files
+	./lib		for constructed libraries
+	./man		for manual pages
+	./src		for source code of packages
 
 Package directories:
 	./src/lib/sfio
 	./src/lib/vthread
 
-Before building a package, you should change your shell PATH variable
-to include "./bin" so that the program "iffe" would be available
-in your search path. Iffe (IF Features Exist) is a language interpreter
-to execute specifications that define configuration parameters.
-In this way, a software package can automatically configure itself
-to take advantage of local features in implementing its operations.
-Each package keeps Iffe scripts in a subdirectory "features".
+Before building a package, you should add the above "bin" directory
+to your PATH environment variable. In most shell environments,
+the PATH variable can be set as follows:
 
-After resetting PATH, you can change directory to a package directory
-and run "make" to build the package. There is a README file in each
-package directory that tells more about the local directory hierarchy.
+	PATH=$PATH:$PWD/bin
+
+Changing the PATH variable as shown makes available the command "iffe"
+which is invoked by the "make" command while it builds the package(s).
+Iffe (IF Features Exist) is the interpreter of the IFFE language used
+to define probes for any configuration parameters needed from the local
+platform that you are building the software on. Examples of such probes
+can be found in the sub-directory "features" in each package directory.
+The iffe command carries its own documentation. Its manual pages can be
+obtained in either text or html forms as follows:
+
+	iffe --man
+	iffe --html
+
+
+Each package directory also has a local README file that explains the
+local directory hierarchy and may give specific directions to build
+and test the respective package. Barring further package-specific
+instructions, below are the general steps for package building:
+
+	change the PATH environment variable as described, then
+	for each package, do:
+		change directory to package-directory,
+		read the README file for any specific instructions,
+		run "make -f Makefile install".
+
 
 Let me know of any problems. Good luck and have fun.
 

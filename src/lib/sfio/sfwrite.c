@@ -18,9 +18,12 @@ reg size_t	n;	/* number of bytes. 		*/
 	reg ssize_t	w;
 	reg int		local;
 
-	SFMTXSTART(f,(ssize_t)(-1));
+	SFMTXSTART(f, (ssize_t)(-1));
 
 	GETLOCAL(f,local);
+
+	if(!buf)
+		SFMTXRETURN(f, (ssize_t)(n == 0 ? 0 : -1) );
 
 	/* release peek lock */
 	if(f->mode&SF_PEEK)
@@ -82,17 +85,25 @@ reg size_t	n;	/* number of bytes. 		*/
 		{	if(f->flags&SF_STRING) /* extend buffer */
 			{	(void)SFWR(f, s, n-w, f->disc);
 				if((w = f->endb - f->next) < (ssize_t)n)
-					break;
+				{	if(!(f->flags&SF_STRING)) /* maybe sftmp */
+					{	if(f->next > f->data)
+							goto fls_buf;
+					}
+					else if(w == 0)
+						break;
+				}
 			}
 			else if(f->next > f->data)
-			{	(void)SFFLSBUF(f, -1);
+			{ fls_buf:
+				(void)SFFLSBUF(f, -1);
 				if((w = f->endb - f->next) < (ssize_t)n &&
 				   (f->flags&SF_WHOLE) && f->next > f->data )
-					break;
+						break;
 			}
 		}
 
-		if(!(f->flags&SF_STRING) && f->next == f->data && SFDIRECT(f,n) )
+		if(!(f->flags&SF_STRING) && f->next == f->data &&
+		   ((f->flags&SF_WHOLE) || SFDIRECT(f,n)) )
 		{	/* bypass buffering */
 			if((w = SFWR(f,s,n,f->disc)) <= 0 )
 				break;
@@ -100,6 +111,8 @@ reg size_t	n;	/* number of bytes. 		*/
 		else
 		{	if(w > (ssize_t)n)
 				w = (ssize_t)n;
+			if(w <= 0) /* no forward progress possible */
+				break;
 			memcpy(f->next, s, w);
 			f->next += w;
 		}

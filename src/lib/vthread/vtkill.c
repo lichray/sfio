@@ -42,6 +42,6 @@ Vthread_t*	vt;
 		vt->state &= ~VT_RUNNING;
 
 	return rv;
-}
 
-#endif
+#endif /*!vt_threaded*/
+}

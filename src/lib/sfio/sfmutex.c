@@ -15,10 +15,14 @@ int	type;
 #endif
 {
 #if !vt_threaded
+	NOTUSED(f); NOTUSED(type);
 	return 0;
 #else
 
 	SFONCE();
+
+	if(!f)
+		return -1;
 
 	if(!f->mutex)
 	{	if(f->bits&SF_PRIVATE)

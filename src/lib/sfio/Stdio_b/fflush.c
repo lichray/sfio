@@ -16,10 +16,11 @@ reg FILE*	f;
 
 	if(!f)
 		return sfsync(NIL(Sfio_t*));
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
-	(void)sfseek(sf, (Sfoff_t)0, SEEK_CUR|SF_PUBLIC);
+	if(sf->extent >= 0)
+		(void)sfseek(sf, (Sfoff_t)0, SEEK_CUR|SF_PUBLIC);
 
 	return (sfsync(sf) < 0 || sfpurge(sf) < 0) ? -1 : 0;
 }

@@ -16,11 +16,11 @@ Sfdisc_t*	disc;
 	{
 	case SF_WRITE :
 		return 0;
-	case SF_CLOSE:
-		if(Type == SF_CLOSE)
+	case SF_CLOSING:
+		if(Type == SF_CLOSING)
 			return 0;
 	case SF_SYNC:
-		if(Type == SF_CLOSE)
+		if(Type == SF_CLOSING)
 			return 0;
 	}
 
@@ -77,6 +77,7 @@ MAIN()
 	Sfio_t*	f;
 	char	buf[1024];
 	char	rbuf[4*1024];
+	off_t	o;
 	int	i;
 
 	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "w")) )
@@ -106,7 +107,7 @@ MAIN()
 		terror("Did not get purge event\n");
 
 	sfclose(f);
-	if(Type != SF_CLOSE)
+	if(Type != SF_CLOSING)
 		terror("Did not get close event\n");
 
 	sfclose(f);
@@ -140,13 +141,19 @@ MAIN()
 	for(i = 0; i < 4; ++i)
 		if(rbuf[i] != i)
 			terror("wrong 4 bytes\n");
+
 	sfsync(f);
+	if((o = lseek(sffileno(f), (off_t)0, SEEK_CUR)) != 4)
+		terror("Wrong seek location %lld\n", (Sfoff_t)o);
+
 	if((i = dup(sffileno(f))) < 0)
 		terror("Can't dup file descriptor\n");
+	if((o = lseek(i, (off_t)0, SEEK_CUR)) != 4)
+		terror("Wrong seek location %lld\n", (Sfoff_t)o);
 
 	sfclose(f);
-	if(lseek(i,0,1) != 4)
-		terror("Wrong seek location\n");
+	if((o = lseek(i, (off_t)0, SEEK_CUR)) != 4)
+		terror("Wrong seek location %lld\n", (Sfoff_t)o);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

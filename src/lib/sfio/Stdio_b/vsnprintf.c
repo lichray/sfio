@@ -14,7 +14,7 @@ reg char*	form;
 va_list		args;
 #endif
 {
-	return sfvsprintf(s,n,form,args);
+	return (s && form) ? sfvsprintf(s,n,form,args) : -1;
 }
 
 #if _lib___vsnprintf && !done_lib___vsnprintf && !defined(vsnprintf)

@@ -15,7 +15,7 @@ reg char*	str;
 	reg int		rv;
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(stdout)))
+	if(!str || !(sf = _sfstream(stdout)))
 		return -1;
 
 	if((rv = sfputr(sfstdout,str,'\n')) < 0)

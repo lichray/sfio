@@ -55,7 +55,7 @@ Sfdisc_t*	disc;
 			{	SFDCSK(f,addr,type,dc,p);
 			}
 			else
-			{	p = lseek(f->file,(off_t)addr,type);
+			{	p = lseek(f->file,(sfoff_t)addr,type);
 			}
 			if(p >= 0)
 				SFMTXRETURN(f,p);
@@ -69,7 +69,7 @@ Sfdisc_t*	disc;
 		case SF_EDISC:
 		case SF_ECONT:
 			if(f->flags&SF_STRING)
-				SFMTXRETURN(f, (Sfoff_t)0);
+				SFMTXRETURN(f, (Sfoff_t)s);
 			goto do_continue;
 		default:
 			SFMTXRETURN(f, (Sfoff_t)(-1));

@@ -19,5 +19,5 @@ MAIN()
 		terror("Moving data from %s to %s m=%lld\n",
 			tstfile(0), tstfile(1), (Sflong_t)m);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

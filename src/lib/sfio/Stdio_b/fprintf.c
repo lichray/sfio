@@ -25,7 +25,7 @@ va_dcl
 	form = va_arg(args,char*);
 #endif
 
-	if(!(sf = SFSTREAM(f)))
+	if(!form || !(sf = _sfstream(f)))
 		return -1;
 
 	if((rv = sfvprintf(sf,form,args)) < 0)

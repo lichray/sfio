@@ -1,6 +1,6 @@
 #include	"sfhdr.h"
 
-/*	Open a stream given a file descriptor.
+/*	Open a temp stream.
 **
 **	Written by Kiem-Phong Vo.
 */

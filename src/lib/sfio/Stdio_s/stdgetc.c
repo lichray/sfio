@@ -9,5 +9,5 @@ int getc(f)
 FILE*	f;
 #endif
 {
-	return _std_getc(f);
+	return f ? _std_getc(f) : -1;
 }

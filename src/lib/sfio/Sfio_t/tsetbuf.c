@@ -37,7 +37,7 @@ MAIN()
 
 	if(write(fd,buf,sizeof(buf)) != sizeof(buf))
 		terror("Writing to file\n");
-	if(lseek(fd,0L,0) < 0)
+	if(lseek(fd, (off_t)0, 0) < 0)
 		terror("Seeking back to origin\n");
 
 	if(!(f = sfnew((Sfio_t*)0,buf,sizeof(buf),fd,SF_WRITE)))
@@ -78,5 +78,5 @@ MAIN()
 		terror("sfreserve3 returns the wrong value\n");
 	sfwrite(f,s,0);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -42,5 +42,5 @@ MAIN()
 	if(sfstdin->endb > sfstdin->next)
 		terror("sfgetr reads too much2\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

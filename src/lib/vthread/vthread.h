@@ -1,13 +1,31 @@
 #ifndef _VTHREAD_H
 #define _VTHREAD_H	1
 
-#define VTHREAD_VERSION    20000515L
+/********************************************************************************
+*	This product contains certain software code or other information	*
+*	("AT&T Software") proprietary to AT&T Corp. ("AT&T").			*
+*	The AT&T Software is provided to you "AS IS". YOU ASSUME TOTAL		*
+*	RESPONSIBILITY AND RISK FOR USE OF THE AT&T SOFTWARE.			*
+*	AT&T DOES NOT MAKE, AND EXPRESSLY DISCLAIMS, ANY EXPRESS OR		*
+*	IMPLIED WARRANTIES OF ANY KIND WHATSOEVER, INCLUDING,			*
+*	WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTABILITY OR	*
+*	FITNESS FOR A PARTICULAR PURPOSE, WARRANTIES OF TITLE OR		*
+*	NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS,			*
+*	ANY WARRANTIES ARISING BY USAGE OF TRADE, COURSE OF DEALING OR		*
+*	COURSE OF PERFORMANCE, OR ANY WARRANTY THAT THE AT&T SOFTWARE		*
+*	IS "ERROR FREE" OR WILL MEET YOUR REQUIREMENTS. 			*
+*										*
+*	All rights reserved. AT&T is a registered trademark of AT&T Corp.	*
+********************************************************************************/
+
+
+#define VTHREAD_VERSION    20001201L
 
 /*	Header for the Vthread library.
 **	Note that the macro vt_threaded may be defined
 **	outside of vthread.h to suppress threading.
 **
-**	Written by Kiem-Phong Vo
+**	Written by Kiem-Phong Vo, kpv@research.att.com
 */
 
 #include	<ast_common.h>
@@ -163,6 +181,12 @@ struct _vthread_s
 struct _vtonce_s
 {	int	error;
 };
+
+typedef int		_vtmtx_t;
+typedef int		_vtonce_t;
+typedef int		_vtself_t;
+typedef int		_vtid_t;
+typedef int		_vtattr_t;
 
 #define VTONCE_INITDATA		{0}
 

@@ -272,5 +272,5 @@ MAIN()
 	if(sfvalue(f) < 16 )
 		terror("hmm\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -46,7 +46,7 @@ MAIN()
 
 	if(pipe(fd) < 0)
 		terror("Can't make pipe\n");
-	if(sfnew(sfstdin,NIL(char*),(size_t)SF_UNBOUND,fd[0],SF_READ) != sfstdin)
+	if(sfnew(sfstdin,NIL(Void_t*),(size_t)SF_UNBOUND,fd[0],SF_READ) != sfstdin)
 		terror("Can't renew stdin\n");
 	sfdisc(sfstdin,&Disc);
 	sfset(sfstdin,SF_SHARE,1);
@@ -71,5 +71,5 @@ MAIN()
 	if(!Except)
 		terror("Exception handler wasn't called2\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

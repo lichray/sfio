@@ -10,7 +10,7 @@ CCMODE= -O
 CCFLAGS= $(CCMODE) -I. $(CXFLAGS)
 CC=cc
 
-HDRS =	vthread.h vthdr.h
+HDRS=	vthread.h vthdr.h
 SRCS=	vtclose.c vtextern.c vtkill.c vtmtxclose.c vtmtxclrlock.c \
 	vtmtxlock.c vtmtxopen.c vtmtxtrylock.c vtmtxunlock.c \
 	vtonce.c vtopen.c vtrun.c vtself.c vtset.c vtwait.c
@@ -19,6 +19,8 @@ OBJS=	vtclose.o vtextern.o vtkill.o vtmtxclose.o vtmtxclrlock.o \
 	vtonce.o vtopen.o vtrun.o vtself.o vtset.o vtwait.o
 
 .c.o :
+	$(CC) -c $(CCFLAGS) $*.c
+%.o : %.c
 	$(CC) -c $(CCFLAGS) $*.c
 
 all:	install

@@ -31,5 +31,5 @@ MAIN()
 	if(sfswap(f1,f2) != NIL(Sfio_t*) )
 		terror("sfswap should have failed\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

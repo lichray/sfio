@@ -6,11 +6,11 @@
 */
 
 #if __STD_C
-Sfulong_t sfgetm(reg Sfio_t* f, Sfulong_t max)
+Sfulong_t sfgetm(reg Sfio_t* f, Sfulong_t m)
 #else
-Sfulong_t sfgetm(f, max)
+Sfulong_t sfgetm(f, m)
 reg Sfio_t*	f;
-Sfulong_t	max;
+Sfulong_t	m;
 #endif
 {
 	Sfulong_t	v;
@@ -33,7 +33,7 @@ Sfulong_t	max;
 		for(ends = s+p; s < ends;)
 		{	c = *s++;
 			v = (v << SF_BBITS) | SFBVALUE(c);
-			if((max >>= SF_BBITS) <= 0)
+			if((m >>= SF_BBITS) <= 0)
 			{	f->next = s;
 				goto done;
 			}

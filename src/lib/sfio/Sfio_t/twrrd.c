@@ -22,7 +22,7 @@ MAIN()
 	sfseek(fp,(Sfoff_t)0,0);
 	sfset(fp,SF_WRITE,0);
 	sfsetbuf(fp,NIL(char*),0);
-	sfsetbuf(fp,NIL(char*),SF_UNBOUND);
+	sfsetbuf(fp,NIL(char*),(size_t)SF_UNBOUND);
 
 	for(i = 0; i < 256; ++i)
 	{	if(sfread(fp,rbuf,sizeof(rbuf)) != sizeof(rbuf))
@@ -32,5 +32,5 @@ MAIN()
 			terror("Unmatched record\n");
 	}
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -40,7 +40,7 @@ MAIN()
 					rv, sfvalue(sfstdin));
 		}
 		sfsync(sfstdout);
-		exit(0);
+		TSTEXIT(0);
 	}
 
 	signal(SIGPIPE,SIG_IGN);
@@ -127,5 +127,5 @@ MAIN()
 	if(w && (handler = signal(SIGPIPE,SIG_DFL)) != SIG_DFL)
 		terror("SIGPIPE handler should have been SIG_DFL\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

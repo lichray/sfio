@@ -129,5 +129,5 @@ MAIN()
 	if(strcmp(buf, "012345678") != 0)
 		terror("Get wrong data\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

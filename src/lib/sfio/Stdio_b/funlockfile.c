@@ -1,6 +1,6 @@
 #include	"sfstdio.h"
 
-/*	Read a set of data
+/*	Try to unlock a file
 **	Written by Kiem-Phong Vo
 */
 
@@ -13,7 +13,7 @@ reg FILE*	f;
 {
 	Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return;
 
 	(void)sfmutex(sf, SFMTX_UNLOCK);

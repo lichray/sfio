@@ -5,7 +5,7 @@
 #pragma weak note{ compile system supports symbol transform }end link{
 #	main() { return _xyz(); }
 #	#pragma weak   _xyz =  __xyz
-#	#define                _xyz    __xyz
+#	#define	        _xyz    __xyz
 #	_xyz() { return 0; }
 #}end
 
@@ -15,7 +15,11 @@
 
 tst - output{
 	#include	<stdio.h>
-	main() { printf("#define _siz_fpos_t	%d\n", sizeof(fpos_t)); exit(0); }
+	main()
+	{ printf("#define _siz_fpos_t	%d\n", sizeof(fpos_t));
+	  printf("#define _siz_off_t	%d\n", sizeof(off_t));
+	  exit(0);
+	}
 }end
 
 FILE _cnt note{ field FILE.__cnt exists }end compile{
@@ -51,7 +55,6 @@ FILE flag note{ field FILE._flag exists }end compile{
 	#include	<stdio.h>
 	main() { return (stdin->_flag == 0) ? 0 : -1; }
 }end
-
 FILE flags note{ field FILE._flags exists }end compile{
 	#include	<stdio.h>
 	main() { return (stdin->_flags == 0) ? 0 : -1; }
@@ -109,13 +112,13 @@ FILE fileno note{ field FILE._fileno exists }end compile{
 }end
 u flow note{ uflow() does bump buffer }end execute{
 	#include	<stdio.h>
-        #if _STD_
-        main(int argc, char** argv)
-        #else
-        main(argc,argv)
-        int     argc;
-        char**  argv;
-        #endif
+	#if _STD_
+	main(int argc, char** argv)
+	#else
+	main(argc,argv)
+	int     argc;
+	char**  argv;
+	#endif
 	{ FILE*	f;
 	  char	file[BUFSIZ];
 	  sprintf(file,"%s.D",argv[0]);
@@ -134,13 +137,13 @@ u flow note{ uflow() does bump buffer }end execute{
 }end
 under flow note{ underflow() does not bump buffer }end execute{
 	#include	<stdio.h>
-        #if _STD_
-        main(int argc, char** argv)
-        #else
-        main(argc,argv)
-        int     argc;
-        char**  argv;
-        #endif
+	#if _STD_
+	main(int argc, char** argv)
+	#else
+	main(argc,argv)
+	int     argc;
+	char**  argv;
+	#endif
 	{ FILE*	f;
 	  char	file[BUFSIZ];
 	  sprintf(file,"%s.D",argv[0]);
@@ -202,3 +205,187 @@ lib putchar_unlocked
 
 lib __snprintf
 lib __vsnprintf
+
+lib fseeko
+lib ftello
+
+# detect microsoft dll declaration of _iob
+mac	_iob	stdio.h
+msft	iob note{ microsoft's oddity }end compile{
+	#include	<stdio.h>
+	#if _mac__iob
+	_CRTIMP extern FILE * __cdecl __p__iob(void);
+	FILE* foo() { return &(_iob[0]); }
+	#else
+	this should fail;
+	#endif
+}end
+
+dat	_iob,__iob	stdio.h
+native	iob note{ ok to use stdio's _iob }end compile{
+	#define	_doprnt		_____doprnt
+	#define	_doscan		_____doscan
+	#define	fclose		____fclose
+	#define	fdopen		____fdopen
+	#define	fflush		____fflush
+	#define	fgetc		____fgetc
+	#define	fgets		____fgets
+	#define	_filbuf		_____filbuf
+	#define	_flsbuf		_____flsbuf
+	#define	_cleanup	_____cleanup
+	#define	fopen		____fopen
+	#define	fprintf		____fprintf
+	#define	fputc		____fputc
+	#define	fputs		____fputs
+	#define	fread		____fread
+	#define	freopen		____freopen
+	#define	fscanf		____fscanf
+	#define	fseek		____fseek
+	#define	ftell		____ftell
+	#define	fgetpos		____fgetpos
+	#define	fsetpos		____fsetpos
+	#define	fpurge		____fpurge
+	#define	fwrite		____fwrite
+	#define	gets		____gets
+	#define	getw		____getw
+	#define	pclose		____pclose
+	#define	popen		____popen
+	#define	printf		____printf
+	#define	puts		____puts
+	#define	putw		____putw
+	#define	rewind		____rewind
+	#define	scanf		____scanf
+	#define	setbuf		____setbuf
+	#define	setbuffer	____setbuffer
+	#define	setlinebuf	____setlinebuf
+	#define	setvbuf		____setvbuf
+	#define	sprintf		____sprintf
+	#define	sscanf		____sscanf
+	#define	tmpfile		____tmpfile
+	#define	ungetc		____ungetc
+	#define	vfprintf	____vfprintf
+	#define	vfscanf		____vfscanf
+	#define	vprintf		____vprintf
+	#define	vscanf		____vscanf
+	#define	vsprintf	____vsprintf
+	#define	vsscanf		____vsscanf
+	#define	flockfile	____flockfile
+	#define	funlockfile	____funlockfile
+	#define	ftrylockfile	____ftrylockfile
+	
+	#include	<stdio.h>
+	
+	#undef IOB
+	#if defined(_dat_iob) && !defined(IOB)
+	#define IOB	iob
+	#endif
+	#if defined(_dat__iob) && !defined(IOB)
+	#define IOB	_iob
+	#endif
+	#if defined(_dat___iob) && !defined(IOB)
+	#define IOB	__iob
+	#endif
+	
+	static void* addr() { return((void*)IOB); }
+	int main() { addr(); exit(0); }
+	
+	#undef	_doprnt
+	#undef	_doscan
+	#undef	fclose
+	#undef	fdopen
+	#undef	fflush
+	#undef	fgetc
+	#undef	fgets
+	#undef	_filbuf
+	#undef	_flsbuf
+	#undef	_cleanup
+	#undef	fopen
+	#undef	fprintf
+	#undef	fputc
+	#undef	fputs
+	#undef	fread
+	#undef	freopen
+	#undef	fscanf
+	#undef	fseek
+	#undef	ftell
+	#undef	fgetpos
+	#undef	fsetpos
+	#undef	fpurge
+	#undef	fwrite
+	#undef	gets
+	#undef	getw
+	#undef	pclose
+	#undef	popen
+	#undef	printf
+	#undef	puts
+	#undef	putw
+	#undef	rewind
+	#undef	scanf
+	#undef	setbuf
+	#undef	setbuffer
+	#undef	setlinebuf
+	#undef	setvbuf
+	#undef	sprintf
+	#undef	sscanf
+	#undef	tmpfile
+	#undef	ungetc
+	#undef	vfprintf
+	#undef	vfscanf
+	#undef	vprintf
+	#undef	vscanf
+	#undef	vsprintf
+	#undef	vsscanf
+	#undef	flockfile
+	#undef	funlockfile
+	#undef	ftrylockfile
+	
+	void	_doprnt() {}
+	void	_doscan() {}
+	void	fclose() {}
+	void	fdopen() {}
+	void	fflush() {}
+	void	fgetc() {}
+	void	fgets() {}
+	void	_filbuf() {}
+	void	_flsbuf() {}
+	void	_cleanup() {}
+	void	fopen() {}
+	void	fprintf() {}
+	void	fputc() {}
+	void	fputs() {}
+	void	fread() {}
+	void	freopen() {}
+	void	fscanf() {}
+	void	fseek() {}
+	void	ftell() {}
+	void	fgetpos() {}
+	void	fsetpos() {}
+	void	fpurge() {}
+	void	fwrite() {}
+	void	gets() {}
+	void	getw() {}
+	void	pclose() {}
+	void	popen() {}
+	void	printf() {}
+	void	puts() {}
+	void	putw() {}
+	void	rewind() {}
+	void	scanf() {}
+	void	setbuf() {}
+	void	setbuffer() {}
+	void	setlinebuf() {}
+	void	setvbuf() {}
+	void	sprintf() {}
+	void	sscanf() {}
+	void	tmpfile() {}
+	void	ungetc() {}
+	void	vfprintf() {}
+	void	vfscanf() {}
+	void	vprintf() {}
+	void	vscanf() {}
+	void	vsprintf() {}
+	void	vsscanf() {}
+	void	flockfile() {}
+	void	funlockfile() {}
+	void	ftrylockfile() {}
+}end

@@ -9,7 +9,7 @@
 int vtset(Vthread_t* vt, int type, Void_t* val)
 #else
 int vtset(vt, type, val)
-Vtthread_t*	vt;
+Vthread_t*	vt;
 int		type;
 Void_t*		val;
 #endif

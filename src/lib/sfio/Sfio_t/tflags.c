@@ -65,5 +65,5 @@ MAIN()
 	if(sferror(sfstdout))
 		terror("sfstdout should not be in error\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

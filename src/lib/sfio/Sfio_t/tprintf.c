@@ -286,6 +286,20 @@ MAIN()
 	{	char* s = sfprints("%hx",0xffffffff);
 		if(!s || strcmp(s,"ffff") != 0)
 			terror("Failed %%hx test\n");
+
+		s = sfprints("%I2x",0xffffffff);
+		if(!s || strcmp(s,"ffff") != 0)
+			terror("Failed %%I2x test\n");
+	}
+
+	if(sizeof(int) == 4 &&  sizeof(char) == 1)
+	{	char* s = sfprints("%hhx",0xffffffff);
+		if(!s || strcmp(s,"ff") != 0)
+			terror("Failed %%hhx test\n");
+
+		s = sfprints("%I1x",0xffffffff);
+		if(!s || strcmp(s,"ff") != 0)
+			terror("Failed %%I1x test\n");
 	}
 
 	sfsprintf(buf1,sizeof(buf1),"%#..16d",-0xabc);
@@ -406,6 +420,12 @@ MAIN()
 	  s = sfprints("%Iu", (~((Sflong_t)0)/2) );
 	  if(strcmp(buf,s) != 0)
 		terror("Failed conversion with I flag\n");
+
+	  if(sizeof(Sflong_t)*8 == 64)
+	  {	s = sfprints("%I64u",(~((Sflong_t)0)/2) );
+	  	if(strcmp(buf,s) != 0)
+			terror("Failed conversion with I64 flag\n");
+	  }
 	}
 #endif
 
@@ -464,5 +484,5 @@ MAIN()
 	if(strcmp(buf1,"1345 1234 11145401322 322 3e+02 -0.01 0.01 1e-05 1 -1    |") )
 		terror("Precision not set to zero as required after a dot");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

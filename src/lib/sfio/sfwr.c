@@ -124,20 +124,6 @@ reg Sfdisc_t*	disc;
 			SFMTXRETURN(f, (ssize_t)(-1));
 	}
 
-	/* it may be inefficient for an unseekable stream to be continually
-	   flushed due to SF_LINE. So we turn off SF_LINE after a suitable
-	   number of flushes without an intervening input operations on some
-	   other unseekable devices (see also sfrd()).
-	*/
-#define SFMAXLINEFLUSH	8	/* 1/3 of 24, # of lines in a small tty */
-	if(f->extent < 0 && !(f->bits&(SF_BOTH|SF_KEEPLINE)) && (f->flags&SF_LINE) )
-	{	if(f->getr >= SFMAXLINEFLUSH)
-		{	f->flags &= ~SF_LINE;
-			f->getr = 0;
-		}
-		else	f->getr += 1;
-	}
-
 	for(;;)
 	{	/* stream locked by sfsetfd() */
 		if(!(f->flags&SF_STRING) && f->file < 0)

@@ -11,13 +11,13 @@ num MUTEX_NONRECURSIVE_NP	pthread.h
 
 lib pthread_mutexattr_setkind	-lcma
 lib pthread_mutexattr_setkind_np	-lcma
+
+lib pthread_mutexattr_init	pthread.h -lpthread
+lib pthread_mutexattr_destroy	pthread.h -lpthread
 lib pthread_mutexattr_create	-lcma
 lib pthread_mutexattr_delete	-lcma
-hpux pthread note{ Weird prototypes on HPUX }end compile{
-	#include	<pthread.h>
-	main()
-	{	pthread_mutexattr_t	attr;
-		pthread_mutex_t		mutex;
-		pthread_mutex_init(&mutex, attr);
-	}
-}end
+
+lib pthread_attr_init	pthread.h -lpthread
+lib pthread_attr_destroy	pthread.h -lpthread
+lib pthread_attr_create	-lcma
+lib pthread_attr_delete	-lcma

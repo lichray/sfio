@@ -8,7 +8,12 @@ int		Count;
 Vtmutex_t	Mutex;
 int		Inverted;
 
+#if __STD_C
 void* stuff(void* arg)
+#else
+void* stuff(arg)
+void*	arg;
+#endif
 {
 	int	n;
 
@@ -92,7 +97,7 @@ do_inverted:
 		Inverted = 1;
 		goto do_inverted;
 	}
-	else	tmesg("\t\tThis should have failed!\n");
+	else	tmesg("\t\tNon-locking threads also work - weird but ok!\n");
 
 	return 0;
 }

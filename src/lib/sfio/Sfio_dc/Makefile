@@ -2,11 +2,8 @@
 #
 # Written by Kiem-Phong Vo
 
-# Native compiler if building libsfdisc.a for a cross compilation environment
-NC=	cc
-
 # Compiler and flags to use
-LIBTYPE=""
+LIBTYPE=
 CXFLAGS=
 CCMODE=	-O
 CCFLAGS= -I. -I.. $(CCMODE) $(LIBTYPE) $(CXFLAGS)
@@ -14,6 +11,7 @@ AR=	ar
 CC=	cc
 
 # sfdisc
+HDRS=	sfdchdr.h sfdisc.h
 SRCS=	sfdcdio.c sfdcdos.c sfdcfilter.c sfdclzw.c sfdcseekable.c sfdcslow.c \
 	sfdcsubstream.c sfdctee.c sfdcunion.c
 OBJS=	sfdcdio.o sfdcdos.o sfdcfilter.o sfdclzw.o sfdcseekable.o sfdcslow.o \
@@ -23,6 +21,9 @@ OBJS=	sfdcdio.o sfdcdos.o sfdcfilter.o sfdclzw.o sfdcseekable.o sfdcslow.o \
 	$(CC) -c $(CCFLAGS) $*.c
 
 must:	$(OBJS)
+
+3dupdate:
+	cp Makefile $(HDRS) $(SRCS) ...
 
 clean:
 	-(rm $(OBJS); exit 0) >/dev/null 2>&1

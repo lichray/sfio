@@ -36,7 +36,7 @@ Sfdisc_t*	disc;
 	}
 	sfclose(sf);
 
-	if((w = write(f->file,buf,n)) != (int)n)
+	if((w = write(sffileno(f),buf,n)) != (int)n)
 		terror("Write %d returns %d\n",n,w);
 
 	return w;
@@ -130,5 +130,5 @@ MAIN()
 		if(count[i] != N_REC)
 			terror("Bad count%d %d\n", i, count[i]);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

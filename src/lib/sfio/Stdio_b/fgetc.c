@@ -14,7 +14,7 @@ reg FILE*	f;
 	reg Sfio_t*	sf;
 	reg int		rv;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 	if((rv = sfgetc(sf)) < 0)
 		_stdseterr(f,sf);

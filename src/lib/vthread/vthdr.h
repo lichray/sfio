@@ -4,6 +4,29 @@
 #include	<vthread.h>
 #include	"FEATURE/vthread"
 
+#if !vt_threaded /* for creating sub functions */
+#undef vtopen
+#undef vtclose
+#undef vtkill
+#undef vtwait
+#undef vtrun
+
+#undef vtset
+#undef vtonce
+
+#undef vtmtxopen
+#undef vtmtxclose
+#undef vtmtxlock
+#undef vtmtxtrylock
+#undef vtmtxunlock
+#undef vtmtxclrlock
+
+#undef vtstatus
+#undef vterror
+#undef vtmtxerror
+#undef vtonceerror
+#endif /*!vt_threaded*/
+
 #ifndef NIL
 #define NIL(t)	((t)0)
 #endif
@@ -33,7 +56,11 @@
 #define _mtx_recursive	1
 #endif
 
-/* HPUX */
+/* pre-HPUX 11 strangeness */
+#if !_lib_pthread_attr_init && _num_MUTEX_NONRECURSIVE_NP
+#define _hpux_weirdness	1
+#endif
+
 #if _num_MUTEX_NONRECURSIVE_NP && !_mtx_errorcheck
 #define PTHREAD_MUTEX_ERRORCHECK	MUTEX_NONRECURSIVE_NP
 #define _mtx_errorcheck	1
@@ -50,11 +77,17 @@
 #define PTHREAD_MUTEX_RECURSIVE		MUTEX_RECURSIVE_NP
 #define _mtx_recursive	1
 #endif
-#if _lib_pthread_mutexattr_create
+#if !_lib_pthread_mutexattr_init && _lib_pthread_mutexattr_create
 #define pthread_mutexattr_init		pthread_mutexattr_create
 #endif
-#if _lib_pthread_mutexattr_delete
+#if !_lib_pthread_mutexattr_destroy && _lib_pthread_mutexattr_delete
 #define pthread_mutexattr_destroy	pthread_mutexattr_delete
+#endif
+#if !_lib_pthread_attr_init && _lib_pthread_attr_create
+#define pthread_attr_init		pthread_attr_create
+#endif
+#if !_lib_pthread_attr_destroy && _lib_pthread_attr_delete
+#define pthread_attr_destroy		pthread_attr_delete
 #endif
 
 /* define pthread_mutexattr_settype() based on detected alternatives */
@@ -84,8 +117,8 @@
 #define MTXTYPE		PTHREAD_MUTEX_RECURSIVE
 #endif
 
-/* deal with hpux's lapse of judgement! */
-#if _hpux_pthread
+/* deal with pre-hpux11's lapse of judgement! */
+#if _hpux_weirdness
 #define MTXTRYLOCK_OK		1
 #define MTXLOCK_OK		0
 #define MTXUNLOCK_OK		0

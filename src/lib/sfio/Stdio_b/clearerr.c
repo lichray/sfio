@@ -14,7 +14,7 @@ FILE*	f;
 {
 	reg Sfio_t*	sf;
 	
-	if((sf = SFSTREAM(f)) )
+	if(f && (sf = _sfstream(f)) )
 	{	sfclrlock(sf);
 		_stdclrerr(f);
 	}

@@ -91,9 +91,6 @@ int	flags;	/* type of file stream */
 	f->here = f->extent = 0;
 	f->getr = f->tiny[0] = 0;
 
-	if(f->flags&SF_LINE)
-		f->bits |= SF_KEEPLINE;
-
 	f->mode |= SF_INIT;
 	if(size != (size_t)SF_UNBOUND)
 	{	f->size = size;

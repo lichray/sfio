@@ -17,7 +17,8 @@ MAIN()
 
 	if(!(f = sfopen(f, tstfile(0), "r")) )
 		terror("Can't open file to read1\n");
-	if(!(g = sfnew(NIL(Sfio_t*),NIL(Void_t*),SF_UNBOUND,dup(sffileno(f)),SF_READ)) )
+	if(!(g = sfnew(NIL(Sfio_t*),
+			NIL(Void_t*),(size_t)SF_UNBOUND,dup(sffileno(f)),SF_READ)) )
 		terror("Can't open file to read2\n");
 
 	sfset(f,SF_SHARE|SF_PUBLIC,1);
@@ -40,7 +41,8 @@ MAIN()
 	sfclose(g);
 	if(!(f = sfopen(NIL(Sfio_t*), tstfile(0), "r+")) )
 		terror("Can't open file to write2\n");
-	if(!(g = sfnew(NIL(Sfio_t*),NIL(Void_t*),SF_UNBOUND,dup(sffileno(f)),SF_READ)) )
+	if(!(g = sfnew(NIL(Sfio_t*),
+			NIL(Void_t*),(size_t)SF_UNBOUND,dup(sffileno(f)),SF_READ)) )
 		terror("Can't open file to read3\n");
 
 	sfset(f,SF_SHARE|SF_PUBLIC,1);
@@ -113,5 +115,5 @@ MAIN()
 	if((n = (int)sfmove(sfstdin,NIL(Sfio_t*),(Sfoff_t)SF_UNBOUND,'\n')) != 1)
 		terror("sfmove3 wrong number of lines %d\n",n);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -32,12 +32,7 @@ static void _sfwrsync()
 
 		if(!SFFROZEN(f) && f->next > f->data &&
 		   (f->mode&SF_WRITE) && f->extent < 0 )
-		{	/* make sure that line mode is kept for this stream */
-			if(!(f->bits&SF_BOTH) && (f->flags&SF_LINE))
-				f->bits |= SF_KEEPLINE;
-
 			(void)_sfflsbuf(f,-1);
-		}
 	}
 }
 
@@ -114,7 +109,7 @@ Sfdisc_t*	disc;
 #ifdef MAP_TYPE
 		if(f->bits&SF_MMAP)
 		{	reg ssize_t	a, round;
-			Stat_t		st;
+			sfstat_t	st;
 
 			/* determine if we have to copy data to buffer */
 			if((uchar*)buf >= f->data && (uchar*)buf <= f->endb)
@@ -155,7 +150,7 @@ Sfdisc_t*	disc;
 			{	f->data = (uchar*) mmap((caddr_t)0, (size_t)r,
 							(PROT_READ|PROT_WRITE),
 							MAP_PRIVATE,
-							f->file, (off_t)f->here);
+							f->file, (sfoff_t)f->here);
 				if(f->data && (caddr_t)f->data != (caddr_t)(-1))
 					break;
 				else

@@ -239,5 +239,18 @@ This function returns the error status of \f5mtx\fP after a failed operation.
 This function returns the error status of \f5once\fP after a failed operation.
 
 .PP
+.SH "IMPLEMENTATION NOTES"
+.PP
+The current Vthread implementation is sufficient for use in writing
+thread-safe libraries (e.g., the Sfio library). It still lacks useful
+facilities such as condition variables, private thread data, etc.
+Some future versions will support these.
+.PP
+The library has been ported to popular Unix versions including various
+flavors of BSD, LINUX, SOLARIS, IRIX, HPUX and Dave Korn's UWIN.
+For HPUX, it has only been tested on version B.11.00. Threads on older
+versions of HPUX do not compile/work properly to be usable under Vthread.
+
+.PP
 .SH AUTHOR
 Kiem-Phong Vo, kpv@research.att.com

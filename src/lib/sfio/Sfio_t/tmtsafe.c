@@ -66,7 +66,7 @@ void* writebig(arg)
 void*	arg;
 #endif
 {
-	int	r = (random()%3) + 1;	sleep(r);
+	int	r = (rand()%3) + 1;	sleep(r);
 
 	if(sfwrite(Sf,Bigz,sizeof(Bigz)) != sizeof(Bigz))
 		terror("Writing bigz");
@@ -82,7 +82,7 @@ int     sig;
 #endif
 {
 	tmesg("\tSignal %d.\n", sig);
-	exit(0);
+	TSTEXIT(0);
 }
 
 MAIN()
@@ -232,5 +232,5 @@ do_inverted: /* get back to here when trying to make things fail */
 
 #endif
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -4,19 +4,22 @@
 **	Written by Kiem-Phong Vo
 */
 
+#ifndef lcloff_t
+#define lcloff_t	long
+#endif
 
 #if __STD_C
-int fseek(FILE* f, long offset, int whence)
+int fseek(FILE* f, lcloff_t offset, int whence)
 #else
 int fseek(f,offset,whence)
 reg FILE*	f;
-reg long	offset;
+reg lcloff_t	offset;
 reg int		whence;
 #endif
 {
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	/* ready for either read or write */
@@ -38,3 +41,14 @@ reg int		whence;
 
 	return sfseek(sf, (Sfoff_t)offset, whence|SF_SHARE) < (Sfoff_t)0 ? -1 : 0;
 }
+
+
+#if _lib_fseeko && !_done_fseeko && !defined(fseek)
+#define _done_fseeko	1
+#undef lcloff_t
+#define lcloff_t	stdoff_t
+
+#define fseek		fseeko
+#include	"fseek.c"
+#undef fseek
+#endif

@@ -40,5 +40,5 @@ MAIN()
 	if(!(s = sfgetr(f,0,-1)) || strcmp(s,"333") != 0)
 		terror("sfgetr failed in getting last partial record\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

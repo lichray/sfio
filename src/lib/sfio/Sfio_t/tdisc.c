@@ -207,5 +207,5 @@ MAIN()
 	if(strcmp(External,"onetwo") != 0)
 		terror("Bad call of sfwr\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

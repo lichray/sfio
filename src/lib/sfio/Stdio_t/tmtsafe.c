@@ -60,7 +60,7 @@ void* writebig(arg)
 void*	arg;
 #endif
 {
-	int	r = (random()%3) + 1;	sleep(r);
+	int	r = (rand()%3) + 1;	sleep(r);
 
 	if(fwrite(Bigz,1,sizeof(Bigz),F) != sizeof(Bigz))
 		terror("Writing bigz");
@@ -81,7 +81,7 @@ MAIN()
 	for(i = 0, s = Bigz; i < N_STR; ++i, s += 10)
 		strcpy(s, "zzzzzzzzz\n");
 
-	tmesg("\tTesting thread-safty\n");
+	tmesg("\tTesting thread-safety\n");
 
 	/* spin threads writing small chunks */
 	F = fopen(tstfile(0),"w+");
@@ -170,5 +170,5 @@ MAIN()
 			terror("Bad count[%d] = %d", i, count[i]);
 #endif
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

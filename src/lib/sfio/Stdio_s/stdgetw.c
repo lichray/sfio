@@ -10,5 +10,5 @@ FILE*	f;
 {
 	int	w;
 
-	return sfread(f, &w, sizeof(int)) == sizeof(int) ? w : -1;
+	return (f && sfread(f, &w, sizeof(int)) == sizeof(int)) ? w : -1;
 }

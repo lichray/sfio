@@ -27,5 +27,5 @@ MAIN()
 		terror("Bad conversion, expecting %s and getting %s\n",str,s);
 #endif
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

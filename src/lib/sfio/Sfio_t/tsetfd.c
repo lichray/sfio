@@ -4,6 +4,7 @@ MAIN()
 {
 	Sfio_t	*f;
 	int	fd;
+	off_t	sk;
 
 	if(!(f = sfopen((Sfio_t*)0,tstfile(0),"w+")))
 		terror("Opening file\n");
@@ -26,8 +27,8 @@ MAIN()
 
 	if(sfsetfd(f,-1) != -1 || sffileno(f) != -1)
 		terror("setfd2\n");
-	if(lseek(fd,0L,1) != 1L)
-		terror("Bad seek address %d\n",lseek(fd,0L,1));
+	if((sk = lseek(fd, (off_t)0, 1)) != (off_t)1)
+		terror("Bad seek address %lld\n", (Sfoff_t)sk );
 	if(sfgetc(f) >= 0)
 		terror("sfgetc2\n");
 
@@ -36,5 +37,5 @@ MAIN()
 	if(sfgetc(f) != '2')
 		terror("sfgetc3\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -13,7 +13,7 @@ reg Sfio_t*	f;
 {
 	Sfdisc_t*	disc;
 	reg int		mode;
-	Sfoff_t		s = f->here;
+	Sfoff_t		s;
 
 	SFMTXSTART(f, (Sfoff_t)(-1));
 
@@ -26,6 +26,8 @@ reg Sfio_t*	f;
 	}
 
 	SFLOCK(f,0);
+
+	s = f->here;
 
 	if(f->extent >= 0)
 	{	if(f->flags&(SF_SHARE|SF_APPENDWR))
@@ -41,7 +43,7 @@ reg Sfio_t*	f;
 			}
 #if _sys_stat
 			else
-			{	Stat_t	st;
+			{	sfstat_t	st;
 				if(fstat(f->file,&st) < 0)
 					f->extent = -1;
 				else if((f->extent = st.st_size) < f->here)

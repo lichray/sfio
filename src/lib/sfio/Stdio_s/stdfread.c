@@ -18,7 +18,10 @@ Sfio_t*	f;
 {
 	ssize_t	rv;
 
+	if(!f || !buf)
+		return -1;
+
 	if((rv = sfread(f, buf, esize*nelts)) >= 0)
-		return rv/esize;
+		return esize == 0 ? 0 : rv/esize;
 	else	return 0;
 }

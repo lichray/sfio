@@ -22,12 +22,12 @@ Sfdouble_t	v;
 
 	/* make the magnitude of v < 1 */
 	if(v != 0.)
-		v = frexp(v,&exp);
+		v = frexpl(v,&exp);
 	else	exp = 0;
 
 	for(w = 1; w <= N_ARRAY; ++w)
 	{	/* get 2^SF_PRECIS precision at a time */
-		n = (int)(x = ldexp(v,SF_PRECIS));
+		n = (int)(x = ldexpl(v,SF_PRECIS));
 		v = x-n;
 		if(v <= 0.)
 			break;

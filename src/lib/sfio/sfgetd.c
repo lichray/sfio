@@ -38,7 +38,7 @@ Sfio_t*	f;
 		for(ends = s+p; s < ends; )
 		{	c = *s++;
 			v += SFUVALUE(c);
-			v = ldexp(v,-SF_PRECIS);
+			v = ldexpl(v,-SF_PRECIS);
 			if(!(c&SF_MORE))
 			{	f->next = s;
 				goto done;
@@ -48,7 +48,7 @@ Sfio_t*	f;
 	}
 
 done:
-	v = ldexp(v,(sign&02) ? -exp : exp);
+	v = ldexpl(v,(sign&02) ? -exp : exp);
 	if(sign&01)
 		v = -v;
 

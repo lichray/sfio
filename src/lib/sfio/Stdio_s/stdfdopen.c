@@ -15,7 +15,7 @@ reg char*	mode;
 {
 	int	sflags, uflag;
 
-	if(fd < 0 || (sflags = _sftype(mode,NIL(int*),&uflag)) == 0)
+	if(fd < 0 || !mode || (sflags = _sftype(mode,NIL(int*),&uflag)) == 0)
 		return NIL(Sfio_t*);
 	if(!uflag)
 		sflags |= SF_MTSAFE;

@@ -66,5 +66,5 @@ MAIN()
 	if(!(s = sfgetr(f,'\n',1)) || strcmp(s,"0123456789") != 0)
 		terror("Did not get 0123456789\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -15,7 +15,7 @@ reg FILE*	f;
 	reg Sfio_t*	sf;
 	int		w;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	if(sfread(sf,(char*)(&w),sizeof(int)) != sizeof(int))

@@ -16,7 +16,7 @@ reg FILE*	f;
 	reg int		rv;
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!s || !(sf = _sfstream(f)))
 		return -1;
 
 	if((rv = sfputr(sf,s,-1)) < 0)

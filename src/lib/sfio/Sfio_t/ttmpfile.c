@@ -42,5 +42,5 @@ MAIN()
 	if(sfclose(f) < 0)
 		terror("Can't close temp file\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

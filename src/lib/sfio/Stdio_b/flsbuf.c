@@ -9,7 +9,7 @@ FLSBUF(c,f)
 {
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	if((c = sfputc(sf,c)) < 0)
@@ -40,7 +40,6 @@ FLSBUF(c,f)
 		sf->mode |= SF_STDIO;
 		sf->endr = sf->endw = sf->data;
 #endif
-		SETSYNC(f);
 	}
 
 	return c;

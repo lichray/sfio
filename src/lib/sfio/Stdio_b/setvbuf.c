@@ -17,7 +17,7 @@ size_t		size;
 {
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	if(flags == _IOLBF)

@@ -4,10 +4,10 @@
 
 MAIN()
 {
-	Sfio_t*	null;
-	Sfio_t*	f;
-	char	buf[256*1024], b[256*1024];
-	int	k, n;
+	Sfio_t*		null;
+	Sfio_t*		f;
+	int		k, n;
+	static char	buf[256*1024], b[256*1024];
 
 	if(!(null = sfopen(NIL(Sfio_t*),"/dev/null","w")) )
 		terror("Opening /dev/null");
@@ -45,5 +45,5 @@ MAIN()
 		if(b[k] != buf[k])
 			terror("Bad data");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

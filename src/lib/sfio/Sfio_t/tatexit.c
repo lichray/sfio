@@ -42,5 +42,5 @@ char**	argv;
 			terror("Can't write to file");
 	}
 
-	exit(0);
+	TSTEXIT(0);
 }

@@ -27,7 +27,7 @@ Sfio_t*	f2;	/* top of stack	*/
 	reg int		n;
 	reg Sfio_t*	rf;
 	reg Sfrsrv_t*	rsrv;
-	reg Vtmutex_t*	mtx;
+	reg Void_t*	mtx;
 
 	STKMTXLOCK(f1,f2);
 

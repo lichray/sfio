@@ -10,5 +10,5 @@ int	c;
 FILE*	f;
 #endif
 {
-	return sfputc(f,c);
+	return f ? sfputc(f,c) : -1;
 }

@@ -15,7 +15,7 @@ FILE* tmpfile()
 
 	if(!(sf = sftmp(0)))
 		f = NIL(FILE*);
-	else if(!(f = _stdstream(sf)))
+	else if(!(f = _stdstream(sf, NIL(FILE*))))
 		sfclose(sf);
 	else	sf->flags |= SF_MTSAFE;
 

@@ -6,6 +6,10 @@
 #include	<sfio_t.h>
 #endif
 
+#if _hdr_unistd
+#include	<unistd.h>
+#endif
+
 #include	<errno.h>
 
 #include	"terror.h"

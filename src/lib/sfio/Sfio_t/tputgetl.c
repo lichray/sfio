@@ -18,5 +18,5 @@ MAIN()
 		if((r = (int)sfgetl(fp)) != i)
 			terror("Input=%d, Expect=%d\n",r,i);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -30,5 +30,5 @@ MAIN()
 	if(sfclose(op))
 		terror("sfclose(op)\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

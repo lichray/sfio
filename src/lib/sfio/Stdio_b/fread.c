@@ -17,11 +17,11 @@ reg FILE*	f;
 	reg Sfio_t*	sf;
 	reg ssize_t	rv;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!buf || !(sf = _sfstream(f)))
 		return 0;
 
 	if((rv = sfread(sf,buf,esize*nelts)) >= 0)
-		return rv/esize;
+		return (esize == 0 ? 0 : rv/esize);
 	else
 	{	_stdseterr(f,sf);
 		return 0;

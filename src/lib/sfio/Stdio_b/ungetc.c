@@ -14,7 +14,7 @@ reg FILE*	f;
 {
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	return sfungetc(sf,c);

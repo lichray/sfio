@@ -86,7 +86,7 @@ Sfdisc_t*      disc;
 
 	un = (Union_t*)disc;
 	if(un->type&UNSEEKABLE)
-		return -1L;
+		return (Sfoff_t)(-1);
 
 	if(type == 2)
 	{	extent = 0;
@@ -98,7 +98,7 @@ Sfdisc_t*      disc;
 		addr += un->here;
 
 	if(addr < 0)
-		return -1;
+		return (Sfoff_t)(-1);
 
 	/* find the stream where the addr could be in */
 	extent = 0;
@@ -111,7 +111,7 @@ Sfdisc_t*      disc;
 
 	s = (addr-extent) + un->f[i].lower;
 	if(sfseek(un->f[i].f,s,0) != s)
-		return -1;
+		return (Sfoff_t)(-1);
 
 	un->c = i;
 	un->here = addr;

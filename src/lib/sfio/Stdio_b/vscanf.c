@@ -1,6 +1,6 @@
 #include	"sfstdio.h"
 
-/*	Internal scanf egine to read from stdin
+/*	Internal scanf engine to read from stdin
 **	Written by Kiem-Phong Vo
 */
 
@@ -15,7 +15,7 @@ va_list args;           /* arg list if argf == 0 */
 	reg int		rv;
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(stdin)))
+	if(!form || !(sf = _sfstream(stdin)))
 		return -1;
 
 	if((rv = sfvscanf(sf,form,args)) <= 0)

@@ -1,5 +1,5 @@
 #include	"sfhdr.h"
-static char*	Version = "\n@(#)sfio (AT&T Labs - kpv) 2000-05-31\0\n";
+static char*	Version = "\n@(#)sfio (AT&T Labs - kpv) 2002-05-31\0\n";
 
 /*	Functions to set a given stream to some desired mode
 **
@@ -17,6 +17,8 @@ static char*	Version = "\n@(#)sfio (AT&T Labs - kpv) 2000-05-31\0\n";
 **		08/01/1997
 **		08/01/1998 (extended formatting)
 **		09/09/1999 (thread-safe)
+**		02/01/2001 (adaptive buffering)
+**		05/31/2002 (multi-byte handling in sfvprintf/vscanf)
 */
 
 /* the below is for protecting the application from SIGPIPE */
@@ -51,9 +53,7 @@ static void _sfcleanup()
 
 	for(p = &_Sfpool; p; p = p->next)
 	{	for(n = 0; n < p->n_sf; ++n)
-		{	f = p->sf[n];
-
-			if(SFFROZEN(f))
+		{	if(!(f = p->sf[n]) || SFFROZEN(f) )
 				continue;
 
 			SFLOCK(f,0);

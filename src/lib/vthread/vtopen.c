@@ -1,6 +1,6 @@
 #include	"vthdr.h"
 
-static char*    Version = "\n@(#)vthread (AT&T Labs - kpv) 2000-05-15\0\n";
+static char*    Version = "\n@(#)vthread (AT&T Labs - kpv) 2000-12-01\0\n";
 
 /*	Open a thread handle
 **
@@ -12,20 +12,23 @@ Vthread_t* vtopen(Vthread_t* vt, int flags)
 #else
 Vthread_t* vtopen(vt, flags)
 Vthread_t*	vt;
-int		flags
+int		flags;
 #endif
 {
 #if !vt_threaded
 	return NIL(Vthread_t*);
 #else
 	Vthread_t*	v;
-	int		s, slot;
+	int		s, slot, myvt;
 
 	VTONCE();
 
 	v = (Vthread_t*)Version; /* shut compiler warning */
 
 	vtmtxlock(_Vtmutex);
+
+	myvt = 0;
+
 	if(vt)
 	{	/* if there is a running thread, wait for its termination */
 		for(slot = 0; slot < _Vtnlist; ++slot)
@@ -76,6 +79,7 @@ int		flags
 			return NIL(Vthread_t*);
 		}
 		flags |= VT_INIT|VT_FREE;
+		myvt = 1;
 	}
 
 	if(flags&VT_INIT)
@@ -84,8 +88,12 @@ int		flags
 		v->error = 0;
 		v->exit  = NIL(Void_t*);
 #if !_WIN32
-		if((s = pthread_attr_init(&v->attrs)) != 0)
-			v->error = s;
+		if(pthread_attr_init(&v->attrs) != 0)
+		{	if(myvt)
+				free(v);
+			vtmtxunlock(_Vtmutex);
+			return NIL(Vthread_t*);
+		}
 #endif
 	}
 

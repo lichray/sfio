@@ -21,5 +21,5 @@ MAIN()
 	fseek(f, 0L, 0);
 	fread(buf, 1, sizeof(buf), f);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

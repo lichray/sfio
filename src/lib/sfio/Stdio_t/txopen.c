@@ -94,5 +94,5 @@ MAIN()
 	if(rbuf[i] != '\n')
 		terror("Did not get new-line");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

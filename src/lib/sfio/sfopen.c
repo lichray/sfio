@@ -31,14 +31,12 @@ reg char*	mode;		/* mode of the stream */
 			   (oflags &= (O_TEXT|O_BINARY|O_APPEND)) != 0 )
 			{	/* set the wanted file access control flags */
 				int ctl = fcntl(f->file, F_GETFL, 0);
-				ctl &= ~(O_TEXT|O_BINARY|O_APPEND) | oflags;
+				ctl = (ctl & ~(O_TEXT|O_BINARY|O_APPEND)) | oflags;
 				fcntl(f->file, F_SETFL, ctl);
 			}
 
 			/* set all non read-write flags */
 			f->flags |= (sflags & (SF_FLAGS & ~SF_RDWR));
-			if(f->flags&SF_LINE)
-				f->bits |= SF_KEEPLINE;
 
 			/* reset read/write modes */
 			if((sflags &= SF_RDWR) != 0)

@@ -29,5 +29,5 @@ MAIN()
 	if(strcmp(s,"0123456789") != 0)
 		terror("Data is wrong\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

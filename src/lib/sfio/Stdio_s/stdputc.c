@@ -10,5 +10,5 @@ int	c;
 FILE*	f;
 #endif
 {
-	return _std_putc(c,f);
+	return f ? _std_putc(c,f) : -1;
 }

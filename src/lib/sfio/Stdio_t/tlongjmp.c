@@ -58,5 +58,5 @@ MAIN()
 			terror("fgets returned wrong data\n");
 	}
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

@@ -2,9 +2,22 @@
 # This file defines probes for local features that sfio requires.
 # Such probes are interpreted by the "iffe" language interpreter.
 # Results are stored in the FEATURE directory.
-# Written by Kiem-Phong Vo (06/27/92).
-# Converted to sfio v10/01/94 by Giampiero Sierra (06/08/95).
+#
+# Written by Kiem-Phong Vo
 ##################################################################
+
+hdr time
+sys time
+
+hdr stdarg
+hdr stdlib
+
+hdr wchar
+typ mbstate_t	wchar.h
+lib mbrtowc
+lib wcrtomb
+lib mbtowc
+lib wctomb
 
 hdr string
 hdr math
@@ -18,9 +31,17 @@ hdr float
 lib atexit
 lib onexit
 
+lib ftruncate
+
+lib ftruncate64
+lib open64
+lib close64
+lib creat64
 lib lseek64
 lib stat64
+lib fstat64
 lib mmap64
+lib munmap64
 typ off64_t
 typ struct_stat64 compile{
 	#include	<sys/types.h>
@@ -46,8 +67,6 @@ lib bzero
 lib memcpy
 lib memset
 lib memalign
-hdr time
-sys time
 
 lib memchr note{ see if memchr is fast }end execute{
 	#include	<sys/types.h>

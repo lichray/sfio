@@ -17,7 +17,7 @@ Sfdisc_t*	disc;
 	Count += 1;
 	if((n % Size) != 0)
 		terror("Wrong record size\n");
-	return write(f->file,buf,n);
+	return write(sffileno(f),buf,n);
 }
 
 Sfdisc_t	Disc = {(Sfread_f)0, writef, (Sfseek_f)0, (Sfexcept_f)0, (Sfdisc_t*)0};
@@ -61,5 +61,5 @@ MAIN()
 	if(Count != 10)
 		terror("Wrong number of writes2\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

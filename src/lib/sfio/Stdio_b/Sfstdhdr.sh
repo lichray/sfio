@@ -15,8 +15,12 @@
 trap "eval 'rm kpv.xxx.* >/dev/null 2>&1'" 0 1 2
 
 # Take cross-compiler name as an argument
+if test "$CC" != ""
+then C_C="$CC"
+else C_C="cc"
+fi
 if test "$1" = ""
-then	CC=cc
+then	CC="$C_C"
 else	CC="$*"
 fi
 
@@ -61,7 +65,7 @@ do
 	} >kpv.xxx.c
 
 	case $name in
-	_iob)		pat='__*iob[a-zA-Z0-9_]*' ;;
+	_iob)		pat='_[a-z]*_*iob[a-zA-Z0-9_]*' ;;
 	_filbuf)	pat='__*fi[a-zA-Z0-9_]*buf[a-zA-Z0-9_]*' ;;
 	_flsbuf)	pat='__*fl[a-zA-Z0-9_]*buf[a-zA-Z0-9_]*' ;;
 	_uflow)		pat='__*u[a-z]*flow[a-zA-Z0-9_]*' ;;
@@ -89,11 +93,13 @@ w
 	NAME="`cat kpv.xxx.name`"
 	{ if test "$NAME" != "${name}_kpv"
 	  then	echo ""
+		echo "#if !_msft$name"
 		echo "#define NAME$name	\"$NAME\""
 		if test "$NAME" != "$name"
 		then	echo "#undef $name"
 			echo "#define $name	$NAME"
 		fi
+		echo "#endif"
 	  fi
 	} >>sfstdhdr.h
 done

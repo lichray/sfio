@@ -1,15 +1,11 @@
-# This makefile builds both uni-threaded and multi-threaded versions
+# This Makefile builds both uni-threaded and multi-threaded versions
 # of the libraries. It can be used as:
-#	1. make install
-#		building both versions
-#	2. make install_ut
-#		building the uni-threaded version only
-#	3. make install_mt
-#		building the multi-threaded version only
+#	1. make install:	build the uni-threaded version
+#	2. make install_mt:	build the multi-threaded version
 #
 # Written by Kiem-Phong Vo
 
-LIBTYPE=""
+LIBTYPE=
 
 INCDIR=	../../../include
 LIBDIR=	../../../lib
@@ -23,26 +19,27 @@ AR=	ar
 CC=	cc
 
 # sfio
+HDRS=	sfio.h sfio_s.h sfio_t.h sfhdr.h vthread.h
 SRCS=	sfclose.c sfclrlock.c sfcvt.c sfdisc.c sfdlen.c sfexcept.c \
 	sfextern.c sffilbuf.c sfflsbuf.c sfprints.c sfgetd.c sfgetl.c \
 	sfgetr.c sfgetu.c sfllen.c sfmode.c sfmove.c sfnew.c \
 	sfnotify.c sfnputc.c sfopen.c sfpkrd.c sfpool.c sfpopen.c \
 	sfprintf.c sfputd.c sfputl.c sfputr.c sfputu.c sfrd.c sfread.c \
 	sfscanf.c sfseek.c sfset.c sfsetbuf.c sfsetfd.c sfsize.c sfsk.c \
-	sfstack.c sfstrtod.c sfsync.c sftable.c sftell.c sftmp.c \
+	sfstack.c sfsync.c sftable.c sftell.c sftmp.c \
 	sfungetc.c sfvprintf.c sfvscanf.c sfwr.c sfwrite.c sfexit.c \
 	sfpurge.c sfpoll.c sfreserve.c sfswap.c sfraise.c sfmutex.c \
-	sfgetm.c sfputm.c
+	sfgetm.c sfputm.c sfresize.c sffrexp.c sfstrtof.c
 OBJS=	sfclose.o sfclrlock.o sfcvt.o sfdisc.o sfdlen.o sfexcept.o \
 	sfextern.o sffilbuf.o sfflsbuf.o sfprints.o sfgetd.o sfgetl.o \
 	sfgetr.o sfgetu.o sfllen.o sfmode.o sfmove.o sfnew.o \
 	sfnotify.o sfnputc.o sfopen.o sfpkrd.o sfpool.o sfpopen.o \
 	sfprintf.o sfputd.o sfputl.o sfputr.o sfputu.o sfrd.o sfread.o \
 	sfscanf.o sfseek.o sfset.o sfsetbuf.o sfsetfd.o sfsize.o sfsk.o \
-	sfstack.o sfstrtod.o sfsync.o sftable.o sftell.o sftmp.o \
+	sfstack.o sfsync.o sftable.o sftell.o sftmp.o \
 	sfungetc.o sfvprintf.o sfvscanf.o sfwr.o sfwrite.o sfexit.o \
 	sfpurge.o sfpoll.o sfreserve.o sfswap.o sfraise.o sfmutex.o \
-	sfgetm.o sfputm.o
+	sfgetm.o sfputm.o sfresize.o sffrexp.o sfstrtof.o
 
 # function versions of macros
 SFIO_F=	Sfio_f/_sfclrerr.o Sfio_f/_sfdlen.o Sfio_f/_sfeof.o \
@@ -59,7 +56,7 @@ STDIO_S=Stdio_s/stdfgetc.o Stdio_s/stdfprintf.o Stdio_s/stdfputc.o \
 	Stdio_s/stdputc.o Stdio_s/stdputw.o Stdio_s/stdscanf.o \
 	Stdio_s/stdsprintf.o Stdio_s/stdsetvbuf.o Stdio_s/stdtmpfile.o \
 	Stdio_s/stdfopen.o Stdio_s/stdpopen.o Stdio_s/stdfreopen.o \
-	Stdio_s/stdfwrite.o Stdio_s/stdfread.o
+	Stdio_s/stdfwrite.o Stdio_s/stdfread.o Stdio_s/stdfflush.o
 
 # Thread-safety
 MTSAFE=	../vthread/vtextern.o ../vthread/vtmtxclrlock.o \
@@ -74,81 +71,98 @@ SFIO_DC=Sfio_dc/sfdcdio.o Sfio_dc/sfdcdos.o Sfio_dc/sfdcfilter.o \
 
 .c.o:
 	$(CC) -c $(CCFLAGS) $*.c
-
-# only one of the below install targets should be uncommented
-#install: install_ut
-#install: vthread install_mt
-install: install_ut vthread install_mt
-
-# this target builds the Vthread library
-vthread:
-	cd ../vthread; $(MAKE) SHELL="$(SHELL)" CC="$(CC)" \
-		CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)" install
+%.o : %.c
+	$(CC) -c $(CCFLAGS) $*.c
 
 # this target builds the uni-threaded version of Sfio
-install_ut:
-	echo""; echo "BUILDING UNI-THREADED libsfio.a and libstdio.a"
+install:
+	echo""; echo "BUILDING UNI-THREADED libsfio.a"
 	$(SHELL) ./Makestate.sh unithreaded
 	$(MAKE) LIBTYPE="-Dvt_threaded=0" SHELL="$(SHELL)" CC="$(CC)" \
 		CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)" install_unithreaded
 
 # this target builds the multi-threaded version of Sfio
-install_mt:
-	echo""; echo "BUILDING MULTI-THREADED libsfio-mt.a and libstdio-mt.a";
+install_mt: vthread
+	echo""; echo "BUILDING MULTI-THREADED libsfio-mt.a";
 	$(SHELL) ./Makestate.sh multithreaded
 	$(MAKE) LIBTYPE="-Dvt_threaded=1" SHELL="$(SHELL)" CC="$(CC)" \
 		CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)" install_multithreaded
 
+# this target builds the Vthread library
+vthread:
+	cd ../vthread; $(MAKE) -f Makefile SHELL="$(SHELL)" CC="$(CC)" \
+		CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)" install
+
 install_unithreaded: libsfio.a libstdio.a
-	cp sfio.h ast_common.h sfio_t.h Stdio_s/stdio.h Sfio_dc/sfdisc.h $(INCDIR)
-	cp libsfio.a Stdio_b/libstdio.a $(LIBDIR)
+	cp ast_common.h sfio.h sfio_s.h sfio_t.h Stdio_s/stdio.h Sfio_dc/sfdisc.h \
+		$(INCDIR)
+	cp libsfio.a $(LIBDIR)
 	-(ranlib $(LIBDIR)/libsfio.a; exit 0) >/dev/null 2>&1
+	cp Stdio_b/libstdio.a $(LIBDIR)
 	-(ranlib $(LIBDIR)/libstdio.a; exit 0) >/dev/null 2>&1
 
-libsfio.a: ast_common.h FEATURE/sfio $(OBJS) mksfio_f mkstdio_s mksfio_dc
+libsfio.a: FEATURES $(OBJS) mksfio_f mkstdio_s mksfio_dc
 	$(AR) cr libsfio.a $(OBJS) $(SFIO_F) $(STDIO_S) $(SFIO_DC)
 	-(ranlib libsfio.a; exit 0) >/dev/null 2>&1
 
-libstdio.a: FEATURE/stdio
-	cd Stdio_b; $(MAKE) LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" CC="$(CC)" \
-		CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)" libstdio.a
+libstdio.a:
+	cd Stdio_b; $(MAKE) -f Makefile LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" \
+		CC="$(CC)" CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)" libstdio.a
 
 install_multithreaded: libsfio-mt.a libstdio-mt.a
-	cp sfio.h ast_common.h sfio_t.h Stdio_s/stdio.h Sfio_dc/sfdisc.h $(INCDIR)
-	cp libsfio-mt.a Stdio_b/libstdio-mt.a $(LIBDIR)
+	cp ast_common.h sfio.h sfio_s.h sfio_t.h Stdio_s/stdio.h Sfio_dc/sfdisc.h \
+		$(INCDIR)
+	cp libsfio-mt.a $(LIBDIR)
 	-(ranlib $(LIBDIR)/libsfio-mt.a; exit 0) >/dev/null 2>&1
+	cp Stdio_b/libstdio-mt.a $(LIBDIR)
 	-(ranlib $(LIBDIR)/libstdio-mt.a; exit 0) >/dev/null 2>&1
 
-libsfio-mt.a: ast_common.h FEATURE/sfio $(OBJS) mksfio_f mkstdio_s mksfio_dc
+libsfio-mt.a: FEATURES $(OBJS) mksfio_f mkstdio_s mksfio_dc
 	$(AR) cr libsfio-mt.a $(OBJS) $(SFIO_F) $(STDIO_S) $(SFIO_DC) $(MTSAFE)
 	-(ranlib libsfio-mt.a; exit 0) >/dev/null 2>&1
 
-libstdio-mt.a: FEATURE/stdio
-	cd Stdio_b; $(MAKE) LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" CC="$(CC)" \
-		CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)" libstdio-mt.a
+libstdio-mt.a:
+	cd Stdio_b; $(MAKE) -f Makefile LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" \
+		 CC="$(CC)" CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)" libstdio-mt.a
 
 # the make goals below are common to both uni&multi-threaded versions
+FEATURES: FEATURE/common FEATURE/float FEATURE/sfio FEATURE/iffeio FEATURE/sfinit
+FEATURE/iffeio: FEATURE/common FEATURE/stdio.lcl
+	$(BINDIR)/iffe set cc $(CC) $(CCFLAGS) : run features/iffeio
+FEATURE/stdio.lcl: features/stdio_lcl
+	$(BINDIR)/iffe - set cc $(CC) $(CCFLAGS) : run features/stdio_lcl > \
+		FEATURE/stdio.lcl
+FEATURE/common: features/common
+	$(BINDIR)/iffe set cc $(CC) $(CCFLAGS) : run features/common
+	-(rm ast_common.h; ln FEATURE/common ast_common.h; exit 0) >/dev/null 2>&1
+FEATURE/float: features/float
+	$(BINDIR)/iffe set cc $(CC) $(CCFLAGS) : run features/float
+FEATURE/sfinit: features/sfinit.c
+	$(BINDIR)/iffe set cc $(CC) $(CCFLAGS) : run features/sfinit.c
 FEATURE/sfio: features/sfio
-	$(BINDIR)/iffe set cc $(CC) $(CCMODE) $(CXFLAGS) : run features/sfio
-FEATURE/stdio: features/stdio
-	$(BINDIR)/iffe set cc $(CC) $(CCMODE) $(CXFLAGS) : run features/stdio
-ast_common.h: features/common
-	$(BINDIR)/iffe - set cc $(CC) $(CCMODE) $(CXFLAGS) : \
-		run features/common > ast_common.h
+	$(BINDIR)/iffe set cc $(CC) $(CCFLAGS) : run features/sfio
 mksfio_f:
-	cd Sfio_f; $(MAKE) LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" CC="$(CC)" \
-		CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)"
+	cd Sfio_f; $(MAKE) -f Makefile LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" \
+		CC="$(CC)" CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)"
 mkstdio_s:
-	cd Stdio_s; $(MAKE) LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" CC="$(CC)" \
-		CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)"
+	cd Stdio_s; $(MAKE) -f Makefile LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" \
+		CC="$(CC)" CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)"
 mksfio_dc:
-	cd Sfio_dc; $(MAKE) LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" CC="$(CC)" \
-		CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)"
+	cd Sfio_dc; $(MAKE) -f Makefile LIBTYPE="$(LIBTYPE)" SHELL="$(SHELL)" \
+		CC="$(CC)" CCMODE="$(CCMODE)" CXFLAGS="$(CXFLAGS)"
+
+3dupdate:
+	cp Makefile $(SRCS) $(HDRS) ...
+	cd features; cp common float iffeio sfinit.c sfio stdio stdio_lcl ...
+	cd Sfio_f;  $(MAKE) -f Makefile SHELL="$(SHELL)" 3dupdate
+	cd Stdio_s; $(MAKE) -f Makefile SHELL="$(SHELL)" 3dupdate
+	cd Stdio_b; $(MAKE) -f Makefile SHELL="$(SHELL)" 3dupdate
+	cd Sfio_dc; $(MAKE) -f Makefile SHELL="$(SHELL)" 3dupdate
 
 clean:
 	-(rm -rf FEATURE $(OBJS) ast_common.h Makefile.state; exit 0) >/dev/null 2>&1
 	-(rm libsfio.a libstdio.a libsfio-mt.a libstdio-mt.a; exit 0) >/dev/null 2>&1
-	cd Sfio_f; $(MAKE) SHELL="$(SHELL)" clean
-	cd Stdio_s; $(MAKE) SHELL="$(SHELL)" clean
-	cd Stdio_b; $(MAKE) SHELL="$(SHELL)" clean
-	cd Sfio_dc; $(MAKE) SHELL="$(SHELL)" clean
+	cd Sfio_f;  $(MAKE) -f Makefile SHELL="$(SHELL)" clean
+	cd Stdio_s; $(MAKE) -f Makefile SHELL="$(SHELL)" clean
+	cd Stdio_b; $(MAKE) -f Makefile SHELL="$(SHELL)" clean
+	cd Sfio_dc; $(MAKE) -f Makefile SHELL="$(SHELL)" clean

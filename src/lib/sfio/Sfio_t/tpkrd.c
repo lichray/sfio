@@ -40,5 +40,5 @@ MAIN()
 	if(!(s = sfgetr(sfstdin,'\n',1)) || strcmp(s,"56789") != 0)
 		terror("Expecting 56789\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

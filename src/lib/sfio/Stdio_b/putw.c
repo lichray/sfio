@@ -15,7 +15,7 @@ reg FILE*	f;
 {
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	if(sfwrite(sf,(char*)(&c),sizeof(int)) <= 0)

@@ -18,7 +18,7 @@ Sfdouble_t	v;
 	reg uchar	*s, *ends;
 	int		exp;
 	uchar		c[N_ARRAY];
-	double		x;
+	Sfdouble_t	x;
 
 	SFMTXSTART(f,-1);
 
@@ -33,16 +33,9 @@ Sfdouble_t	v;
 	}
 	else	n = 0;
 
-#if !_ast_fltmax_double /* don't know how to do these yet */
-	if(v > SF_MAXDOUBLE && !_has_expfuncs)
-	{	SFOPEN(f,0);
-		SFMTXRETURN(f, -1);
-	}
-#endif
-
 	/* make the magnitude of v < 1 */
 	if(v != 0.)
-		v = frexp(v,&exp);
+		v = frexpl(v,&exp);
 	else	exp = 0;
 
 	/* code the sign of v and exp */
@@ -61,7 +54,7 @@ Sfdouble_t	v;
 	s = (ends = &c[0])+sizeof(c);
 	while(s > ends)
 	{	/* get 2^SF_PRECIS precision at a time */
-		n = (int)(x = ldexp(v,SF_PRECIS));
+		n = (int)(x = ldexpl(v,SF_PRECIS));
 		*--s = n|SF_MORE;
 		v = x-n;
 		if(v <= 0.)

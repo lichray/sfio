@@ -18,7 +18,7 @@ char*	mode;
 
 	if(!(sf = sfpopen((Sfio_t*)(-1), string, mode)))
 		f = NIL(FILE*);
-	else if(!(f = _stdstream(sf)))
+	else if(!(f = _stdstream(sf, NIL(FILE*))))
 		sfclose(sf);
 	else
 	{	int	uflag;

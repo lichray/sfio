@@ -67,5 +67,5 @@ MAIN()
 	if((r = (int)sftell(f1)) != (1024+64) )
 		terror("seek position wrong s=%d\n", r);
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

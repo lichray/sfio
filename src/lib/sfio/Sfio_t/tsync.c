@@ -151,12 +151,12 @@ MAIN()
 	if((off = sftell(f2)) != 1)
 		terror("Wrong sfseek location %lld\n", off);
 	sfsync(0);
-	if((off = (Sfoff_t)lseek(sffileno(f2),0L,1)) != 1)
+	if((off = (Sfoff_t)lseek(sffileno(f2), (off_t)0, 1)) != 1)
 		terror("Wrong lseek location %lld\n", off);
 
 	dupf2 = dup(sffileno(f2));
 	sfclose(f2);
-	if((off = (Sfoff_t)lseek(dupf2,0L,1)) != 1)
+	if((off = (Sfoff_t)lseek(dupf2, (off_t)0, 1)) != 1)
 		terror("Wrong lseek location %lld\n", off);
 
 	/* test to see if data is written correctly */
@@ -186,5 +186,5 @@ MAIN()
 			terror("Bad read data");
 	}
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

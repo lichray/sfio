@@ -149,5 +149,5 @@ MAIN()
 	if(!(s = sfreserve(f1,3,1)) || memcmp(s,"abc",3) != 0)
 		terror("Can't get data from f1\n");
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

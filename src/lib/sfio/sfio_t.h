@@ -24,7 +24,8 @@
 	Void_t*			mutex;	/* mutex for thread-safety	*/ \
 	Void_t*			stdio;	/* stdio FILE if any		*/ \
 	Sfoff_t			lpos;	/* last seek position		*/ \
-	size_t			iosz;	/* prefer size for I/O		*/
+	size_t			iosz;	/* prefer size for I/O		*/ \
+	Void_t*			fill[2];/* modest expansion		*/
 
 #include	"sfio.h"
 

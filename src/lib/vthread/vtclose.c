@@ -37,10 +37,15 @@ Vthread_t*	vt;
 	}
 
 	_Vtlist[s] = NIL(Vthread_t*);
-	vtmtxunlock(_Vtmutex);
+
+#if !_WIN32
+	pthread_attr_destroy(&vt->attrs);
+#endif
 
 	if(vt->state & VT_FREE)
 		free(vt);
+
+	vtmtxunlock(_Vtmutex);
 
 	return 0;
 

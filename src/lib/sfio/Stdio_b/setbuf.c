@@ -15,7 +15,7 @@ char*		buf;
 {
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return;
 
 	(void)sfsetbuf(sf,(Void_t*)buf,BUFSIZ);

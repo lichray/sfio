@@ -4,17 +4,35 @@
 **	Written by Kiem-Phong Vo
 */
 
+#ifndef lcloff_t
+#define lcloff_t	long
+#endif
+
 #if __STD_C
-long ftell(reg FILE* f)
+lcloff_t ftell(reg FILE* f)
 #else
-long ftell(f)
+lcloff_t ftell(f)
 reg FILE*	f;
 #endif
 {
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(f)))
-		return -1L;
+	if(!(sf = _sfstream(f)))
+		return (lcloff_t)(-1);
 
-	return (long)sfseek(sf, (Sfoff_t)0, SEEK_CUR|SF_SHARE);
+	return (lcloff_t)sfseek(sf, (Sfoff_t)0, SEEK_CUR|SF_SHARE);
 }
+
+
+#if _lib_ftello && !_done_ftello && !defined(ftell)
+
+#define _done_ftello	1
+
+#undef lcloff_t
+#define lcloff_t	stdoff_t
+
+#define ftell	ftello
+#include	"ftell.c"
+#undef ftell
+
+#endif

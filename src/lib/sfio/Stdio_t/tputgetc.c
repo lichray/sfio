@@ -18,5 +18,5 @@ MAIN()
 		if((c = fgetc(f)) != ((i%26)+'a'))
 			terror("Input=%#o, Expect=%c\n",c,(i%26)+'a');
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

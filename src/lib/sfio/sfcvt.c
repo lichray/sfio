@@ -1,8 +1,8 @@
 #include	"sfhdr.h"
 
-/*	Convert a floating point value to ASCII
+/*	Convert a floating point value to ASCII.
 **
-**	Written by Kiem-Phong Vo
+**	Written by Kiem-Phong Vo and Glenn Fowler (SFFMT_AFORMAT)
 */
 
 static char		*Inf = "Inf", *Zero = "0";
@@ -11,97 +11,135 @@ static char		*Inf = "Inf", *Zero = "0";
 #define SF_ZERO		((_Sfi = 1), Zero)
 
 #if __STD_C
-char* _sfcvt(Void_t* dv, int n_digit, int* decpt, int* sign, int format)
+char* _sfcvt(Sfdouble_t dv, char* buf, size_t size, int n_digit,
+		int* decpt, int* sign, int* len, int format)
 #else
-char* _sfcvt(dv,n_digit,decpt,sign,format)
-Void_t*	dv;		/* value to convert		*/
-int	n_digit;	/* number of digits wanted	*/
-int*	decpt;		/* to return decimal point	*/
-int*	sign;		/* to return sign		*/
-int	format;		/* conversion format		*/
+char* _sfcvt(dv,buf,size,n_digit,decpt,sign,len,format)
+Sfdouble_t	dv;		/* value to convert		*/
+char*		buf;		/* conversion goes here		*/
+size_t		size;		/* size of buf			*/
+int		n_digit;	/* number of digits wanted	*/
+int*		decpt;		/* to return decimal point	*/
+int*		sign;		/* to return sign		*/
+int*		len;		/* return string length		*/
+int		format;		/* conversion format		*/
 #endif
 {
-	reg char	*sp;
-	reg long	n, v;
-	reg char	*ep, *buf, *endsp;
-	static char	*Buf;
+	reg char		*sp;
+	reg long		n, v;
+	reg char		*ep, *b, *endsp;
+	_ast_flt_unsigned_max_t	m;
 
-	/* set up local buffer */
-	if(!Buf && !(Buf = (char*)malloc(SF_MAXDIGITS)))
-		return SF_INFINITE;
+	static char		lx[] = "0123456789abcdef";
+	static char		ux[] = "0123456789ABCDEF";
 
 	*sign = *decpt = 0;
 
 #if !_ast_fltmax_double
 	if(format&SFFMT_LDOUBLE)
-	{	Sfdouble_t	dval = *((Sfdouble_t*)dv);
+	{	Sfdouble_t	f = dv;
 
-		if(dval == 0.)
+		if(f == 0.)
 			return SF_ZERO;
-		else if((*sign = (dval < 0.)) )	/* assignment = */
-			dval = -dval;
+		else if((*sign = (f < 0.)) )	/* assignment = */
+			f = -f;
+		if(f < LDBL_MIN)
+			return SF_ZERO;
+		else if(f > LDBL_MAX)
+			return SF_INFINITE;
+
+		if(format & SFFMT_AFORMAT)
+		{	Sfdouble_t	g;
+			int		x;
+			b = sp = buf;
+			ep = (format & SFFMT_UPPER) ? ux : lx;
+			if(n_digit <= 0 || n_digit >= (size - 9))
+				n_digit = size - 9;
+			endsp = sp + n_digit + 1;
+
+			g = frexpl(f, &x);
+			*decpt = x;
+			f = ldexpl(g, 8 * sizeof(m) - 3);
+
+			for (;;)
+			{	m = f;
+				x = 8 * sizeof(m);
+				while ((x -= 4) >= 0)
+				{	*sp++ = ep[(m >> x) & 0xf];
+					if (sp >= endsp)
+					{	ep = sp + 1;
+						goto done;
+					}
+				}
+				f -= m;
+				f = ldexpl(f, 8 * sizeof(m));
+			}
+		}
 
 		n = 0;
-		if(dval >= (Sfdouble_t)SF_MAXLONG)
+		if(f >= (Sfdouble_t)SF_MAXLONG)
 		{	/* scale to a small enough number to fit an int */
 			v = SF_MAXEXP10-1;
 			do
-			{	if(dval < _Sfpos10[v])
+			{	if(f < _Sfpos10[v])
 					v -= 1;
 				else
 				{
-					dval *= _Sfneg10[v];
+					f *= _Sfneg10[v];
 					if((n += (1<<v)) >= SF_IDIGITS)
 						return SF_INFINITE;
 				}
-			} while(dval >= (Sfdouble_t)SF_MAXLONG);
+			} while(f >= (Sfdouble_t)SF_MAXLONG);
 		}
 		*decpt = (int)n;
 
-		buf = sp = Buf + SF_INTPART;
-		if((v = (int)dval) != 0)
+		b = sp = buf + SF_INTPART;
+		if((v = (int)f) != 0)
 		{	/* translate the integer part */
-			dval -= (Sfdouble_t)v;
+			f -= (Sfdouble_t)v;
 
 			sfucvt(v,sp,n,ep,long,ulong);
 
-			n = buf-sp;
+			n = b-sp;
 			if((*decpt += (int)n) >= SF_IDIGITS)
 				return SF_INFINITE;
-			buf = sp;
-			sp = Buf + SF_INTPART;
+			b = sp;
+			sp = buf + SF_INTPART;
 		}
 		else	n = 0;
 
 		/* remaining number of digits to compute; add 1 for later rounding */
 		n = (((format&SFFMT_EFORMAT) || *decpt <= 0) ? 1 : *decpt+1) - n;
 		if(n_digit > 0)
+		{	if(n_digit > LDBL_DIG)
+				n_digit = LDBL_DIG;
 			n += n_digit;
+		}
 
-		if((ep = (sp+n)) > (endsp = Buf+(SF_MAXDIGITS-2)))
+		if((ep = (sp+n)) > (endsp = buf+(size-2)))
 			ep = endsp; 
 		if(sp > ep)
 			sp = ep;
 		else
 		{
-			if((format&SFFMT_EFORMAT) && *decpt == 0 && dval > 0.)
+			if((format&SFFMT_EFORMAT) && *decpt == 0 && f > 0.)
 			{	Sfdouble_t	d;
-				while((int)(d = dval*10.) == 0)
-				{	dval = d;
+				while((int)(d = f*10.) == 0)
+				{	f = d;
 					*decpt -= 1;
 				}
 			}
 
 			while(sp < ep)
 			{	/* generate fractional digits */
-				if(dval <= 0.)
+				if(f <= 0.)
 				{	/* fill with 0's */
 					do { *sp++ = '0'; } while(sp < ep);
 					goto done;
 				}
-				else if((n = (long)(dval *= 10.)) < 10)
+				else if((n = (long)(f *= 10.)) < 10)
 				{	*sp++ = '0' + n;
-					dval -= n;
+					f -= n;
 				}
 				else /* n == 10 */
 				{	do { *sp++ = '9'; } while(sp < ep);
@@ -110,73 +148,107 @@ int	format;		/* conversion format		*/
 		}
 	} else
 #endif
-	{	double	dval = *((double*)dv);
+	{	double	f = (double)dv;
 
-		if(dval == 0.)
+		if(f == 0.)
 			return SF_ZERO;
-		else if((*sign = (dval < 0.)) )	/* assignment = */
-			dval = -dval;
+		else if((*sign = (f < 0.)) )	/* assignment = */
+			f = -f;
+		if(f < DBL_MIN)
+			return SF_ZERO;
+		else if(f > DBL_MAX)
+			return SF_INFINITE;
 
+		if(format & SFFMT_AFORMAT)
+		{	double	g;
+			int	x;
+			b = sp = buf;
+			ep = (format & SFFMT_UPPER) ? ux : lx;
+			if(n_digit <= 0 || n_digit >= (size - 9))
+				n_digit = size - 9;
+			endsp = sp + n_digit;
+
+			g = frexp(f, &x);
+			*decpt = x;
+			f = ldexp(g, 8 * sizeof(m) - 3);
+
+			for (;;)
+			{	m = f;
+				x = 8 * sizeof(m);
+				while ((x -= 4) >= 0)
+				{	*sp++ = ep[(m >> x) & 0xf];
+					if (sp >= endsp)
+					{	ep = sp + 1;
+						goto done;
+					}
+				}
+				f -= m;
+				f = ldexp(f, 8 * sizeof(m));
+			}
+		}
 		n = 0;
-		if(dval >= (double)SF_MAXLONG)
+		if(f >= (double)SF_MAXLONG)
 		{	/* scale to a small enough number to fit an int */
 			v = SF_MAXEXP10-1;
 			do
-			{	if(dval < _Sfpos10[v])
+			{	if(f < _Sfpos10[v])
 					v -= 1;
 				else
-				{	dval *= _Sfneg10[v];
+				{	f *= _Sfneg10[v];
 					if((n += (1<<v)) >= SF_IDIGITS)
 						return SF_INFINITE;
 				}
-			} while(dval >= (double)SF_MAXLONG);
+			} while(f >= (double)SF_MAXLONG);
 		}
 		*decpt = (int)n;
 
-		buf = sp = Buf + SF_INTPART;
-		if((v = (int)dval) != 0)
+		b = sp = buf + SF_INTPART;
+		if((v = (int)f) != 0)
 		{	/* translate the integer part */
-			dval -= (double)v;
+			f -= (double)v;
 
 			sfucvt(v,sp,n,ep,long,ulong);
 
-			n = buf-sp;
+			n = b-sp;
 			if((*decpt += (int)n) >= SF_IDIGITS)
 				return SF_INFINITE;
-			buf = sp;
-			sp = Buf + SF_INTPART;
+			b = sp;
+			sp = buf + SF_INTPART;
 		}
 		else	n = 0;
 
 		/* remaining number of digits to compute; add 1 for later rounding */
 		n = (((format&SFFMT_EFORMAT) || *decpt <= 0) ? 1 : *decpt+1) - n;
 		if(n_digit > 0)
+		{	if(n_digit > DBL_DIG)
+				n_digit = DBL_DIG;
 			n += n_digit;
+		}
 
-		if((ep = (sp+n)) > (endsp = Buf+(SF_MAXDIGITS-2)))
+		if((ep = (sp+n)) > (endsp = buf+(size-2)))
 			ep = endsp; 
 		if(sp > ep)
 			sp = ep;
 		else
 		{
-			if((format&SFFMT_EFORMAT) && *decpt == 0 && dval > 0.)
+			if((format&SFFMT_EFORMAT) && *decpt == 0 && f > 0.)
 			{	reg double	d;
-				while((int)(d = dval*10.) == 0)
-				{	dval = d;
+				while((int)(d = f*10.) == 0)
+				{	f = d;
 					*decpt -= 1;
 				}
 			}
 
 			while(sp < ep)
 			{	/* generate fractional digits */
-				if(dval <= 0.)
+				if(f <= 0.)
 				{	/* fill with 0's */
 					do { *sp++ = '0'; } while(sp < ep);
 					goto done;
 				}
-				else if((n = (int)(dval *= 10.)) < 10)
+				else if((n = (int)(f *= 10.)) < 10)
 				{	*sp++ = (char)('0' + n);
-					dval -= n;
+					f -= n;
 				}
 				else /* n == 10 */
 				{	do { *sp++ = '9'; } while(sp < ep);
@@ -185,14 +257,14 @@ int	format;		/* conversion format		*/
 		}
 	}
 
-	if(ep <= buf)
-		ep = buf+1;
+	if(ep <= b)
+		ep = b+1;
 	else if(ep < endsp)
 	{	/* round the last digit */
 		*--sp += 5;
 		while(*sp > '9')
 		{	*sp = '0';
-			if(sp > buf)
+			if(sp > b)
 				*--sp += 1;
 			else
 			{	/* next power of 10 */
@@ -209,6 +281,7 @@ int	format;		/* conversion format		*/
 
 done:
 	*--ep = '\0';
-	_Sfi = ep-buf;
-	return buf;
+	if(len)
+		*len = ep-b;
+	return b;
 }

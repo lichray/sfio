@@ -15,7 +15,7 @@ va_list args;           /* arg list if argf == 0 */
 	reg int		rv;
 	reg Sfio_t*	sf;
 
-	if(!(sf = SFSTREAM(stdout)))
+	if(!form || !(sf = _sfstream(stdout)))
 		return -1;
 
 	if((rv = sfvprintf(sf,form,args)) < 0)

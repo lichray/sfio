@@ -22,7 +22,7 @@ va_dcl
 	form = va_arg(args,char*);
 #endif
 
-	if(!(sf = SFSTREAM(stdin)))
+	if(!form || !(sf = _sfstream(stdin)))
 		return -1;
 
 	if((rv = sfvscanf(sf,form,args)) <= 0)

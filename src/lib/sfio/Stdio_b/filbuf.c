@@ -10,7 +10,7 @@ FILBUF(f)
 	reg Sfio_t*	sf;
 	reg int		rv;
 
-	if(!(sf = SFSTREAM(f)))
+	if(!(sf = _sfstream(f)))
 		return -1;
 
 	if((rv = sfgetc(sf)) < 0)
@@ -46,7 +46,6 @@ FILBUF(f)
 		sf->mode |= SF_STDIO;
 		sf->endr = sf->endw = sf->data;
 #endif
-		SETSYNC(f);
 	}
 
 	return(rv);

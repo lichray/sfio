@@ -1,6 +1,6 @@
 #include	"sfstdio.h"
 
-/*	Opening a stream given a file desccriptor.
+/*	Opening a stream given a file descriptor.
 **	Written by Kiem-Phong Vo
 */
 
@@ -23,7 +23,7 @@ char*	mode;
 
 	if(!(sf = sfnew(NIL(Sfio_t*), NIL(Void_t*), (size_t)SF_UNBOUND, fd, flags)))
 		return NIL(FILE*);
-	if(!(f = _stdstream(sf)))
+	if(!(f = _stdstream(sf, NIL(FILE*))))
 	{	sfclose(sf);
 		return NIL(FILE*);
 	}

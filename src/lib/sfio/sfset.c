@@ -62,10 +62,6 @@ reg int		set;
 	if(!(f->flags&SF_SHARE) || f->extent < 0)
 		f->flags &= ~SF_PUBLIC;
 
-	/* so that SF_LINE will never be turned off by sfio */
-	if((flags&SF_LINE) && set)
-		f->bits |= SF_KEEPLINE;
-
 	SFOPEN(f,0);
 	SFMTXRETURN(f, (oflags&SF_FLAGS));
 }

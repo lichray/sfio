@@ -1,6 +1,11 @@
-DIRECTORY HIERARCHY:
-
 This directory hierarchy has the source of Sfio, the Safe/Fast I/O library.
+Sfio provides all aspects of buffered I/O. Its interface is saner and its
+implementation is better than existing versions of the ANSI-C Stdio library.
+For backward compatibility, Sfio also provides packages allowing existing
+code based on Stdio to either recompile or relink using Sfio.
+
+
+DIRECTORY HIERARCHY:
 
 . :		source code for Sfio.
 ./features:	source code for generating configuration parameters.
@@ -12,6 +17,7 @@ This directory hierarchy has the source of Sfio, the Safe/Fast I/O library.
 ./Stdio_t:	a set of regression tests for certain Stdio behaviors and
 		for the compatibility packages.
 
+
 SOFTWARE CONSTRUCTION:
 
 The build procedure is based on the iffe language for automatic
@@ -19,17 +25,59 @@ configuration. An iffe interpreter and its manual pages are included in
 this code distribution. See the files in ./features for examples of iffe
 probes to generate configuration parameters.
 
-Two sets of libraries will be built:
+There are two sets of libraries
 	libsfio.a and libstdio.a: for uni-threaded applications, and
 	libsfio-mt.a and libstdio-mt.a: for multi-threaded applications.
 
+To build the uni-threaded libraries, run the below command:
+
+	make -f Makefile install
+
+To build the multi-threaded libraries, run the below command:
+
+	make -f Makefile install_mt
+
 Depending on the local platform, an application using the multi-threaded
-libraries may need to specify a thread library for linkage. For example,
+libraries may need to specify a thread library at linkage time. For example,
 below are the known requirements for a few popular platforms:
 
 	Irix, Linux, Solaris systems:	-lpthread
 	Hpux:				-lcma
 	BSD:				none
+
+
+REGRESSION TESTING:
+
+To run the regression tests of Sfio only, first do "cd Sfio_t", then do:
+
+	runtest
+		this tests the uni-threaded library
+
+	runtest -mt [-lthread_library as discussed above]
+		this tests the multi-threaded library
+
+There are also a few regression tests for Stdio. To run these,
+first do "cd Stdio_t", then do:
+
+	runtest
+		this tests the native Stdio library.
+
+	runtest -src
+		this tests the uni-threaded library using the
+		source compatibility mode.
+
+	runtest -bin
+		this tests the uni-threaded library using the
+		binary compatibility mode.
+
+	runtest -src -mt [-lthread_library as discussed above]
+		this tests the multi-threaded library using the
+		source compatibility mode.
+
+	runtest -bin -mt [-lthread_library as discussed above]
+		this tests the multi-threaded library using the
+		binary compatibility mode.
+
 
 SFIO DISCIPLINES:
 
@@ -53,7 +101,9 @@ Sfdisc_t* sfdcXXX(Sfio_t* f, other arguments):
 	given in "array".
 		sfdcunion(Sfio_t* f, Sfio_t** array, int n);
 
+
 CORRESPONDENCE:
+
 Comments, etc. should be sent to:
 
 	Phong Vo

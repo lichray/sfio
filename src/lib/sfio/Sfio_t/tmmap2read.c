@@ -16,7 +16,7 @@ void* mmap()
 #endif
 {
 	if(Success)
-		exit(0);
+		TSTEXIT(0);
 
 	return (void*)(-1);
 }
@@ -53,5 +53,5 @@ MAIN()
 			terror("Get wrong data\n");
 	}
 
-	TSTRETURN(0);
+	TSTEXIT(0);
 }

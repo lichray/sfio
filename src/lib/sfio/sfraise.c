@@ -21,7 +21,7 @@ Void_t*	data;	/* associated data	*/
 	GETLOCAL(f,local);
 	if(!SFKILLED(f) &&
 	   !(local &&
-	     (type == SF_NEW || type == SF_CLOSE ||
+	     (type == SF_NEW || type == SF_CLOSING ||
 	      type == SF_FINAL || type == SF_ATEXIT)) &&
 	   SFMODE(f,local) != (f->mode&SF_RDWR) && _sfmode(f,0,local) < 0)
 		SFMTXRETURN(f, -1);
