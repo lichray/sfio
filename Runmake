@@ -1,2 +1,4 @@
+mkdir -p ./lib
+mkdir -p ./include
 (cd ./src/lib/vthread; make install)
 (cd ./src/lib/sfio; make install)
